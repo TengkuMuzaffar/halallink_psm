@@ -49,7 +49,7 @@ export default {
       
       try {
         await store.dispatch('login', credentials);
-        router.push({ name: 'dashboard' });
+        router.push({ name: 'Dashboard' }); // Changed from 'dashboard' to 'Dashboard'
       } catch (err) {
         console.error('Login error:', err);
         if (err.response?.status === 500) {

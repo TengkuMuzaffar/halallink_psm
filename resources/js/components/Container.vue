@@ -1,51 +1,25 @@
 <template>
-    <div class="app-container" :class="customClass">
+  <div class="app-container">
+    <div class="container-fluid">
       <slot></slot>
     </div>
-  </template>
-  
-  <script>
-  export default {
-    name: 'Container',
-    props: {
-      customClass: {
-        type: String,
-        default: 'py-4'
-      }
-    }
-  }
-  </script>
-  
-  <style scoped>
+  </div>
+</template>
+
+<script>
+export default {
+  name: 'Container'
+}
+</script>
+
+<style scoped>
+.app-container {
+  padding: 20px;
+}
+
+@media (max-width: 768px) {
   .app-container {
-    width: 100%;
-    padding-right: 15px;
-    padding-left: 15px;
-    margin-right: auto;
-    margin-left: auto;
+    padding: 15px 10px;
   }
-  
-  @media (min-width: 576px) {
-    .app-container {
-      max-width: 540px;
-    }
-  }
-  
-  @media (min-width: 768px) {
-    .app-container {
-      max-width: 720px;
-    }
-  }
-  
-  @media (min-width: 992px) {
-    .app-container {
-      max-width: 960px;
-    }
-  }
-  
-  @media (min-width: 1200px) {
-    .app-container {
-      max-width: 1140px;
-    }
-  }
-  </style>
+}
+</style>

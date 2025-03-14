@@ -1,45 +1,58 @@
 import { createRouter, createWebHistory } from 'vue-router';
-import authMiddleware from '../middleware/auth';
+import store from '../store';
 
 // Layouts
-import AuthLayout from '../layouts/AuthLayout.vue';
 import MainLayout from '../layouts/MainLayout.vue';
 
 // Pages
-import LoginPage from '../pages/LoginPage.vue';  // Updated import
+import Login from '../pages/LoginPage.vue';
 import Dashboard from '../pages/Dashboard.vue';
-import RegisterPage from '../pages/RegisterPage.vue';
+import EmployeeManagement from '../pages/EmployeeManagement.vue';
+import NotFound from '../pages/NotFound.vue';
+import Unauthorized from '../pages/Unauthorized.vue';
 
 const routes = [
   {
+    path: '/login',
+    name: 'Login',
+    component: Login,
+    meta: { requiresAuth: false }
+  },
+  {
     path: '/',
-    component: AuthLayout,
+    component: MainLayout,
+    meta: { requiresAuth: true },
     children: [
       {
         path: '',
-        name: 'login',
-        component: LoginPage,  // Updated component
-        meta: { requiresGuest: true }
+        redirect: { name: 'Dashboard' }
       },
       {
-        path: 'register',
-        name: 'register',
-        component: RegisterPage,
-        meta: { requiresGuest: true }
+        path: 'dashboard',
+        name: 'Dashboard',  // This should be 'Dashboard' with capital D
+        component: Dashboard,
+        meta: { requiresAuth: true }
+      },
+      {
+        path: 'employees',
+        name: 'EmployeeManagement',
+        component: EmployeeManagement,
+        meta: { 
+          requiresAuth: true,
+          requiresRole: 'admin'
+        }
       }
     ]
   },
   {
-    path: '/dashboard',
-    component: MainLayout,
-    children: [
-      {
-        path: '',
-        name: 'dashboard',
-        component: Dashboard,
-        meta: { requiresAuth: true }
-      }
-    ]
+    path: '/unauthorized',
+    name: 'Unauthorized',
+    component: Unauthorized
+  },
+  {
+    path: '/:pathMatch(.*)*',
+    name: 'NotFound',
+    component: NotFound
   }
 ];
 
@@ -48,7 +61,28 @@ const router = createRouter({
   routes
 });
 
-// Apply the auth middleware to all routes
-router.beforeEach(authMiddleware);
+// Navigation guard for authentication and role-based access
+router.beforeEach(async (to, from, next) => {
+  // Check if route requires authentication
+  if (to.matched.some(record => record.meta.requiresAuth)) {
+    // Check if user is logged in
+    if (!store.getters.isAuthenticated) {
+      return next({ name: 'Login', query: { redirect: to.fullPath } });
+    }
+    
+    // Check if route requires specific role
+    if (to.meta.requiresRole && store.getters.user.role !== to.meta.requiresRole) {
+      return next({ name: 'Unauthorized' });
+    }
+    
+    // Check if route requires specific company type
+    if (to.meta.requiresCompanyType && store.getters.user.company?.company_type !== to.meta.requiresCompanyType) {
+      return next({ name: 'Unauthorized' });
+    }
+  }
+  
+  // If route doesn't require auth or user is authenticated with correct role
+  next();
+});
 
 export default router;
