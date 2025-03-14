@@ -1,5 +1,5 @@
-* text=auto eol=lf
-
+* text=auto
+*.bat text eol=crlf
 *.blade.php diff=html
 *.css diff=css
 *.html diff=html
