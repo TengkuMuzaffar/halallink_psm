@@ -26,6 +26,7 @@ const initializeApp = async () => {
   // Try to fetch user data if token exists
   if (store.state.token) {
     try {
+      // Make sure this action name matches what's defined in your store
       await store.dispatch('fetchUser');
     } catch (error) {
       console.error('Failed to fetch user data:', error);

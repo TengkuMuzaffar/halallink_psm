@@ -20,6 +20,7 @@
 <script>
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { useStore } from 'vuex'; // Added store import
 import LoginLeftPanel from '../components/LoginLeftPanel.vue';
 import RegisterForm from '../components/RegisterForm.vue';
 import axios from 'axios';
@@ -32,6 +33,7 @@ export default {
   },
   setup() {
     const router = useRouter();
+    const store = useStore(); // Added store initialization
     const loading = ref(false);
     const error = ref(null);
 
@@ -47,9 +49,15 @@ export default {
       error.value = null;
       
       try {
+        // Use axios directly since we need to handle the response
         const response = await axios.post('/api/register', formData);
-        localStorage.setItem('token', response.data.access_token);
-        router.push({ name: 'dashboard' });
+        
+        // Update the store with user and token
+        store.commit('SET_USER', response.data.user);
+        store.commit('SET_TOKEN', response.data.access_token);
+        
+        // Redirect to Dashboard with correct case to match route name
+        router.push({ name: 'Dashboard' });
       } catch (err) {
         console.error('Registration error:', err);
         error.value = err.response?.data?.errors || err.response?.data?.message || 'Registration failed. Please try again.';
@@ -59,7 +67,8 @@ export default {
     };
 
     const goToLogin = () => {
-      router.push({ name: 'login' });
+      // Make sure to use the correct case for route name
+      router.push({ name: 'Login' });
     };
 
     return {

@@ -86,6 +86,9 @@ class AuthController extends Controller
             ], 403);
         }
 
+        // Load the company relationship
+        $user->load('company');
+
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
@@ -106,6 +109,8 @@ class AuthController extends Controller
 
     public function user(Request $request)
     {
-        return response()->json($request->user());
+        $user = $request->user();
+        $user->load('company');
+        return response()->json($user);
     }
 }

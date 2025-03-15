@@ -1,21 +1,29 @@
 import { createStore } from 'vuex';
-import { getUser, logout as logoutService, login as loginService } from '../services/authService';
+import axios from 'axios';
 
-const store = createStore({
-  state() {
-    return {
-      user: null,
-      token: localStorage.getItem('token') || null,
-      isAuthenticated: false
-    };
+export default createStore({
+  state: {
+    user: null,
+    token: localStorage.getItem('token') || null,
+    isAuthenticated: false
+  },
+  getters: {
+    user: state => state.user,
+    isAuthenticated: state => !!state.token,
+    userCompany: state => state.user?.company || null,
+    token: state => state.token
   },
   mutations: {
-    setUser(state, user) {
+    SET_USER(state, user) {
       state.user = user;
     },
-    setToken(state, token) {
+    SET_TOKEN(state, token) {
       state.token = token;
-      localStorage.setItem('token', token);
+      if (token) {
+        localStorage.setItem('token', token);
+      } else {
+        localStorage.removeItem('token');
+      }
     },
     setAuthenticated(state, isAuthenticated) {
       state.isAuthenticated = isAuthenticated;
@@ -28,60 +36,62 @@ const store = createStore({
     }
   },
   actions: {
-    setUser({ commit }, user) {
-      commit('setUser', user);
+    // Fix the action names to match what's being called
+    async fetchUser({ commit }) {
+      try {
+        // Use the authService instead of direct axios call
+        const response = await axios.get('/api/user');
+        // Make sure we're setting the user data correctly
+        if (response.data) {
+          commit('SET_USER', response.data);
+          commit('setAuthenticated', true);
+          return response.data;
+        } else {
+          throw new Error('No user data returned from API');
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+        throw error;
+      }
     },
-    setToken({ commit }, token) {
-      commit('setToken', token);
-    },
-    setAuthenticated({ commit }, isAuthenticated) {
-      commit('setAuthenticated', isAuthenticated);
-    },
-    // Add the missing login action
+    
     async login({ commit }, credentials) {
       try {
-        const data = await loginService(credentials);
-        commit('setUser', data.user);
-        commit('setToken', data.access_token);
-        commit('setAuthenticated', true);
-        return Promise.resolve(data);
+        const response = await axios.post('/api/login', credentials);
+        const { user, access_token } = response.data;
+        
+        commit('SET_USER', user);
+        commit('SET_TOKEN', access_token);
+        
+        return user;
       } catch (error) {
-        console.error('Store login error:', error.response?.status, error.response?.data);
-        return Promise.reject(error);
+        throw error;
       }
     },
-    async fetchUser({ commit, state }) {
-      if (!state.token) return Promise.resolve(null);
-      
-      try {
-        const user = await getUser();
-        commit('setUser', user);
-        commit('setAuthenticated', true);
-        return Promise.resolve(user);
-      } catch (error) {
-        commit('logout');
-        return Promise.reject(error);
-      }
-    },
+    
     async logout({ commit }) {
       try {
-        await logoutService();
+        await axios.post('/api/logout');
         commit('logout');
-        // Force navigation to login page after logout
-        window.location.href = '/';
         return Promise.resolve();
       } catch (error) {
         commit('logout');
-        // Force navigation to login page even if logout API fails
-        window.location.href = '/';
         return Promise.reject(error);
       }
+    },  // Added missing comma here
+    
+    async register({ commit }, userData) {
+      try {
+        const response = await axios.post('/api/register', userData);
+        const { user, access_token } = response.data;
+        
+        commit('SET_USER', user);
+        commit('SET_TOKEN', access_token);
+        
+        return user;
+      } catch (error) {
+        throw error;
+      }
     }
-  },
-  getters: {
-    isAuthenticated: state => state.isAuthenticated,
-    user: state => state.user,
-    token: state => state.token
   }
 });
-export default store;

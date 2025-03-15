@@ -10,6 +10,8 @@ import Dashboard from '../pages/Dashboard.vue';
 import EmployeeManagement from '../pages/EmployeeManagement.vue';
 import NotFound from '../pages/NotFound.vue';
 import Unauthorized from '../pages/Unauthorized.vue';
+// Add this import at the top of the file
+import CompanyManagement from '../pages/CompanyManagement.vue';
 
 const routes = [
   {
@@ -41,6 +43,16 @@ const routes = [
           requiresAuth: true,
           requiresRole: 'admin'
         }
+      },
+      {
+        path: 'companies',
+        name: 'CompanyManagement',
+        component: CompanyManagement,
+        meta: {
+          requiresAuth: true,
+          requiresRole: 'admin',
+          requiresCompanyType: 'admin'
+        }
       }
     ]
   },
@@ -70,14 +82,23 @@ router.beforeEach(async (to, from, next) => {
       return next({ name: 'Login', query: { redirect: to.fullPath } });
     }
     
+    const user = store.getters.user;
+    
     // Check if route requires specific role
-    if (to.meta.requiresRole && store.getters.user.role !== to.meta.requiresRole) {
+    if (to.meta.requiresRole && user && user.role !== to.meta.requiresRole) {
       return next({ name: 'Unauthorized' });
     }
     
     // Check if route requires specific company type
-    if (to.meta.requiresCompanyType && store.getters.user.company?.company_type !== to.meta.requiresCompanyType) {
-      return next({ name: 'Unauthorized' });
+    if (to.meta.requiresCompanyType) {
+      // Check company type in different possible locations
+      const companyType = 
+        (user.company && user.company.company_type) || 
+        user.company_type;
+        
+      if (companyType !== to.meta.requiresCompanyType) {
+        return next({ name: 'Unauthorized' });
+      }
     }
   }
   

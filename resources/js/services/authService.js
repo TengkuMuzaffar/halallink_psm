@@ -47,8 +47,13 @@ export const logout = async () => {
 };
 
 export const getUser = async () => {
-  const response = await apiClient.get('/api/user');
-  return response.data;
+  try {
+    const response = await apiClient.get('/api/user');
+    return response.data;
+  } catch (error) {
+    console.error('Get user API error:', error.response?.data || error.message);
+    throw error;
+  }
 };
 
 export default {

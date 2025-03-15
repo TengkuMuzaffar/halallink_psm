@@ -5,15 +5,15 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\EmployeeController;
+use App\Http\Controllers\Api\CompanyController;
 
 // Public routes
 Route::post('/login', [AuthController::class, 'login']);
 
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {
-    Route::get('/user', function (Request $request) {
-        return $request->user();
-    });
+    // Replace the inline function with the controller method
+    Route::get('/user', [AuthController::class, 'user']);
     
     Route::post('/logout', [AuthController::class, 'logout']);
     
@@ -25,6 +25,13 @@ Route::middleware('auth:sanctum')->group(function () {
         // Employee management routes with company type checks
         Route::middleware('role.company:admin,admin')->group(function () {
             Route::get('/employees/all', [EmployeeController::class, 'getAllEmployees']);
+            // Company routes with middleware
+            Route::get('/companies', [CompanyController::class, 'index']);
+            Route::get('/companies/stats', [CompanyController::class, 'getStats']);
+            Route::post('/companies', [CompanyController::class, 'store']);
+            Route::get('/companies/{id}', [CompanyController::class, 'show']);
+            Route::put('/companies/{id}', [CompanyController::class, 'update']);
+            Route::delete('/companies/{id}', [CompanyController::class, 'destroy']);
         });
         
         // Company-specific routes
@@ -45,3 +52,4 @@ Route::middleware('auth:sanctum')->group(function () {
         });
     });
 });
+

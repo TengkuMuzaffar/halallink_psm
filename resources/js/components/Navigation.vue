@@ -14,8 +14,8 @@
 </template>
 
 <script>
-import { computed } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { computed, onMounted, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import { useStore } from 'vuex';
 
 export default {
@@ -24,7 +24,28 @@ export default {
     const route = useRoute();
     const store = useStore();
     
+    // Fetch user data when component mounts if we have a token but no user data
+    onMounted(async () => {
+      if (store.getters.isAuthenticated && !store.getters.user) {
+        try {
+          await store.dispatch('fetchUser');
+        } catch (error) {
+          console.error('Failed to fetch user data in Navigation:', error);
+        }
+      }
+    });
+    
     const user = computed(() => store.getters.user || {});
+    const userCompany = computed(() => {
+      // More robust company data extraction
+      if (user.value?.company) {
+        return user.value.company;
+      } else if (user.value?.companyID) {
+        // If we only have companyID but not the full company object
+        return { companyID: user.value.companyID };
+      }
+      return {};
+    });
     
     // Define navigation items based on user role and company type
     const navItems = computed(() => {
@@ -33,11 +54,25 @@ export default {
       ];
       
       // Only show employee management for admins
-      if (user.value.role === 'admin') {
+      if (user.value && user.value.role === 'admin') {
         items.push({ label: 'Employee Management', path: '/employees', icon: 'fas fa-users' });
+        
+        // Get company type more robustly
+        const companyType = userCompany.value?.company_type;
+        
+        // Only show company management for admin role with admin company_type
+        if (companyType === 'admin') {
+          items.push({ label: 'Company Management', path: '/companies', icon: 'fas fa-building' });
+        }
       }
       
       return items;
+    });
+    
+    // Watch for changes to the user and log for debugging
+    watch(user, (newUser) => {
+      console.log('User updated in Navigation:', newUser);
+      console.log('Company data:', userCompany.value);
     });
     
     const isActive = (path) => {
@@ -46,7 +81,8 @@ export default {
     
     return {
       navItems,
-      isActive
+      isActive,
+      userCompany
     };
   }
 }

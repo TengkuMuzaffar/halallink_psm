@@ -1,6 +1,6 @@
 <template>
   <header class="app-header">
-    <div class="container-fluid">
+    <div class="container-fluid px-4">
       <div class="d-flex justify-content-between align-items-center">
         <div class="logo">
           <img src="/images/HalalLink_v1.png" alt="HalalLink" height="40">

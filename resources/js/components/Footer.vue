@@ -1,6 +1,6 @@
 <template>
   <footer class="app-footer">
-    <div class="container-fluid">
+    <div class="container-fluid px-4">
       <div class="d-flex justify-content-between align-items-center">
         <div>
           &copy; {{ currentYear }} HalalLink. All rights reserved.
