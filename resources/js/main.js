@@ -4,9 +4,12 @@ import router from './router';
 import store from './store';
 import api from './utils/api';
 
-// Import Bootstrap
+// Import Bootstrap CSS and JS properly
 import 'bootstrap/dist/css/bootstrap.min.css';
-import 'bootstrap/dist/js/bootstrap.bundle.min.js';
+import * as bootstrap from 'bootstrap';
+
+// Make bootstrap available globally
+window.bootstrap = bootstrap;
 
 // Add global error handler for unhandled promise rejections
 window.addEventListener('unhandledrejection', event => {
@@ -37,6 +40,9 @@ const initializeApp = async () => {
   
   // Make API available globally in components
   app.config.globalProperties.$api = api;
+  
+  // Add bootstrap to Vue global properties
+  app.config.globalProperties.$bootstrap = bootstrap;
   
   // Add global error handler
   app.config.errorHandler = (err, vm, info) => {

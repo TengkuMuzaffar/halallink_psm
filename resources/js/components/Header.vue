@@ -8,13 +8,13 @@
         
         <div class="user-menu" v-if="isAuthenticated">
           <div class="dropdown">
-            <a href="#" class="d-flex align-items-center text-decoration-none dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+            <a href="#" class="d-flex align-items-center text-decoration-none dropdown-toggle" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
               <div class="avatar me-2">
                 <img src="/images/avatar-placeholder.png" alt="User Avatar" class="rounded-circle" width="32" height="32">
               </div>
               <span>{{ user?.name || 'User' }}</span>
             </a>
-            <ul class="dropdown-menu dropdown-menu-end">
+            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
               <li><router-link class="dropdown-item" to="/profile">Profile</router-link></li>
               <li><hr class="dropdown-divider"></li>
               <li><a href="#" class="dropdown-item" @click.prevent="handleLogout">Sign Out</a></li>
@@ -27,9 +27,10 @@
 </template>
 
 <script>
-import { computed, onUnmounted } from 'vue';
+import { computed, onMounted, onUnmounted } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
+import * as bootstrap from 'bootstrap';
 
 export default {
   name: 'AppHeader',
@@ -42,6 +43,13 @@ export default {
     
     // Track if component is mounted
     let isMounted = true;
+    
+    onMounted(() => {
+      // Initialize all dropdowns
+      document.querySelectorAll('.dropdown-toggle').forEach(dropdownToggle => {
+        new bootstrap.Dropdown(dropdownToggle);
+      });
+    });
     
     onUnmounted(() => {
       isMounted = false;
