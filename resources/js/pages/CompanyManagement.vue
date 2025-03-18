@@ -66,17 +66,15 @@
                 <span>{{ item.admin.email }}</span>
               </div>
             </div>
-
-          </template>  <template #Phone="{ item }">
+          </template>
+          
+          <template #Phone="{ item }">
             <div v-if="item.admin">
               <div class="d-flex align-items-center">
                 <span>{{ item.admin.tel_number }}</span>
               </div>
             </div>
-
-          </template> 
-          
-       
+          </template>
           
           <template #created_at="{ item }">
             {{ formatDate(item.created_at) }}
@@ -107,9 +105,10 @@
 
 <script>
 import { ref, computed, onMounted } from 'vue';
-import axios from 'axios';
 import StatsCard from '../components/ui/StatsCard.vue';
 import ResponsiveTable from '../components/ui/ResponsiveTable.vue';
+import api from '../utils/api';
+import modal from '../utils/modal';
 
 export default {
   name: 'CompanyManagement',
@@ -119,6 +118,7 @@ export default {
   },
   setup() {
     const loading = ref(true);
+    const error = ref(null);
     const companies = ref([]);
     const typeFilter = ref('');
     const statusFilter = ref('');
@@ -170,21 +170,32 @@ export default {
     // Fetch companies and stats
     const fetchCompanies = async () => {
       loading.value = true;
+      error.value = null;
       
       try {
-        // Fetch companies
-        const companiesResponse = await axios.get('/api/companies');
-        companies.value = companiesResponse.data;
-        console.log('Fetched companies:', companies.value);
-
-        // Fetch stats
-        const statsResponse = await axios.get('/api/companies/stats');
-        if (typeof statsResponse.data === 'object') {
-          stats.value = statsResponse.data;
+        // Use Promise.all with our API utilities to fetch both resources in parallel
+        const [companiesData, statsData] = await api.fetchMultiple([
+          { url: '/api/companies', options: {
+            onError: (err) => {
+              console.error('Error fetching companies:', err);
+              error.value = 'Failed to load companies. Please try again.';
+            }
+          }},
+          { url: '/api/companies/stats', options: {
+            onError: (err) => {
+              console.error('Error fetching company stats:', err);
+              error.value = 'Failed to load company statistics. Please try again.';
+            }
+          }}
+        ]);
+        
+        companies.value = companiesData;
+        
+        if (typeof statsData === 'object') {
+          stats.value = statsData;
         }
-
-      } catch (error) {
-        console.error('Error fetching companies data:', error);
+      } catch (err) {
+        // Errors are already handled by onError callbacks
       } finally {
         loading.value = false;
       }
@@ -193,19 +204,25 @@ export default {
     // Apply filters
     const applyFilters = async () => {
       loading.value = true;
+      error.value = null;
+      
       try {
-        let url = '/api/companies?';
-        if (typeFilter.value) {
-          url += `company_type=${typeFilter.value}&`;
-        }
-        if (statusFilter.value) {
-          url += `status=${statusFilter.value}`;
-        }
+        // Build query parameters
+        const params = {};
+        if (typeFilter.value) params.company_type = typeFilter.value;
+        if (statusFilter.value) params.status = statusFilter.value;
         
-        const response = await axios.get(url);
-        companies.value = response.data;
-      } catch (error) {
-        console.error('Error applying filters:', error);
+        const filteredCompanies = await api.get('/api/companies', {
+          params,
+          onError: (err) => {
+            console.error('Error applying filters:', err);
+            error.value = 'Failed to filter companies. Please try again.';
+          }
+        });
+        
+        companies.value = filteredCompanies;
+      } catch (err) {
+        // Error is already handled by onError callback
       } finally {
         loading.value = false;
       }
@@ -251,20 +268,61 @@ export default {
     };
     
     const deleteCompany = async (company) => {
-      if (confirm(`Are you sure you want to delete ${company.company_name}?`)) {
-        try {
-          await axios.delete(`/api/companies/${company.companyID}`);
-          // Remove from local array
-          companies.value = companies.value.filter(c => c.companyID !== company.companyID);
-          // Refresh stats
-          const statsResponse = await axios.get('/api/companies/stats');
-          if (typeof statsResponse.data === 'object') {
-            stats.value = statsResponse.data;
+      // Replace confirm with custom modal
+      modal.confirm(
+        'Delete Company',
+        `Are you sure you want to delete ${company.company_name}?`,
+        async () => {
+          loading.value = true;
+          try {
+            await api.del(`/api/companies/${company.companyID}`, {
+              onSuccess: () => {
+                // Remove from local array
+                companies.value = companies.value.filter(c => c.companyID !== company.companyID);
+                
+                // Show success message
+                modal.success('Success', 'Company deleted successfully');
+                
+                // Refresh stats
+                fetchCompanyStats();
+              },
+              onError: (err) => {
+                console.error('Error deleting company:', err);
+                error.value = 'Failed to delete company. Please try again.';
+                
+                // Show error message
+                modal.danger('Error', 'Failed to delete company. Please try again.');
+              }
+            });
+          } catch (err) {
+            // Error is already handled by onError callback
+          } finally {
+            loading.value = false;
           }
-        } catch (error) {
-          console.error('Error deleting company:', error);
-          alert('Failed to delete company');
+        },
+        null,
+        {
+          confirmLabel: 'Delete',
+          confirmType: 'danger'
         }
+      );
+    };
+    
+    // Separate function to fetch only stats
+    const fetchCompanyStats = async () => {
+      try {
+        const statsData = await api.get('/api/companies/stats', {
+          onError: (err) => {
+            console.error('Error fetching company stats:', err);
+            error.value = 'Failed to load company statistics. Please try again.';
+          }
+        });
+        
+        if (typeof statsData === 'object') {
+          stats.value = statsData;
+        }
+      } catch (err) {
+        // Error is already handled by onError callback
       }
     };
     
@@ -274,6 +332,7 @@ export default {
     
     return {
       loading,
+      error,
       companies,
       companyStats,
       columns,

@@ -6,9 +6,11 @@
 export default {
   name: 'App',
   created() {
-    // Try to fetch user data if token exists
-    if (this.$store.state.token) {
-      this.$store.dispatch('fetchUser');
+    // Try to fetch user data if token exists but no user data
+    if (this.$store.state.token && !this.$store.state.user) {
+      this.$store.dispatch('fetchUser').catch(error => {
+        console.error('Failed to fetch user data in App.vue:', error);
+      });
     }
   }
 }

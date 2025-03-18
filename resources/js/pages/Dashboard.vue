@@ -11,7 +11,10 @@
         <h5 class="mb-0">Company Performance</h5>
       </div>
       <div class="card-body">
-        <p class="text-muted text-center py-5">
+        <p class="text-muted text-center py-5" v-if="loading">
+          Loading charts...
+        </p>
+        <p class="text-muted text-center py-5" v-else>
           Performance charts will be added here
         </p>
       </div>
@@ -21,8 +24,9 @@
 
 <script>
 import { ref, computed, onMounted } from 'vue';
-import axios from 'axios';
 import StatsCards from '../components/dashboard/StatsCards.vue';
+import api from '../utils/api';
+import modal from '../utils/modal';
 
 export default {
   name: 'Dashboard',
@@ -31,6 +35,7 @@ export default {
   },
   setup() {
     const loading = ref(true);
+    const error = ref(null);
     const stats = ref({
       broiler: 0,
       slaughterhouse: 0,
@@ -69,14 +74,44 @@ export default {
     // Fetch dashboard data
     const fetchDashboardData = async () => {
       loading.value = true;
+      error.value = null;
       
       try {
-        const response = await axios.get('/api/dashboard/stats');
-        if (typeof response.data === 'object') {
-          stats.value = response.data;
+        // Use the enhanced API client
+        const response = await api.get('/api/dashboard/stats', {
+          onError: (err) => {
+            console.error('Failed to fetch dashboard stats:', err);
+            error.value = 'Failed to load dashboard data. Please try again.';
+            
+            // Show error message with modal
+            modal.danger(
+              'Error Loading Dashboard',
+              'Failed to load dashboard data. Please try again.',
+              {
+                buttons: [
+                  {
+                    label: 'Retry',
+                    type: 'primary',
+                    onClick: () => {
+                      fetchDashboardData();
+                    }
+                  },
+                  {
+                    label: 'Dismiss',
+                    type: 'secondary',
+                    dismiss: true
+                  }
+                ]
+              }
+            );
+          }
+        });
+        
+        if (typeof response === 'object') {
+          stats.value = response;
         }
-      } catch (error) {
-        console.error('Error fetching stats:', error);
+      } catch (err) {
+        // Error is already handled by onError callback
       } finally {
         loading.value = false;
       }
@@ -88,6 +123,7 @@ export default {
     
     return {
       loading,
+      error,
       stats,
       companyStats
     };

@@ -9,6 +9,7 @@
         
         <register-form
           :loading="loading"
+          :error="error"
           @submit="handleRegister"
           @login="goToLogin"
         />
@@ -20,10 +21,10 @@
 <script>
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { useStore } from 'vuex'; // Added store import
+import { useStore } from 'vuex';
 import LoginLeftPanel from '../components/LoginLeftPanel.vue';
 import RegisterForm from '../components/RegisterForm.vue';
-import axios from 'axios';
+import { register } from '../services/authService';
 
 export default {
   name: 'RegisterPage',
@@ -33,7 +34,7 @@ export default {
   },
   setup() {
     const router = useRouter();
-    const store = useStore(); // Added store initialization
+    const store = useStore();
     const loading = ref(false);
     const error = ref(null);
 
@@ -49,14 +50,14 @@ export default {
       error.value = null;
       
       try {
-        // Use axios directly since we need to handle the response
-        const response = await axios.post('/api/register', formData);
+        // Use the authService instead of direct axios call
+        const data = await register(formData);
         
         // Update the store with user and token
-        store.commit('SET_USER', response.data.user);
-        store.commit('SET_TOKEN', response.data.access_token);
+        store.commit('SET_USER', data.user);
+        store.commit('SET_TOKEN', data.access_token);
         
-        // Redirect to Dashboard with correct case to match route name
+        // Redirect to Dashboard
         router.push({ name: 'Dashboard' });
       } catch (err) {
         console.error('Registration error:', err);
@@ -67,7 +68,6 @@ export default {
     };
 
     const goToLogin = () => {
-      // Make sure to use the correct case for route name
       router.push({ name: 'Login' });
     };
 

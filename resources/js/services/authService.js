@@ -1,57 +1,40 @@
-import axios from 'axios';
-
-// Configure axios
-const apiClient = axios.create({
-  baseURL: window.location.origin,
-  withCredentials: true,
-  headers: {
-    'Content-Type': 'application/json',
-    'X-Requested-With': 'XMLHttpRequest'
-  }
-});
-
-// Add token to requests if available
-apiClient.interceptors.request.use(config => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
+import api from '../utils/api';
 
 // Handle CSRF token
 const getCsrfToken = async () => {
-  await apiClient.get('/sanctum/csrf-cookie');
+  await api.get('/sanctum/csrf-cookie');
 };
 
 export const login = async (credentials) => {
   try {
     await getCsrfToken();
-    const response = await apiClient.post('/api/login', credentials);
-    return response.data;
+    return await api.post('/api/login', credentials, {
+      onError: (error) => {
+        console.error('Login API error:', error.response?.data || error.message);
+      }
+    });
   } catch (error) {
-    console.error('Login API error:', error.response?.data || error.message);
     throw error;
   }
 };
 
 export const register = async (userData) => {
-  await getCsrfToken();
-  const response = await apiClient.post('/api/register', userData);
-  return response.data;
+  try {
+    await getCsrfToken();
+    return await api.post('/api/register', userData);
+  } catch (error) {
+    throw error;
+  }
 };
 
 export const logout = async () => {
-  const response = await apiClient.post('/api/logout');
-  return response.data;
+  return await api.post('/api/logout');
 };
 
 export const getUser = async () => {
   try {
-    const response = await apiClient.get('/api/user');
-    return response.data;
+    return await api.get('/api/user');
   } catch (error) {
-    console.error('Get user API error:', error.response?.data || error.message);
     throw error;
   }
 };

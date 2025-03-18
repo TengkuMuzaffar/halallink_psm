@@ -2,32 +2,30 @@ import { createApp } from 'vue';
 import App from './App.vue';
 import router from './router';
 import store from './store';
-import axios from 'axios';
+import api from './utils/api';
 
 // Import Bootstrap
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 
-// Set up axios defaults
-axios.defaults.baseURL = '/';
-axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
-
-// Add token to requests if available
-axios.interceptors.request.use(config => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
+// Add global error handler for unhandled promise rejections
+window.addEventListener('unhandledrejection', event => {
+  console.error('Unhandled Promise Rejection:', event.reason);
+  // You could also log to a monitoring service here
 });
 
 // Initialize the app after checking authentication
 const initializeApp = async () => {
-  // Try to fetch user data if token exists
+  // Try to fetch user data if token exists with a timeout
   if (store.state.token) {
     try {
-      // Make sure this action name matches what's defined in your store
-      await store.dispatch('fetchUser');
+      // Add timeout to prevent hanging promises
+      const fetchUserPromise = store.dispatch('fetchUser');
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('User fetch timeout')), 10000)
+      );
+      
+      await Promise.race([fetchUserPromise, timeoutPromise]);
     } catch (error) {
       console.error('Failed to fetch user data:', error);
       // Continue app initialization even if user fetch fails
@@ -36,12 +34,27 @@ const initializeApp = async () => {
 
   // Create and mount the Vue app
   const app = createApp(App);
+  
+  // Make API available globally in components
+  app.config.globalProperties.$api = api;
+  
+  // Add global error handler
+  app.config.errorHandler = (err, vm, info) => {
+    console.error('Vue Error:', err);
+    console.error('Component:', vm);
+    console.error('Info:', info);
+  };
+  
   app.use(router);
   app.use(store);
   app.mount('#app');
 
-  console.log('Vue app initialized');
+  console.log('Vue app initialized with enhanced API framework');
 };
 
-// Start the application
-initializeApp();
+// Start the application with error handling
+initializeApp().catch(error => {
+  console.error('Failed to initialize application:', error);
+  // You might want to show a user-friendly error message here
+  document.body.innerHTML = '<div style="text-align: center; padding: 20px;">An error occurred while loading the application. Please refresh the page or try again later.</div>';
+});

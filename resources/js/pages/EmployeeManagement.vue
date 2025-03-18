@@ -57,9 +57,10 @@
 
 <script>
 import { ref, reactive, onMounted } from 'vue';
-import axios from 'axios';
 import EmployeeStats from '../components/employee/EmployeeStats.vue';
 import EmployeeTable from '../components/employee/EmployeeTable.vue';
+import api from '../utils/api';
+import modal from '../utils/modal';
 
 export default {
   name: 'EmployeeManagement',
@@ -69,6 +70,7 @@ export default {
   },
   setup() {
     const loading = ref(true);
+    const error = ref(null);
     const employees = ref([]);
     const roleFilter = ref('');
     const statusFilter = ref('');
@@ -92,25 +94,55 @@ export default {
       loading.value = true;
       
       try {
-        const response = await axios.get('/api/employees/all');
-        employees.value = response.data;
+        const response = await api.get('/api/employees/all', {
+          onError: (err) => {
+            console.error('Error fetching employees:', err);
+            error.value = 'Failed to load employees. Please try again.';
+          }
+        });
+        
+        employees.value = response;
         
         // Calculate stats
         employeeStats.total = employees.value.length;
         employeeStats.active = employees.value.filter(emp => emp.status === 'active').length;
         employeeStats.inactive = employees.value.filter(emp => emp.status === 'inactive').length;
-      } catch (error) {
-        console.error('Error fetching employees:', error);
+      } catch (err) {
+        // Error is already handled by onError callback
       } finally {
         loading.value = false;
       }
     };
     
     // Apply filters
-    const applyFilters = () => {
-      // This would typically make an API call with filters
-      // For now, we'll just log the filters
-      console.log('Applying filters:', { role: roleFilter.value, status: statusFilter.value });
+    const applyFilters = async () => {
+      loading.value = true;
+      
+      try {
+        // Build query parameters
+        const params = {};
+        if (roleFilter.value) params.role = roleFilter.value;
+        if (statusFilter.value) params.status = statusFilter.value;
+        
+        const response = await api.get('/api/employees/all', {
+          params,
+          onError: (err) => {
+            console.error('Error applying filters:', err);
+            error.value = 'Failed to filter employees. Please try again.';
+          }
+        });
+        
+        employees.value = response;
+        
+        // Update stats based on filtered results
+        employeeStats.total = employees.value.length;
+        employeeStats.active = employees.value.filter(emp => emp.status === 'active').length;
+        employeeStats.inactive = employees.value.filter(emp => emp.status === 'inactive').length;
+      } catch (err) {
+        // Error is already handled by onError callback
+      } finally {
+        loading.value = false;
+      }
     };
     
     // Format date
@@ -150,12 +182,47 @@ export default {
       // Implement edit logic here
     };
     
-    const deleteEmployee = (employee) => {
-      console.log('Deleting employee:', employee);
-      // Implement delete logic here
-      if (confirm(`Are you sure you want to delete ${employee.fullname}?`)) {
-        // Call API to delete employee
-      }
+    const deleteEmployee = async (employee) => {
+      // Replace confirm with custom modal
+      modal.confirm(
+        'Delete Employee',
+        `Are you sure you want to delete ${employee.fullname}?`,
+        async () => {
+          loading.value = true;
+          try {
+            await api.delete(`/api/employees/${employee.id}`, {
+              onSuccess: () => {
+                // Remove from local array
+                employees.value = employees.value.filter(e => e.id !== employee.id);
+                
+                // Update stats
+                employeeStats.total = employees.value.length;
+                employeeStats.active = employees.value.filter(emp => emp.status === 'active').length;
+                employeeStats.inactive = employees.value.filter(emp => emp.status === 'inactive').length;
+                
+                // Show success message
+                modal.success('Success', 'Employee deleted successfully');
+              },
+              onError: (err) => {
+                console.error('Error deleting employee:', err);
+                error.value = 'Failed to delete employee. Please try again.';
+                
+                // Show error message
+                modal.danger('Error', 'Failed to delete employee. Please try again.');
+              }
+            });
+          } catch (err) {
+            // Error is already handled by onError callback
+          } finally {
+            loading.value = false;
+          }
+        },
+        null,
+        {
+          confirmLabel: 'Delete',
+          confirmType: 'danger'
+        }
+      );
     };
     
     onMounted(() => {
@@ -164,6 +231,7 @@ export default {
     
     return {
       loading,
+      error,
       employees,
       employeeStats,
       columns,

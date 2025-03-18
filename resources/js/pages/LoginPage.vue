@@ -23,6 +23,7 @@ import { useRouter } from 'vue-router';
 import { useStore } from 'vuex';
 import LoginForm from '../components/LoginForm.vue';
 import LoginLeftPanel from '../components/LoginLeftPanel.vue';
+import { login } from '../services/authService';
 
 export default {
   name: 'LoginPage',
@@ -48,8 +49,14 @@ export default {
       error.value = null;
       
       try {
-        await store.dispatch('login', credentials);
-        router.push({ name: 'Dashboard' }); // Changed from 'dashboard' to 'Dashboard'
+        // Use the authService instead of direct store dispatch
+        const data = await login(credentials);
+        
+        // Update store with user and token
+        store.commit('SET_USER', data.user);
+        store.commit('SET_TOKEN', data.access_token);
+        
+        router.push({ name: 'Dashboard' });
       } catch (err) {
         console.error('Login error:', err);
         if (err.response?.status === 500) {
@@ -63,7 +70,7 @@ export default {
     };
 
     const goToRegister = () => {
-      router.push({ name: 'register' });
+      router.push({ name: 'Register' });
     };
 
     return {

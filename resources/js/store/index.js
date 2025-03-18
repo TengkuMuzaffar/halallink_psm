@@ -1,5 +1,5 @@
 import { createStore } from 'vuex';
-import axios from 'axios';
+import api from '../utils/api';
 
 export default createStore({
   state: {
@@ -36,16 +36,14 @@ export default createStore({
     }
   },
   actions: {
-    // Fix the action names to match what's being called
     async fetchUser({ commit }) {
       try {
-        // Use the authService instead of direct axios call
-        const response = await axios.get('/api/user');
-        // Make sure we're setting the user data correctly
-        if (response.data) {
-          commit('SET_USER', response.data);
+        // Use the enhanced API
+        const userData = await api.get('/api/user');
+        if (userData) {
+          commit('SET_USER', userData);
           commit('setAuthenticated', true);
-          return response.data;
+          return userData;
         } else {
           throw new Error('No user data returned from API');
         }
@@ -57,9 +55,9 @@ export default createStore({
     
     async login({ commit }, credentials) {
       try {
-        const response = await axios.post('/api/login', credentials);
-        const { user, access_token } = response.data;
+        const data = await api.post('/api/login', credentials);
         
+        const { user, access_token } = data;
         commit('SET_USER', user);
         commit('SET_TOKEN', access_token);
         
@@ -69,22 +67,24 @@ export default createStore({
       }
     },
     
-    async logout({ commit }) {
+    async logout({ commit }, { silent = false } = {}) {
       try {
-        await axios.post('/api/logout');
+        if (!silent) {
+          await api.post('/api/logout');
+        }
         commit('logout');
         return Promise.resolve();
       } catch (error) {
         commit('logout');
         return Promise.reject(error);
       }
-    },  // Added missing comma here
+    },
     
     async register({ commit }, userData) {
       try {
-        const response = await axios.post('/api/register', userData);
-        const { user, access_token } = response.data;
+        const data = await api.post('/api/register', userData);
         
+        const { user, access_token } = data;
         commit('SET_USER', user);
         commit('SET_TOKEN', access_token);
         
