@@ -3,6 +3,9 @@
  * Provides easy-to-use modal dialogs for different scenarios
  */
 
+// Import Bootstrap directly to ensure it's available
+import * as bootstrap from 'bootstrap';
+
 // Modal types with their corresponding Bootstrap classes and icons
 const MODAL_TYPES = {
   info: {
@@ -39,6 +42,12 @@ let modalCounter = 0;
  * @returns {Object} - Modal instance with control methods
  */
 export const showModal = (options) => {
+  // Check if bootstrap is available
+  if (typeof bootstrap === 'undefined' || !bootstrap.Modal) {
+    console.error('Bootstrap is not available. Make sure it is properly imported.');
+    return null;
+  }
+
   const {
     type = 'info',
     title = '',

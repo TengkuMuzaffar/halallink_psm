@@ -63,6 +63,7 @@ export default {
         // Only show company management for admin role with admin company_type
         if (companyType === 'admin') {
           items.push({ label: 'Company Management', path: '/companies', icon: 'fas fa-building' });
+          items.push({ label: 'Poultry Management', path: '/poultries', icon: 'fas fa-feather' });
         }
       }
       

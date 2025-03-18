@@ -32,6 +32,9 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/companies/{id}', [CompanyController::class, 'show']);
             Route::put('/companies/{id}', [CompanyController::class, 'update']);
             Route::delete('/companies/{id}', [CompanyController::class, 'destroy']);
+
+            Route::apiResource('poultries', \App\Http\Controllers\Api\PoultryController::class);
+
         });
         
         // Company-specific routes

@@ -13,6 +13,7 @@ const NotFound = () => import('../pages/NotFound.vue');
 const Unauthorized = () => import('../pages/Unauthorized.vue');
 const CompanyManagement = () => import('../pages/CompanyManagement.vue');
 const Register = () => import('../pages/RegisterPage.vue');
+const PoultryManagement = () => import('../pages/PoultryManagement.vue');
 
 const routes = [
   {
@@ -60,7 +61,28 @@ const routes = [
           requiresRole: 'admin',
           requiresCompanyType: 'admin'
         }
-      }
+      },
+      {
+        path: 'poultries',
+        name: 'PoultryManagement',
+        component: PoultryManagement,
+        meta: {
+          requiresAuth: true,
+          requiresRole: 'admin',
+          requiresCompanyType: 'admin'
+        }
+      },
+      // Remove duplicate companies route
+      // {
+      // path: 'companies',
+      // name: 'CompanyManagement',
+      // component: CompanyManagement,
+      // meta: {
+      //   requiresAuth: true,
+      //   requiresRole: 'admin',
+      //   requiresCompanyType: 'admin'
+      // }
+      // }
     ]
   },
   {
