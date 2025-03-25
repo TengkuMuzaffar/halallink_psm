@@ -8,6 +8,9 @@ import api from './utils/api';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import * as bootstrap from 'bootstrap';
 
+// Import Bootstrap Icons CSS
+import 'bootstrap-icons/font/bootstrap-icons.css';
+
 // Make bootstrap available globally
 window.bootstrap = bootstrap;
 

@@ -16,7 +16,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [AuthController::class, 'user']);
     
     Route::post('/logout', [AuthController::class, 'logout']);
-    
+    Route::get('/profile', [App\Http\Controllers\Api\ProfileController::class, 'getProfile']);
+    Route::post('/profile/update', [App\Http\Controllers\Api\ProfileController::class, 'updateProfile']);
+    Route::post('/profile/password', [App\Http\Controllers\Api\ProfileController::class, 'updatePassword']);
+    Route::post('/profile/locations', [App\Http\Controllers\Api\ProfileController::class, 'manageLocations']);
     // Admin routes
     Route::middleware('role.company:admin')->group(function () {
         // Dashboard data

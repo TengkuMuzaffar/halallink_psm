@@ -6,15 +6,34 @@ use App\Http\Controllers\Controller;
 use App\Models\Poultry;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class PoultryController extends Controller
 {
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $poultries = Poultry::all();
+        // Handle filtering if poultry_name parameter is provided
+        if ($request->has('poultry_name')) {
+            $poultries = Poultry::where('poultry_name', $request->poultry_name)->get();
+        } else {
+            $poultries = Poultry::all();
+        }
+        
+        // Format image URLs
+        $poultries = $poultries->map(function($poultry) {
+            $poultryData = $poultry->toArray();
+            if ($poultry->poultry_image) {
+                // Remove the /storage/ prefix if it exists
+                $imagePath = str_replace('/storage/', '', $poultry->poultry_image);
+                $poultryData['poultry_image'] = asset('storage/' . $imagePath);
+            }
+            return $poultryData;
+        });
+        
         return response()->json($poultries);
     }
 
@@ -25,15 +44,38 @@ class PoultryController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'poultry_name' => 'required|string|max:255',
-            'poultry_image' => 'nullable|string|max:2048',
+            'poultry_image_file' => 'nullable|image|max:2048', // 2MB max
         ]);
 
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        $poultry = Poultry::create($request->all());
-        return response()->json($poultry, 201);
+        $poultryData = [
+            'poultry_name' => $request->poultry_name,
+        ];
+
+        // Handle image upload if file is provided
+        if ($request->hasFile('poultry_image_file')) {
+            $file = $request->file('poultry_image_file');
+            $filename = Str::slug($request->poultry_name) . '-' . time() . '.' . $file->getClientOriginalExtension();
+            
+            // Store the file in the poultry_image folder
+            $path = $file->storeAs('poultry_image', $filename, 'public');
+            
+            // Set the image path (without /storage/ prefix)
+            $poultryData['poultry_image'] = $path;
+        }
+
+        $poultry = Poultry::create($poultryData);
+        
+        // Format response with proper image URL
+        $responseData = $poultry->toArray();
+        if ($poultry->poultry_image) {
+            $responseData['poultry_image'] = asset('storage/' . $poultry->poultry_image);
+        }
+        
+        return response()->json($responseData, 201);
     }
 
     /**
@@ -42,7 +84,16 @@ class PoultryController extends Controller
     public function show(string $id)
     {
         $poultry = Poultry::findOrFail($id);
-        return response()->json($poultry);
+        
+        // Format response with proper image URL
+        $responseData = $poultry->toArray();
+        if ($poultry->poultry_image) {
+            // Remove the /storage/ prefix if it exists
+            $imagePath = str_replace('/storage/', '', $poultry->poultry_image);
+            $responseData['poultry_image'] = asset('storage/' . $imagePath);
+        }
+        
+        return response()->json($responseData);
     }
 
     /**
@@ -52,7 +103,7 @@ class PoultryController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'poultry_name' => 'required|string|max:255',
-            'poultry_image' => 'nullable|string|max:2048',
+            'poultry_image_file' => 'nullable|image|max:2048', // 2MB max
         ]);
 
         if ($validator->fails()) {
@@ -60,9 +111,41 @@ class PoultryController extends Controller
         }
 
         $poultry = Poultry::findOrFail($id);
-        $poultry->update($request->all());
+        $poultryData = [
+            'poultry_name' => $request->poultry_name,
+        ];
+
+        // Handle image upload if file is provided
+        if ($request->hasFile('poultry_image_file')) {
+            // Delete old image if exists and is stored locally
+            if ($poultry->poultry_image) {
+                $oldPath = str_replace('/storage/', '', $poultry->poultry_image);
+                if (Storage::disk('public')->exists($oldPath)) {
+                    Storage::disk('public')->delete($oldPath);
+                }
+            }
+            
+            $file = $request->file('poultry_image_file');
+            $filename = Str::slug($request->poultry_name) . '-' . time() . '.' . $file->getClientOriginalExtension();
+            
+            // Store the file in the poultry_image folder
+            $path = $file->storeAs('poultry_image', $filename, 'public');
+            
+            // Set the image path (without /storage/ prefix)
+            $poultryData['poultry_image'] = $path;
+        }
+
+        $poultry->update($poultryData);
         
-        return response()->json($poultry);
+        // Format response with proper image URL
+        $responseData = $poultry->toArray();
+        if ($poultry->poultry_image) {
+            // Remove the /storage/ prefix if it exists
+            $imagePath = str_replace('/storage/', '', $poultry->poultry_image);
+            $responseData['poultry_image'] = asset('storage/' . $imagePath);
+        }
+        
+        return response()->json($responseData);
     }
 
     /**
@@ -71,6 +154,15 @@ class PoultryController extends Controller
     public function destroy(string $id)
     {
         $poultry = Poultry::findOrFail($id);
+        
+        // Delete the image file if it exists and is stored locally
+        if ($poultry->poultry_image) {
+            $path = str_replace('/storage/', '', $poultry->poultry_image);
+            if (Storage::disk('public')->exists($path)) {
+                Storage::disk('public')->delete($path);
+            }
+        }
+        
         $poultry->delete();
         
         return response()->json(['message' => 'Poultry deleted successfully']);

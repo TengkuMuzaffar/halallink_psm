@@ -10,14 +10,20 @@
           <div class="dropdown">
             <a href="#" class="d-flex align-items-center text-decoration-none dropdown-toggle" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
               <div class="avatar me-2">
-                <img src="/images/avatar-placeholder.png" alt="User Avatar" class="rounded-circle" width="32" height="32">
+                <img 
+                  :src="userProfileImage" 
+                  alt="User Avatar" 
+                  class="rounded-circle" 
+                  width="32" 
+                  height="32"
+                >
               </div>
-              <span>{{ user?.name || 'User' }}</span>
+              <span>{{ displayName }}</span>
             </a>
             <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
-              <li><router-link class="dropdown-item" to="/profile">Profile</router-link></li>
+              <li><router-link class="dropdown-item" to="/profile"><i class="bi bi-person me-2"></i>My Profile</router-link></li>
               <li><hr class="dropdown-divider"></li>
-              <li><a href="#" class="dropdown-item" @click.prevent="handleLogout">Sign Out</a></li>
+              <li><a class="dropdown-item" href="#" @click.prevent="handleLogout"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
             </ul>
           </div>
         </div>
@@ -40,6 +46,42 @@ export default {
     
     const isAuthenticated = computed(() => store.getters.isAuthenticated);
     const user = computed(() => store.getters.user);
+    console.log('User from store here:', user.value);
+    // Determine which profile image to display based on user role
+    const userProfileImage = computed(() => {
+      if (!user.value) return '/images/avatar-placeholder.png';
+      
+      if (user.value.role === 'admin' && user.value.company?.company_image) {
+        // Check if the image path already includes the full URL
+        if (user.value.company.company_image.startsWith('http')) {
+          return user.value.company.company_image;
+        } else {
+          // Add the storage URL prefix if it's just a relative path
+          return `/storage/${user.value.company.company_image}`;
+        }
+      } else if (user.value.image) {
+        // Check if the image path already includes the full URL
+        if (user.value.image.startsWith('http')) {
+          return user.value.image;
+        } else {
+          // Add the storage URL prefix if it's just a relative path
+          return `/storage/${user.value.image}`;
+        }
+      }
+      
+      return '/images/avatar-placeholder.png';
+    });
+    
+    // Display name based on user role
+    const displayName = computed(() => {
+      if (!user.value) return 'User';
+      
+      if (user.value.role === 'admin' && user.value.company?.company_name) {
+        return user.value.company.company_name;
+      } else {
+        return user.value.fullname || 'User';
+      }
+    });
     
     // Track if component is mounted
     let isMounted = true;
@@ -69,6 +111,8 @@ export default {
     return {
       isAuthenticated,
       user,
+      userProfileImage,
+      displayName,
       handleLogout
     };
   }
@@ -111,5 +155,14 @@ export default {
   border-radius: 50%;
   overflow: hidden;
   background-color: #e9ecef;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 </style>

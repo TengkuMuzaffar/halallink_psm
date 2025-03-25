@@ -125,6 +125,9 @@ export default {
       loading.value = true;
       error.value = null;
       
+      // Clear existing data before loading new data
+      poultries.value = [];
+      
       try {
         const response = await api.get('/api/poultries', {
           onError: (err) => {
@@ -213,8 +216,8 @@ export default {
               <input type="text" class="form-control" id="poultry-name" required>
             </div>
             <div class="mb-3">
-              <label for="poultry-image" class="form-label">Image URL (optional)</label>
-              <input type="text" class="form-control" id="poultry-image">
+              <label for="poultry-image-file" class="form-label">Upload Image</label>
+              <input type="file" class="form-control" id="poultry-image-file" accept="image/*">
             </div>
           </form>
         `,
@@ -229,28 +232,34 @@ export default {
             type: 'primary',
             onClick: async (_, modalInstance) => {
               const nameInput = document.getElementById('poultry-name');
-              const imageInput = document.getElementById('poultry-image');
+              const imageFileInput = document.getElementById('poultry-image-file');
               
               if (!nameInput.value.trim()) {
                 nameInput.classList.add('is-invalid');
                 return;
               }
               
-              const poultryData = {
-                poultry_name: nameInput.value.trim(),
-                poultry_image: imageInput.value.trim() || null
-              };
-              
               loading.value = true;
+              // Clear existing data to show loading state
+              poultries.value = [];
               
               try {
-                await api.post('/api/poultries', poultryData, {
+                // Create form data for file upload
+                const formData = new FormData();
+                formData.append('poultry_name', nameInput.value.trim());
+                
+                // If file is selected, add it to form data
+                if (imageFileInput.files[0]) {
+                  formData.append('poultry_image_file', imageFileInput.files[0]);
+                }
+                
+                await api.post('/api/poultries', formData, {
+                  headers: {
+                    'Content-Type': 'multipart/form-data'
+                  },
                   onSuccess: (newPoultry) => {
-                    // Add to local array
-                    poultries.value.push(newPoultry);
-                    
-                    // Update stats
-                    poultryStats.total = poultries.value.length;
+                    // Refresh the entire list instead of just adding to local array
+                    fetchPoultries();
                     
                     // Show success message
                     modal.success('Success', 'Poultry added successfully');
@@ -261,14 +270,17 @@ export default {
                     
                     // Show error message
                     modal.danger('Error', 'Failed to add poultry. Please try again.');
+                    
+                    // Reload the data even on error to ensure consistent state
+                    fetchPoultries();
                   }
                 });
                 
                 modalInstance.hide();
               } catch (err) {
                 // Error is already handled by onError callback
-              } finally {
-                loading.value = false;
+                // Reload the data even on error to ensure consistent state
+                fetchPoultries();
               }
             }
           }
@@ -287,9 +299,17 @@ export default {
               <input type="text" class="form-control" id="edit-poultry-name" value="${poultry.poultry_name}" required>
             </div>
             <div class="mb-3">
-              <label for="edit-poultry-image" class="form-label">Image URL (optional)</label>
-              <input type="text" class="form-control" id="edit-poultry-image" value="${poultry.poultry_image || ''}">
+              <label for="edit-poultry-image-file" class="form-label">Upload New Image</label>
+              <input type="file" class="form-control" id="edit-poultry-image-file" accept="image/*">
             </div>
+            ${poultry.poultry_image ? `
+            <div class="mb-3">
+              <label class="form-label">Current Image</label>
+              <div>
+                <img src="${poultry.poultry_image}" alt="Current Poultry Image" class="img-thumbnail" style="max-width: 200px;">
+              </div>
+            </div>
+            ` : ''}
           </form>
         `,
         buttons: [
@@ -303,28 +323,35 @@ export default {
             type: 'primary',
             onClick: async (_, modalInstance) => {
               const nameInput = document.getElementById('edit-poultry-name');
-              const imageInput = document.getElementById('edit-poultry-image');
+              const imageFileInput = document.getElementById('edit-poultry-image-file');
               
               if (!nameInput.value.trim()) {
                 nameInput.classList.add('is-invalid');
                 return;
               }
               
-              const poultryData = {
-                poultry_name: nameInput.value.trim(),
-                poultry_image: imageInput.value.trim() || null
-              };
-              
               loading.value = true;
+              // Clear existing data to show loading state
+              poultries.value = [];
               
               try {
-                await api.put(`/api/poultries/${poultry.poultryID}`, poultryData, {
+                // Create form data for file upload
+                const formData = new FormData();
+                formData.append('poultry_name', nameInput.value.trim());
+                formData.append('_method', 'PUT'); // For Laravel to recognize as PUT request
+                
+                // If file is selected, add it to form data
+                if (imageFileInput.files[0]) {
+                  formData.append('poultry_image_file', imageFileInput.files[0]);
+                }
+                
+                await api.post(`/api/poultries/${poultry.poultryID}`, formData, {
+                  headers: {
+                    'Content-Type': 'multipart/form-data'
+                  },
                   onSuccess: (updatedPoultry) => {
-                    // Update in local array
-                    const index = poultries.value.findIndex(p => p.poultryID === poultry.poultryID);
-                    if (index !== -1) {
-                      poultries.value[index] = updatedPoultry;
-                    }
+                    // Refresh the entire list instead of just updating local array
+                    fetchPoultries();
                     
                     // Show success message
                     modal.success('Success', 'Poultry updated successfully');
@@ -335,14 +362,17 @@ export default {
                     
                     // Show error message
                     modal.danger('Error', 'Failed to update poultry. Please try again.');
+                    
+                    // Reload the data even on error to ensure consistent state
+                    fetchPoultries();
                   }
                 });
                 
                 modalInstance.hide();
               } catch (err) {
                 // Error is already handled by onError callback
-              } finally {
-                loading.value = false;
+                // Reload the data even on error to ensure consistent state
+                fetchPoultries();
               }
             }
           }
@@ -356,15 +386,14 @@ export default {
         `Are you sure you want to delete "${poultry.poultry_name}"?`,
         async () => {
           loading.value = true;
+          // Clear existing data to show loading state
+          poultries.value = [];
           
           try {
             await api.delete(`/api/poultries/${poultry.poultryID}`, {
               onSuccess: () => {
-                // Remove from local array
-                poultries.value = poultries.value.filter(p => p.poultryID !== poultry.poultryID);
-                
-                // Update stats
-                poultryStats.total = poultries.value.length;
+                // Refresh the entire list instead of just removing from local array
+                fetchPoultries();
                 
                 // Show success message
                 modal.success('Success', 'Poultry deleted successfully');
@@ -375,12 +404,15 @@ export default {
                 
                 // Show error message
                 modal.danger('Error', 'Failed to delete poultry. Please try again.');
+                
+                // Reload the data even on error to ensure consistent state
+                fetchPoultries();
               }
             });
           } catch (err) {
             // Error is already handled by onError callback
-          } finally {
-            loading.value = false;
+            // Reload the data even on error to ensure consistent state
+            fetchPoultries();
           }
         },
         null,

@@ -52,9 +52,21 @@ class AuthController extends Controller
     
         $token = $user->createToken('auth_token')->plainTextToken;
     
+        // Format company image URL
+        $companyData = $company->toArray();
+        if ($company->company_image) {
+            $companyData['company_image'] = asset('storage/' . $company->company_image);
+        }
+        
+        // Format user image URL
+        $userData = $user->toArray();
+        if ($user->image) {
+            $userData['image'] = asset('storage/' . $user->image);
+        }
+    
         return response()->json([
-            'company' => $company,
-            'user' => $user,
+            'company' => $companyData,
+            'user' => $userData,
             'access_token' => $token,
             'token_type' => 'Bearer',
         ], 201);
@@ -88,11 +100,22 @@ class AuthController extends Controller
 
         // Load the company relationship
         $user->load('company');
+        
+        // Format user image URL
+        $userData = $user->toArray();
+        if ($user->image) {
+            $userData['image'] = asset('storage/' . $user->image);
+        }
+        
+        // Format company image URL if company exists
+        if (isset($userData['company']) && $userData['company'] && isset($userData['company']['company_image']) && $userData['company']['company_image']) {
+            $userData['company']['company_image'] = asset('storage/' . $userData['company']['company_image']);
+        }
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
-            'user' => $user,
+            'user' => $userData,
             'access_token' => $token,
             'token_type' => 'Bearer',
         ]);
@@ -111,6 +134,18 @@ class AuthController extends Controller
     {
         $user = $request->user();
         $user->load('company');
-        return response()->json($user);
+        
+        // Format user image URL
+        $userData = $user->toArray();
+        if ($user->image) {
+            $userData['image'] = asset('storage/' . $user->image);
+        }
+        
+        // Format company image URL if company exists
+        if (isset($userData['company']) && $userData['company'] && isset($userData['company']['company_image']) && $userData['company']['company_image']) {
+            $userData['company']['company_image'] = asset('storage/' . $userData['company']['company_image']);
+        }
+        
+        return response()->json($userData);
     }
 }

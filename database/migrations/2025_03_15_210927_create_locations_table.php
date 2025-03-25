@@ -14,14 +14,15 @@ return new class extends Migration
         Schema::create('locations', function (Blueprint $table) {
             $table->id('locationID');
             $table->unsignedBigInteger('companyID');
-            $table->text('company_address');
-            $table->string('location_type');
+            $table->string('company_address');
+            $table->enum('location_type', ['slaughterhouse', 'headquarters', 'supplier','kitchen']);
             $table->timestamps();
             
             $table->foreign('companyID')
                   ->references('companyID')
                   ->on('companies')
                   ->onDelete('cascade');
+                  
         });
     }
 

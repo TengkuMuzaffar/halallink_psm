@@ -10,24 +10,68 @@ import * as bootstrap from 'bootstrap';
 const MODAL_TYPES = {
   info: {
     headerClass: 'bg-info text-white',
-    icon: 'bi bi-info-circle-fill'
+    icon: 'bi bi-info-circle-fill',
+    color: '#0dcaf0'
   },
   success: {
     headerClass: 'bg-success text-white',
-    icon: 'bi bi-check-circle-fill'
+    icon: 'bi bi-check-circle-fill',
+    color: '#198754'
   },
   warning: {
     headerClass: 'bg-warning text-dark',
-    icon: 'bi bi-exclamation-triangle-fill'
+    icon: 'bi bi-exclamation-triangle-fill',
+    color: '#ffc107'
   },
   danger: {
     headerClass: 'bg-danger text-white',
-    icon: 'bi bi-x-circle-fill'
+    icon: 'bi bi-x-circle-fill',
+    color: '#dc3545'
   }
 };
 
 // Counter to generate unique IDs for modals
 let modalCounter = 0;
+
+// Add the animated modal styles to the document
+const addAnimatedModalStyles = () => {
+  // Check if styles are already added
+  if (document.getElementById('animated-modal-styles')) {
+    return;
+  }
+
+  const styles = `
+    .modal-icon-container {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    
+    .modal-icon {
+      font-size: 4rem;
+      animation: iconBounce 0.6s ease-out;
+    }
+    
+    .modal-centered-content {
+      text-align: center;
+    }
+    
+    .modal-centered-title {
+      margin-bottom: 15px;
+      font-weight: 600;
+    }
+    
+    @keyframes iconBounce {
+      0% { transform: scale(0); opacity: 0; }
+      50% { transform: scale(1.2); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+  `;
+
+  const styleElement = document.createElement('style');
+  styleElement.id = 'animated-modal-styles';
+  styleElement.textContent = styles;
+  document.head.appendChild(styleElement);
+};
 
 /**
  * Creates and shows a modal dialog
@@ -48,6 +92,9 @@ export const showModal = (options) => {
     return null;
   }
 
+  // Add animated styles
+  addAnimatedModalStyles();
+
   const {
     type = 'info',
     title = '',
@@ -64,23 +111,27 @@ export const showModal = (options) => {
   // Get modal type configuration
   const modalType = MODAL_TYPES[type] || MODAL_TYPES.info;
   
-  // Create modal HTML
+  // Create modal HTML with centered content and animated icon
   const modalHTML = `
-    <div class="modal fade" id="${modalId}" tabindex="-1" aria-labelledby="${modalId}-label" aria-hidden="true">
-      <div class="modal-dialog">
+    <div class="modal fade" id="${modalId}" tabindex="-1" aria-labelledby="${modalId}-label">
+      <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
-          <div class="modal-header ${modalType.headerClass}">
+          <div class="modal-header ${modalType.headerClass} justify-content-center">
             <h5 class="modal-title" id="${modalId}-label">
-              <i class="${modalType.icon} me-2"></i>
               ${title}
             </h5>
-            ${showClose ? '<button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>' : ''}
+            ${showClose ? '<button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 mt-2 me-2" data-bs-dismiss="modal" aria-label="Close"></button>' : ''}
           </div>
-          <div class="modal-body">
-            ${message}
+          <div class="modal-body modal-centered-content">
+            <div class="modal-icon-container">
+              <i class="${modalType.icon} modal-icon" style="color: ${modalType.color};"></i>
+            </div>
+            <div class="modal-message">
+              ${message}
+            </div>
           </div>
           ${buttons.length > 0 ? `
-            <div class="modal-footer">
+            <div class="modal-footer justify-content-center">
               ${buttons.map(btn => `
                 <button type="button" class="btn btn-${btn.type || 'primary'}" 
                   ${btn.id ? `id="${btn.id}"` : ''} 
@@ -122,6 +173,15 @@ export const showModal = (options) => {
   if (onHidden) {
     modalElement.addEventListener('hidden.bs.modal', onHidden);
   }
+  
+  // Fix for aria-hidden accessibility issue
+  modalElement.addEventListener('hide.bs.modal', () => {
+    // Remove focus from any buttons inside the modal before it's hidden
+    document.activeElement.blur();
+    
+    // Or focus on the body
+    document.body.focus();
+  });
   
   // Add listener to remove modal from DOM after it's hidden
   modalElement.addEventListener('hidden.bs.modal', () => {

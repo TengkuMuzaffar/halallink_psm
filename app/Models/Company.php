@@ -14,10 +14,6 @@ class Company extends Model
         'company_name',
         'company_image',
         'company_type',
-        'email',
-        'phone',
-        'address',
-        'status'
     ];
 
     protected static function boot()
