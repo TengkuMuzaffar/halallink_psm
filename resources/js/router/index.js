@@ -35,6 +35,21 @@ const routes = [
     component: () => import('../pages/ForgotPasswordPage.vue'),
     meta: { requiresAuth: false, redirectIfAuth: true }
   },
+  // Add reset password route
+  {
+    path: '/reset-password',
+    name: 'ResetPassword',
+    component: () => import('../pages/ResetPasswordPage.vue'),
+    meta: { requiresAuth: false, redirectIfAuth: false },
+    beforeEnter: (to, from, next) => {
+      // Only allow access if token and email are present in query params
+      if (!to.query.token || !to.query.email) {
+        next({ name: 'ForgotPassword' });
+      } else {
+        next();
+      }
+    }
+  },
   {
     path: '/',
     component: MainLayout,

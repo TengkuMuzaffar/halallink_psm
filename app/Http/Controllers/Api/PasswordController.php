@@ -55,32 +55,42 @@ class PasswordController extends Controller
      */
     public function sendResetLinkEmail(Request $request)
     {
-        $request->validate([
-            'email' => ['required', 'email', 'exists:users,email'],
-        ]);
+        try {
+            $request->validate([
+                'email' => ['required', 'email', 'exists:users,email'],
+            ]);
 
-        // Generate token
-        $token = Str::random(64);
-        
-        // Store token in database
-        DB::table('password_reset_tokens')->updateOrInsert(
-            ['email' => $request->email],
-            [
-                'email' => $request->email,
-                'token' => $token,
-                'created_at' => Carbon::now()
-            ]
-        );
+            // Generate token
+            $token = Str::random(64);
+            
+            // Store token in database
+            DB::table('password_reset_tokens')->updateOrInsert(
+                ['email' => $request->email],
+                [
+                    'email' => $request->email,
+                    'token' => $token,
+                    'created_at' => Carbon::now()
+                ]
+            );
 
-        // Get user
-        $user = User::where('email', $request->email)->first();
-        
-        // Send email with reset link
-        Mail::to($request->email)->send(new ResetPasswordLink($user, $token));
+            // Get user
+            $user = User::where('email', $request->email)->first();
+            
+            // Send email with reset link
+            Mail::to($request->email)->send(new ResetPasswordLink($user, $token));
 
-        return response()->json([
-            'message' => 'Password reset link sent to your email.'
-        ]);
+            return response()->json([
+                'message' => 'Password reset link sent to your email.'
+            ]);
+        } catch (\Exception $e) {
+            // Log the error
+            \Log::error('Password reset email error: ' . $e->getMessage());
+            
+            return response()->json([
+                'message' => 'Failed to send password reset email. Please try again later.',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     /**

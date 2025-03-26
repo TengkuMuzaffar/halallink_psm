@@ -285,11 +285,13 @@ export default {
     const sendPasswordResetEmail = async () => {
       if (sendingResetEmail.value) return;
       
+      let loadingModal = null;
+      
       try {
         sendingResetEmail.value = true;
         
         // Show loading modal
-        const loadingModal = modal.show({
+        loadingModal = modal.show({
           type: 'info',
           title: 'Sending Reset Link',
           message: '<div class="text-center"><div class="spinner-border text-primary mb-3" role="status"></div><p>Sending password reset link to your email...</p></div>',
@@ -299,16 +301,13 @@ export default {
         
         // Get user email from profile data
         const email = profileData.value.email;
-        
+        console.log('Email:', email);
         if (!email) {
           throw new Error('User email not found');
         }
         
         // Send the reset email
         await api.post('/api/password/forgot', { email });
-        
-        // Hide loading modal
-        loadingModal.hide();
         
         // Show success modal
         modal.success(
@@ -325,6 +324,10 @@ export default {
           'Failed to send password reset email. Please try again later.'
         );
       } finally {
+        // Always hide the loading modal
+        if (loadingModal) {
+          loadingModal.hide();
+        }
         sendingResetEmail.value = false;
       }
     };
