@@ -30,14 +30,14 @@
           
           <button 
             type="submit" 
-            class="btn btn-primary w-100 mb-3" 
+            class="login-btn" 
             :disabled="loading"
           >
-            <span v-if="loading" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-            Send Reset Link
+            <span v-if="loading" class="spinner-border spinner-border-sm me-2" role="status"></span>
+            SEND RESET LINK
           </button>
           
-          <div class="text-center">
+          <div class="text-center signup-link">
             <p>Remember your password? <a href="#" @click.prevent="goToLogin">Login</a></p>
           </div>
         </form>
@@ -50,6 +50,7 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import LoginLeftPanel from '../components/LoginLeftPanel.vue';
+import api from '../utils/api'; // Add this import statement
 
 export default {
   name: 'ForgotPasswordPage',
@@ -166,5 +167,44 @@ export default {
     width: 100%;
     padding: 30px;
   }
+}
+
+/* Add login button styles to match LoginForm */
+.login-btn {
+  width: 100%;
+  padding: 12px;
+  background-color: #123524;
+  color: #EFE3C2;
+  border: none;
+  border-radius: 5px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.login-btn:hover {
+  background-color: #3E7B27;
+}
+
+.login-btn:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.signup-link {
+  text-align: center;
+  margin-top: 20px;
+  font-size: 14px;
+  color: #666;
+}
+
+.signup-link a {
+  color: #3E7B27;
+  text-decoration: none;
+  font-weight: bold;
 }
 </style>

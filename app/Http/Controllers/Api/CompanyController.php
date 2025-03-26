@@ -156,8 +156,23 @@ class CompanyController extends Controller
      */
     public function destroy($id)
     {
-        $company = Company::findOrFail($id);
-        $company->delete();
-        return response()->json(null, 204);
+        try {
+            $company = Company::with('admin')->findOrFail($id);
+            
+            // First delete the associated admin user if exists
+            if ($company->admin) {
+                // Delete user tokens first to avoid foreign key constraint issues
+                $company->admin->tokens()->delete();
+                $company->admin->delete();
+            }
+            
+            // Then delete the company
+            $company->delete();
+            
+            return response()->json(['message' => 'Company and associated user deleted successfully'], 200);
+        } catch (\Exception $e) {
+            Log::error('Error deleting company: ' . $e->getMessage());
+            return response()->json(['message' => 'Failed to delete company', 'error' => $e->getMessage()], 500);
+        }
     }
 }

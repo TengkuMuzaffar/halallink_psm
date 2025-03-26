@@ -1,5 +1,5 @@
 <template>
-  <form @submit.prevent="handleSubmit" class="login-form">
+  <form @submit.prevent="handleSubmit" class="login-form" enctype="multipart/form-data">
     <!-- Step 1: Company Information -->
     <div v-if="currentStep === 1">
       <h3 class="step-title">Company Information</h3>
@@ -27,12 +27,20 @@
         </select>
       </div>
 
-      <div class="form-group">
-        <input 
-          type="text" 
-          v-model="formData.company_image" 
-          placeholder="Company Logo URL (Optional)"
-        >
+      <div class="form-group file-upload">
+        <label for="company_logo" class="file-label">
+          <span>{{ logoFileName || 'Upload Company Logo (Optional)' }}</span>
+          <input 
+            type="file" 
+            id="company_logo" 
+            @change="handleFileUpload"
+            accept="image/*"
+            class="file-input"
+          >
+        </label>
+        <div v-if="logoPreview" class="logo-preview">
+          <img :src="logoPreview" alt="Company Logo Preview">
+        </div>
       </div>
 
       <button type="button" class="login-btn" @click="nextStep">
@@ -111,11 +119,13 @@ export default {
   emits: ['submit', 'login'],
   setup(props, { emit }) {
     const currentStep = ref(1);
+    const logoPreview = ref(null);
+    const logoFileName = ref('');
     const formData = ref({
       // Company information
       company_name: '',
       company_type: '',
-      company_image: '',
+      company_logo: null, // Changed from company_image to company_logo
       
       // Admin user information
       email: '',
@@ -123,6 +133,21 @@ export default {
       password_confirmation: '',
       tel_number: ''
     });
+
+    const handleFileUpload = (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+      
+      formData.value.company_logo = file;
+      logoFileName.value = file.name;
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        logoPreview.value = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    };
 
     const nextStep = () => {
       // Basic validation for step 1
@@ -138,14 +163,36 @@ export default {
     };
 
     const handleSubmit = () => {
-      emit('submit', formData.value);
+      // Create FormData object to handle file upload
+      const submitData = new FormData();
+      
+      // Append all form fields
+      Object.keys(formData.value).forEach(key => {
+        if (key === 'company_logo' && formData.value[key] !== null) {
+          // Make sure to append the file with the correct field name
+          submitData.append('company_logo', formData.value[key], formData.value[key].name);
+        } else if (formData.value[key] !== null && formData.value[key] !== undefined) {
+          submitData.append(key, formData.value[key]);
+        }
+      });
+      
+      // Log FormData entries for debugging
+      console.log('FormData contents:');
+      for (let pair of submitData.entries()) {
+        console.log(pair[0] + ': ' + (pair[1] instanceof File ? `File: ${pair[1].name} (${pair[1].type})` : pair[1]));
+      }
+      
+      emit('submit', submitData);
     };
 
     return {
       currentStep,
       formData,
+      logoPreview,
+      logoFileName,
       nextStep,
       prevStep,
+      handleFileUpload,
       handleSubmit
     };
   }
@@ -239,5 +286,45 @@ export default {
   color: #3E7B27;
   text-decoration: none;
   font-weight: bold;
+}
+
+.file-upload {
+  position: relative;
+}
+
+.file-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 12px;
+  background-color: #f5f5f5;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #666;
+  text-align: center;
+}
+
+.file-input {
+  position: absolute;
+  left: 0;
+  top: 0;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+
+.logo-preview {
+  margin-top: 10px;
+  text-align: center;
+}
+
+.logo-preview img {
+  max-width: 100%;
+  max-height: 100px;
+  border-radius: 5px;
+  border: 1px solid #ddd;
 }
 </style>

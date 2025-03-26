@@ -11,6 +11,7 @@
           :error="error"
           @submit="handleLogin"
           @signup="goToRegister"
+          @forgot-password="goToForgotPassword"
         />
       </div>
     </div>
@@ -72,13 +73,18 @@ export default {
     const goToRegister = () => {
       router.push({ name: 'Register' });
     };
+    
+    const goToForgotPassword = () => {
+      router.push({ name: 'ForgotPassword' });
+    };
 
     return {
       loading,
       error,
       animatedTexts,
       handleLogin,
-      goToRegister
+      goToRegister,
+      goToForgotPassword
     };
   }
 };

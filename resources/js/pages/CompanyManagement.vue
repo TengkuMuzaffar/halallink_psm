@@ -268,15 +268,16 @@ export default {
     };
     
     const deleteCompany = async (company) => {
-      // Replace confirm with custom modal
+      // Use the modal utility for confirmation
       modal.confirm(
         'Delete Company',
-        `Are you sure you want to delete ${company.company_name}?`,
+        `Are you sure you want to delete ${company.company_name}? This will also delete the associated admin user.`,
         async () => {
           loading.value = true;
           try {
-            await api.del(`/api/companies/${company.companyID}`, {
-              onSuccess: () => {
+            await api.fetchData(`/api/companies/${company.companyID}`, {
+              method: 'delete',
+              onSuccess: (data) => {
                 // Remove from local array
                 companies.value = companies.value.filter(c => c.companyID !== company.companyID);
                 
@@ -288,9 +289,6 @@ export default {
               },
               onError: (err) => {
                 console.error('Error deleting company:', err);
-                error.value = 'Failed to delete company. Please try again.';
-                
-                // Show error message
                 modal.danger('Error', 'Failed to delete company. Please try again.');
               }
             });

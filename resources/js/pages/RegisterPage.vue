@@ -7,9 +7,26 @@
         <h2>Create Account</h2>
         <p>Register to join our community</p>
         
+        <!-- Success message -->
+        <div v-if="successMessage" class="alert alert-success w-100 mb-4">
+          <i class="fas fa-check-circle me-2"></i> {{ successMessage }}
+        </div>
+        
+        <!-- Error message display -->
+        <div v-if="error" class="alert alert-danger w-100 mb-4">
+          <i class="fas fa-exclamation-circle me-2"></i>
+          <span v-if="typeof error === 'string'">{{ error }}</span>
+          <ul v-else-if="typeof error === 'object'" class="mb-0 ps-3">
+            <li v-for="(messages, field) in error" :key="field">
+              <strong>{{ field }}:</strong> {{ Array.isArray(messages) ? messages.join(', ') : messages }}
+            </li>
+          </ul>
+        </div>
+        
         <register-form
+          v-if="!successMessage"
           :loading="loading"
-          :error="error"
+          :error="null"
           @submit="handleRegister"
           @login="goToLogin"
         />
@@ -37,6 +54,7 @@ export default {
     const store = useStore();
     const loading = ref(false);
     const error = ref(null);
+    const successMessage = ref(null);
 
     const animatedTexts = [
       "Join our Halal business community",
@@ -48,20 +66,26 @@ export default {
     const handleRegister = async (formData) => {
       loading.value = true;
       error.value = null;
+      successMessage.value = null;
       
       try {
         // Use the authService instead of direct axios call
         const data = await register(formData);
         
-        // Update the store with user and token
-        store.commit('SET_USER', data.user);
-        store.commit('SET_TOKEN', data.access_token);
+        // Show success message - updated to reflect pending approval
+        successMessage.value = data.message || "Registration successful! Your account is pending approval. Redirecting to login page...";
         
-        // Redirect to Dashboard
-        router.push({ name: 'Dashboard' });
+        // Redirect to Login page after a short delay instead of Dashboard
+        setTimeout(() => {
+          router.push({ name: 'Login' });
+        }, 3000);
       } catch (err) {
         console.error('Registration error:', err);
-        error.value = err.response?.data?.errors || err.response?.data?.message || 'Registration failed. Please try again.';
+        if (err.response?.data?.errors) {
+          error.value = err.response.data.errors;
+        } else {
+          error.value = err.response?.data?.message || 'Registration failed. Please try again.';
+        }
       } finally {
         loading.value = false;
       }
@@ -74,6 +98,7 @@ export default {
     return {
       loading,
       error,
+      successMessage,
       animatedTexts,
       handleRegister,
       goToLogin
@@ -121,6 +146,22 @@ export default {
 .right-panel p {
   color: #3E7B27;
   margin-bottom: 30px;
+}
+
+.alert {
+  border-radius: 8px;
+}
+
+.alert-success {
+  background-color: #d4edda;
+  border-color: #c3e6cb;
+  color: #155724;
+}
+
+.alert-danger {
+  background-color: #f8d7da;
+  border-color: #f5c6cb;
+  color: #721c24;
 }
 
 @media (max-width: 768px) {

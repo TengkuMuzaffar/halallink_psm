@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Storage;
 
 class AuthController extends Controller
 {
@@ -19,7 +20,7 @@ class AuthController extends Controller
             // Company information
             'company_name' => 'required|string|max:255',
             'company_type' => 'required|in:broiler,slaughterhouse,SME,logistic',
-            'company_image' => 'nullable|string',
+            'company_logo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048', // Changed to accept image file
             
             // Admin user details
             'email' => 'required|string|email|max:255|unique:users',
@@ -30,16 +31,22 @@ class AuthController extends Controller
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
         }
+        
+        // Handle company logo upload
+        $companyImagePath = null;
+        if ($request->hasFile('company_logo')) {
+            $companyImagePath = $request->file('company_logo')->store('company_image', 'public');
+        }
     
         // Create company first
         $company = Company::create([
             'formID' => 'company' . Str::random(10),
             'company_name' => $request->company_name,
             'company_type' => $request->company_type,
-            'company_image' => $request->company_image,
+            'company_image' => $companyImagePath, // Store the file path
         ]);
     
-        // Create admin user for the company
+        // Create admin user for the company with inactive status
         $user = User::create([
             'fullname' => $request->company_name . ' Admin', // Default name based on company
             'email' => $request->email,
@@ -47,10 +54,7 @@ class AuthController extends Controller
             'tel_number' => $request->tel_number,
             'companyID' => $company->companyID,
             'role' => 'admin',
-            'status' => 'active', // Admin users are active by default
         ]);
-    
-        $token = $user->createToken('auth_token')->plainTextToken;
     
         // Format company image URL
         $companyData = $company->toArray();
@@ -65,10 +69,9 @@ class AuthController extends Controller
         }
     
         return response()->json([
+            'message' => 'Registration successful. Your account is pending approval by an administrator.',
             'company' => $companyData,
             'user' => $userData,
-            'access_token' => $token,
-            'token_type' => 'Bearer',
         ], 201);
     }
 
@@ -83,21 +86,33 @@ class AuthController extends Controller
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
+        // First get the user to check status before attempting authentication
+        $user = User::where('email', $request->email)->first();
+        
+        // If user doesn't exist, return invalid credentials
+        if (!$user) {
+            return response()->json([
+                'message' => 'Invalid login credentials'
+            ], 401);
+        }
+        
+        // Check if user is active before attempting authentication
+        if ($user->status !== 'active') {
+            return response()->json([
+                'message' => 'Your account is inactive. Please wait for admin approval.'
+            ], 403);
+        }
+        
+        // Now attempt authentication since we know the user is active
         if (!Auth::attempt($request->only('email', 'password'))) {
             return response()->json([
                 'message' => 'Invalid login credentials'
             ], 401);
         }
 
+        // Reload the user to ensure we have fresh data
         $user = User::where('email', $request->email)->firstOrFail();
         
-        // Check if user is active
-        if ($user->status !== 'active') {
-            return response()->json([
-                'message' => 'Your account is inactive. Please contact administrator.'
-            ], 403);
-        }
-
         // Load the company relationship
         $user->load('company');
         

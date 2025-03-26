@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\PasswordController;
 
 // Public routes
 Route::post('/login', [AuthController::class, 'login']);
+Route::post('/register', [AuthController::class, 'register']); // Added register route
 // Password routes
 Route::post('/password/forgot', [PasswordController::class, 'sendResetLinkEmail']);
 Route::post('/password/reset', [PasswordController::class, 'resetPassword']);

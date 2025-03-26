@@ -16,10 +16,14 @@
         placeholder="Password"
         required
       >
+      <div class="form-text text-end">
+        <a href="#" @click.prevent="$emit('forgot-password')">Forgot Password?</a>
+      </div>
     </div>
-
-    <div class="forgot-password">
-      <a href="#">Forgot your password?</a>
+    
+    <!-- Error message -->
+    <div v-if="error" class="alert alert-danger" role="alert">
+      {{ error }}
     </div>
 
     <button type="submit" class="login-btn" :disabled="loading">
@@ -37,20 +41,27 @@
 import { ref } from 'vue';
 
 export default {
-  name: 'LoginFormComponent',
+  name: 'LoginForm',
   props: {
     loading: {
       type: Boolean,
       default: false
+    },
+    error: {
+      type: String,
+      default: null
     }
   },
-  emits: ['submit', 'signup'],
+  emits: ['submit', 'signup', 'forgot-password'],
   setup(props, { emit }) {
     const email = ref('');
     const password = ref('');
 
     const handleSubmit = () => {
-      emit('submit', { email: email.value, password: password.value });
+      emit('submit', {
+        email: email.value,
+        password: password.value
+      });
     };
 
     return {
@@ -59,9 +70,8 @@ export default {
       handleSubmit
     };
   }
-}
+};
 </script>
-
 <style scoped>
 .login-form {
   width: 100%;
