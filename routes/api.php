@@ -6,15 +6,21 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\EmployeeController;
 use App\Http\Controllers\Api\CompanyController;
+use App\Http\Controllers\Api\PasswordController;
 
 // Public routes
 Route::post('/login', [AuthController::class, 'login']);
+// Password routes
+Route::post('/password/forgot', [PasswordController::class, 'sendResetLinkEmail']);
+Route::post('/password/reset', [PasswordController::class, 'resetPassword']);
+Route::post('/password/validate-token', [PasswordController::class, 'validateToken']);
 
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {
     // Replace the inline function with the controller method
     Route::get('/user', [AuthController::class, 'user']);
-    
+    Route::post('/password/change', [PasswordController::class, 'changePassword']);
+
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/profile', [App\Http\Controllers\Api\ProfileController::class, 'getProfile']);
     Route::post('/profile/update', [App\Http\Controllers\Api\ProfileController::class, 'updateProfile']);
@@ -58,4 +64,7 @@ Route::middleware('auth:sanctum')->group(function () {
         });
     });
 });
+
+
+
 

@@ -64,9 +64,9 @@
                   <label class="form-label">Type</label>
                   <select class="form-select" v-model="location.location_type" required>
                     <option value="headquarters">Headquarters</option>
-                    <option value="slaughterhouse">Slaughterhouse</option>
-                    <option value="supplier">Supplier</option>
-                    <option value="kitchen">Kitchen</option>
+                    <option v-if="companyType === 'broiler'" value="supplier">Supplier</option>
+                    <option v-if="companyType === 'slaughterhouse'" value="slaughterhouse">Slaughterhouse</option>
+                    <option v-if="companyType === 'SME'" value="kitchen">Kitchen</option>
                   </select>
                 </div>
                 <div class="col-md-2 d-flex align-items-end">
@@ -109,9 +109,10 @@
 </template>
 
 <script>
-import { ref, watch } from 'vue';
+import { ref, watch, computed } from 'vue';
 import api from '../../utils/api';
 import modal from '../../utils/modal';
+import { useStore } from 'vuex';
 
 export default {
   name: 'CompanyLocations',
@@ -131,9 +132,16 @@ export default {
   },
   emits: ['update:locations', 'loading', 'toggle-edit'],
   setup(props, { emit }) {
+    const store = useStore();
     const saving = ref(false);
     const editableLocations = ref([]);
     const locationsToDelete = ref([]);
+    
+    // Get company type from store
+    const companyType = computed(() => {
+      const user = store.getters.user;
+      return user && user.company ? user.company.company_type : 'admin';
+    });
     
     // Watch for changes in locations or edit mode
     watch(() => props.locations, (newLocations) => {
@@ -151,6 +159,7 @@ export default {
     });
     
     // Add new location
+    // Update addNewLocation to set default location type based on company type
     const addNewLocation = () => {
       editableLocations.value.push({
         company_address: '',
@@ -204,6 +213,7 @@ export default {
     return {
       saving,
       editableLocations,
+      companyType,
       addNewLocation,
       removeLocation,
       saveLocations

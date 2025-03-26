@@ -44,6 +44,11 @@
                   v-model="passwordData.current_password"
                   required
                 >
+                <div class="form-text">
+                  <a href="#" @click.prevent="sendPasswordResetEmail" class="text-primary">
+                    Forgot your password?
+                  </a>
+                </div>
               </div>
               <div class="mb-3">
                 <label for="new-password" class="form-label">New Password</label>
@@ -123,7 +128,8 @@ export default {
       new_password: '',
       new_password_confirmation: ''
     });
-    const passwordLoading = ref(false); // Add this missing ref
+    const passwordLoading = ref(false);
+    const sendingResetEmail = ref(false);
     
     // Computed properties
     const isAdmin = computed(() => profileData.value.role === 'admin');
@@ -239,7 +245,7 @@ export default {
     const updatePassword = async () => {
       passwordLoading.value = true;
       try {
-        await api.post('/api/profile/password', passwordData.value);
+        await api.post('/api/password/change', passwordData.value);
         
         // Reset form
         passwordData.value = {
@@ -249,7 +255,7 @@ export default {
         };
         
         // Show success message
-        modal.success('Success', 'Password updated successfully');
+        modal.success('Success', 'Password updated successfully. A confirmation email has been sent to your inbox.');
       } catch (error) {
         console.error('Failed to update password:', error);
         
@@ -275,21 +281,72 @@ export default {
     // Fetch profile data on component mount
     onMounted(fetchProfile);
 
+    // Send password reset email for authenticated user
+    const sendPasswordResetEmail = async () => {
+      if (sendingResetEmail.value) return;
+      
+      try {
+        sendingResetEmail.value = true;
+        
+        // Show loading modal
+        const loadingModal = modal.show({
+          type: 'info',
+          title: 'Sending Reset Link',
+          message: '<div class="text-center"><div class="spinner-border text-primary mb-3" role="status"></div><p>Sending password reset link to your email...</p></div>',
+          showClose: false,
+          buttons: []
+        });
+        
+        // Get user email from profile data
+        const email = profileData.value.email;
+        
+        if (!email) {
+          throw new Error('User email not found');
+        }
+        
+        // Send the reset email
+        await api.post('/api/password/forgot', { email });
+        
+        // Hide loading modal
+        loadingModal.hide();
+        
+        // Show success modal
+        modal.success(
+          'Reset Link Sent',
+          `A password reset link has been sent to <strong>${email}</strong>. Please check your inbox and follow the instructions to reset your password.`
+        );
+        
+      } catch (error) {
+        console.error('Failed to send password reset email:', error);
+        
+        // Show error modal
+        modal.danger(
+          'Error',
+          'Failed to send password reset email. Please try again later.'
+        );
+      } finally {
+        sendingResetEmail.value = false;
+      }
+    };
+    
     return {
       profileData,
       formattedProfileData,
       loading,
       locationsLoading,
+      profileData,
+      formattedProfileData,
       editProfileMode,
       editLocationsMode,
       passwordData,
-      passwordLoading, // Return the missing ref
-      passwordMismatch, // Return the missing computed property
+      passwordLoading,
+      passwordMismatch,
       isAdmin,
-      handleImageChange,
       saveProfile,
       updatePassword,
-      openLanguageSettings
+      handleImageChange,
+      openLanguageSettings,
+      sendPasswordResetEmail
     };
   }
 };

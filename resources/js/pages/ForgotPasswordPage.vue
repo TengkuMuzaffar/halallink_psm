@@ -76,15 +76,22 @@ export default {
       successMessage.value = null;
       
       try {
-        // This is just a placeholder for now
-        // In the future, this will call an API endpoint to send a reset email
-        await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate API call
+        await api.post('/api/password/forgot', {
+          email: email.value
+        });
         
         successMessage.value = "Password reset link has been sent to your email. Please check your inbox.";
         email.value = ''; // Clear the form
       } catch (err) {
         console.error('Password reset error:', err);
-        error.value = 'Failed to send reset link. Please try again.';
+        if (err.response?.data?.errors) {
+          const errorMessages = Object.values(err.response.data.errors)
+            .flat()
+            .join('\n');
+          error.value = errorMessages;
+        } else {
+          error.value = err.response?.data?.message || 'Failed to send reset link. Please try again.';
+        }
       } finally {
         loading.value = false;
       }
