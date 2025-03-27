@@ -11,6 +11,7 @@
             class="form-control" 
             placeholder="Search..." 
             v-model="searchQuery"
+            @input="onSearchInput"
           >
         </div>
       </div>
@@ -145,6 +146,15 @@ export default {
   setup(props, { emit }) {
     // Search and filtering
     const searchQuery = ref('');
+    
+    // Add debounce functionality for search
+    let searchTimeout = null;
+    const onSearchInput = () => {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => {
+        emit('search', searchQuery.value);
+      }, 500); // 500ms debounce
+    };
     
     // Sorting
     const sortKey = ref('');
@@ -291,7 +301,8 @@ export default {
       getItemKey,
       sortBy,
       getSortIconClass,
-      changePage
+      changePage,
+      onSearchInput // Add this to the return statement
     };
   }
 };

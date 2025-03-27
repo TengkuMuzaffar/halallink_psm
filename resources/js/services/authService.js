@@ -61,6 +61,23 @@ export const getUser = async () => {
   }
 };
 
+// Add this function to your authService.js file
+export const registerEmployee = async (formData) => {
+  try {
+    await getCsrfToken();
+    return await api.post('/api/register-employee', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      },
+      onError: (error) => {
+        console.error('Register employee API error:', error.response?.data || error.message);
+      }
+    });
+  } catch (error) {
+    throw error;
+  }
+};
+
 export default {
   login,
   register,

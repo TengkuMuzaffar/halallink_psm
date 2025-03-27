@@ -3,8 +3,14 @@
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0">{{ title }}</h5>
-        <button v-if="showAddButton" class="btn btn-primary" @click="$emit('add')">
-          <i class="fas fa-plus me-1"></i> Add Employee
+        <button 
+          v-if="showAddButton" 
+          class="btn btn-primary" 
+          @click="$emit('add')"
+          :disabled="loading"
+        >
+          <i class="fas" :class="loading ? 'fa-spinner fa-spin' : 'fa-copy'"></i>
+          <span class="ms-1">{{ loading ? 'Loading...' : 'Copy Registration Link' }}</span>
         </button>
       </div>
       <div class="card-body">

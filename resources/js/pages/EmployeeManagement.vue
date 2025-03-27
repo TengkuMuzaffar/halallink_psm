@@ -10,7 +10,7 @@
       :employees="employees"
       :loading="loading"
       :columns="columns"
-      @add="openAddModal"
+      @add="copyRegistrationLink"
     >
       <!-- Custom filters -->
       <template #filters>
@@ -57,6 +57,7 @@
 
 <script>
 import { ref, reactive, onMounted } from 'vue';
+import { useStore } from 'vuex'; // Add this import
 import EmployeeStats from '../components/employee/EmployeeStats.vue';
 import EmployeeTable from '../components/employee/EmployeeTable.vue';
 import api from '../utils/api';
@@ -69,11 +70,13 @@ export default {
     EmployeeTable
   },
   setup() {
+    const store = useStore(); // Add store
     const loading = ref(true);
     const error = ref(null);
     const employees = ref([]);
     const roleFilter = ref('');
     const statusFilter = ref('');
+    const companyFormID = ref('');
     
     const employeeStats = reactive({
       total: 0,
@@ -94,7 +97,8 @@ export default {
       loading.value = true;
       
       try {
-        const response = await api.get('/api/employees/all', {
+        // Use the new RESTful endpoint instead of /api/employees/all
+        const response = await api.get('/api/employees', {
           onError: (err) => {
             console.error('Error fetching employees:', err);
             error.value = 'Failed to load employees. Please try again.';
@@ -124,7 +128,8 @@ export default {
         if (roleFilter.value) params.role = roleFilter.value;
         if (statusFilter.value) params.status = statusFilter.value;
         
-        const response = await api.get('/api/employees/all', {
+        // Use the new RESTful endpoint instead of /api/employees/all
+        const response = await api.get('/api/employees', {
           params,
           onError: (err) => {
             console.error('Error applying filters:', err);
@@ -190,10 +195,11 @@ export default {
         async () => {
           loading.value = true;
           try {
-            await api.delete(`/api/employees/${employee.id}`, {
+            // Use the correct parameter name (employee) and ID field (userID)
+            await api.delete(`/api/employees/${employee.userID}`, {
               onSuccess: () => {
                 // Remove from local array
-                employees.value = employees.value.filter(e => e.id !== employee.id);
+                employees.value = employees.value.filter(e => e.userID !== employee.userID);
                 
                 // Update stats
                 employeeStats.total = employees.value.length;
@@ -225,8 +231,50 @@ export default {
       );
     };
     
+    // Fetch company formID
+    // Replace fetchCompanyFormID with getCompanyFormID
+    const getCompanyFormID = () => {
+      const user = store.getters.user;
+      console.log('User from store:', user);
+      
+      if (user && user.company && user.company.formID) {
+        companyFormID.value = user.company.formID;
+        console.log('Company formID found:', companyFormID.value);
+        return true;
+      }
+      
+      console.error('Company formID not found in user data');
+      return false;
+    };
+    
+    // Update copyRegistrationLink to use store data
+    const copyRegistrationLink = async () => {
+      loading.value = true;
+      try {
+        if (!companyFormID.value) {
+          if (!getCompanyFormID()) {
+            throw new Error('Company form ID not available');
+          }
+        }
+        
+        if (!companyFormID.value) {
+          throw new Error('Could not get registration link');
+        }
+        
+        const registrationUrl = `${window.location.origin}/register-employee?formID=${companyFormID.value}`;
+        await navigator.clipboard.writeText(registrationUrl);
+        modal.success('Success', 'Registration link copied to clipboard!');
+      } catch (err) {
+        console.error('Error copying link:', err);
+        modal.danger('Error', 'Could not get registration link. Please try again.');
+      } finally {
+        loading.value = false;
+      }
+    };
+    
     onMounted(() => {
       fetchEmployees();
+      getCompanyFormID(); // Initialize formID from store
     });
     
     return {
@@ -240,7 +288,7 @@ export default {
       formatDate,
       getRoleBadgeClass,
       getStatusBadgeClass,
-      openAddModal,
+      copyRegistrationLink, // Replace openAddModal with copyRegistrationLink
       editEmployee,
       deleteEmployee,
       applyFilters

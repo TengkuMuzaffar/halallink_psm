@@ -29,6 +29,7 @@
           :loading="loading"
           :has-actions="true"
           item-key="companyID"
+          @search="handleSearch"
         >
           <!-- Custom filters -->
           <template #filters>
@@ -82,8 +83,14 @@
           
           <!-- Actions slot -->
           <template #actions="{ item }">
-            <button class="btn btn-sm btn-outline-primary me-1" @click="editCompany(item)">
-              <i class="fas fa-edit"></i>
+            <button 
+              v-if="item.admin"
+              class="btn btn-sm me-1" 
+              :class="item.admin.status === 'active' ? 'btn-outline-warning' : 'btn-outline-success'"
+              @click="toggleCompanyStatus(item)"
+            >
+              <i :class="item.admin.status === 'active' ? 'fas fa-ban' : 'fas fa-check'"></i>
+              <!-- {{ item.admin.status === 'active' ? 'Deactivate' : 'Activate' }} -->
             </button>
             <button class="btn btn-sm btn-outline-danger" @click="deleteCompany(item)">
               <i class="fas fa-trash"></i>
@@ -93,8 +100,16 @@
           <!-- Empty state slot -->
           <template #empty>
             <div class="text-center py-4">
-              <i class="fas fa-building text-muted mb-2" style="font-size: 2rem;"></i>
-              <p class="text-muted">No companies found</p>
+              <template v-if="loading">
+                <div class="spinner-border text-primary" role="status">
+                  <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2 text-muted">Loading companies...</p>
+              </template>
+              <template v-else>
+                <i class="fas fa-building text-muted mb-2" style="font-size: 2rem;"></i>
+                <p class="text-muted">No companies found</p>
+              </template>
             </div>
           </template>
         </ResponsiveTable>
@@ -122,6 +137,7 @@ export default {
     const companies = ref([]);
     const typeFilter = ref('');
     const statusFilter = ref('');
+    const searchQuery = ref(''); // Add this line
     
     const stats = ref({
       broiler: 0,
@@ -158,27 +174,43 @@ export default {
       }
     ]);
     
+    // In the columns definition, change the key for the phone column
     const columns = [
       { key: 'company_name', label: 'Company Name', sortable: true },
       { key: 'company_type', label: 'Type', sortable: true },
       { key: 'email', label: 'Email', sortable: true },
-      { key: 'tel_number', label: 'Phone', sortable: true },
+      { key: 'Phone', label: 'Phone', sortable: true }, // Changed from tel_number to Phone to match the template slot name
       { key: 'status', label: 'Status', sortable: true, class: 'text-center' },
       { key: 'created_at', label: 'Created', sortable: true }
     ];
     
     // Fetch companies and stats
     const fetchCompanies = async () => {
+      // Clear existing data first
+      companies.value = [];
       loading.value = true;
       error.value = null;
       
       try {
+        // Build query parameters
+        const params = {};
+        if (typeFilter.value) params.company_type = typeFilter.value;
+        if (statusFilter.value) params.status = statusFilter.value;
+        if (searchQuery.value) params.search = searchQuery.value;
+        
         // Use Promise.all with our API utilities to fetch both resources in parallel
         const [companiesData, statsData] = await api.fetchMultiple([
           { url: '/api/companies', options: {
+            params,
             onError: (err) => {
               console.error('Error fetching companies:', err);
               error.value = 'Failed to load companies. Please try again.';
+              
+              // Show error message with modal
+              modal.danger(
+                'Error Loading Companies',
+                'Failed to load company data. Please try again.'
+              );
             }
           }},
           { url: '/api/companies/stats', options: {
@@ -189,9 +221,12 @@ export default {
           }}
         ]);
         
-        companies.value = companiesData;
+        if (Array.isArray(companiesData)) {
+          companies.value = companiesData;
+          console.log('Fetched companies:', companiesData);
+        }
         
-        if (typeof statsData === 'object') {
+        if (typeof statsData === 'object' && statsData !== null) {
           stats.value = statsData;
         }
       } catch (err) {
@@ -203,6 +238,8 @@ export default {
     
     // Apply filters
     const applyFilters = async () => {
+      // Clear existing data first
+      companies.value = [];
       loading.value = true;
       error.value = null;
       
@@ -211,21 +248,31 @@ export default {
         const params = {};
         if (typeFilter.value) params.company_type = typeFilter.value;
         if (statusFilter.value) params.status = statusFilter.value;
+        if (searchQuery.value) params.search = searchQuery.value;
         
         const filteredCompanies = await api.get('/api/companies', {
           params,
           onError: (err) => {
             console.error('Error applying filters:', err);
             error.value = 'Failed to filter companies. Please try again.';
+            
+            // Show error message
+            modal.danger('Error', 'Failed to filter companies. Please try again.');
           }
         });
         
-        companies.value = filteredCompanies;
+        companies.value = filteredCompanies || [];
       } catch (err) {
         // Error is already handled by onError callback
       } finally {
         loading.value = false;
       }
+    };
+    
+    // Handle search from ResponsiveTable
+    const handleSearch = (query) => {
+      searchQuery.value = query;
+      applyFilters();
     };
     
     // Format date
@@ -267,35 +314,37 @@ export default {
       // Implement edit logic here
     };
     
+    // Delete company function - keep only this one
     const deleteCompany = async (company) => {
       // Use the modal utility for confirmation
       modal.confirm(
         'Delete Company',
         `Are you sure you want to delete ${company.company_name}? This will also delete the associated admin user.`,
         async () => {
+          // Clear existing data first and show loading
+          companies.value = [];
           loading.value = true;
+          
           try {
             await api.fetchData(`/api/companies/${company.companyID}`, {
               method: 'delete',
               onSuccess: (data) => {
-                // Remove from local array
-                companies.value = companies.value.filter(c => c.companyID !== company.companyID);
-                
                 // Show success message
                 modal.success('Success', 'Company deleted successfully');
                 
-                // Refresh stats
-                fetchCompanyStats();
+                // Refresh the entire list and stats
+                fetchCompanies();
               },
               onError: (err) => {
                 console.error('Error deleting company:', err);
                 modal.danger('Error', 'Failed to delete company. Please try again.');
+                // Restore data in case of error
+                fetchCompanies();
               }
             });
           } catch (err) {
             // Error is already handled by onError callback
-          } finally {
-            loading.value = false;
+            fetchCompanies();
           }
         },
         null,
@@ -328,6 +377,55 @@ export default {
       fetchCompanies();
     });
     
+    // In the setup function, add this new function
+    const toggleCompanyStatus = async (company) => {
+      if (!company.admin) return;
+      
+      const newStatus = company.admin.status === 'active' ? 'inactive' : 'active';
+      const actionText = newStatus === 'active' ? 'activate' : 'deactivate';
+      
+      modal.confirm(
+        `${newStatus === 'active' ? 'Activate' : 'Deactivate'} Company`,
+        `Are you sure you want to ${actionText} ${company.company_name}?`,
+        async () => {
+          // Clear existing data to show loading state
+          companies.value = [];
+          loading.value = true;
+          
+          try {
+            await api.fetchData(`/api/companies/${company.companyID}/status`, {
+              method: 'patch',
+              data: { status: newStatus },
+              onSuccess: (data) => {
+                // Refresh the entire list instead of just updating local array
+                fetchCompanies();
+                
+                // Show success message
+                modal.success('Success', `Company ${actionText}d successfully`);
+              },
+              onError: (err) => {
+                console.error(`Error ${actionText}ing company:`, err);
+                modal.danger('Error', `Failed to ${actionText} company. Please try again.`);
+                
+                // Reload the data even on error to ensure consistent state
+                fetchCompanies();
+              }
+            });
+          } catch (err) {
+            // Error is already handled by onError callback
+            // Reload the data even on error to ensure consistent state
+            fetchCompanies();
+          }
+        },
+        null,
+        {
+          confirmLabel: newStatus === 'active' ? 'Activate' : 'Deactivate',
+          confirmType: newStatus === 'active' ? 'success' : 'warning'
+        }
+      );
+    };
+    
+    // Add toggleCompanyStatus to the return statement
     return {
       loading,
       error,
@@ -342,7 +440,9 @@ export default {
       openAddModal,
       editCompany,
       deleteCompany,
-      applyFilters
+      toggleCompanyStatus, // Add this line
+      applyFilters,
+      handleSearch // Add this line
     };
   }
 };

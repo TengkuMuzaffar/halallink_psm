@@ -41,6 +41,21 @@ class CompanyController extends Controller
                 $query->where('status', $request->status);
             }
             
+            // Handle search parameter
+            if ($request->has('search') && !empty($request->search)) {
+                $searchTerm = '%' . $request->search . '%';
+                $query->where(function($q) use ($searchTerm) {
+                    $q->where('company_name', 'LIKE', $searchTerm)
+                      ->orWhereHas('admin', function($adminQuery) use ($searchTerm) {
+                          $adminQuery->where('email', 'LIKE', $searchTerm)
+                                    ->orWhere('tel_number', 'LIKE', $searchTerm);
+                      });
+                });
+            }
+            
+            // Always exclude admin companies
+            $query->where('company_type', '!=', 'admin');
+            
             // Get companies with their admin information
             $companies = $query->with('admin')->get();
             
@@ -173,6 +188,73 @@ class CompanyController extends Controller
         } catch (\Exception $e) {
             Log::error('Error deleting company: ' . $e->getMessage());
             return response()->json(['message' => 'Failed to delete company', 'error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Update the status of a company
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
+    public function updateStatus(Request $request, $id)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'status' => 'required|string|in:active,inactive',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json(['errors' => $validator->errors()], 422);
+            }
+
+            $company = Company::with('admin')->findOrFail($id);
+            
+            // Update the admin user status
+            if ($company->admin) {
+                $company->admin->status = $request->status;
+                $company->admin->save();
+            }
+            
+            return response()->json([
+                'message' => 'Company status updated successfully',
+                'company' => $company->fresh('admin')
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error updating company status: ' . $e->getMessage());
+            return response()->json(['message' => 'Failed to update company status', 'error' => $e->getMessage()], 500);
+        }
+    }
+     /**
+     * Get company information by formID
+     *
+     * @param  string  $formID
+     * @return \Illuminate\Http\Response
+     */
+    public function getByFormID($formID)
+    {
+        try {
+            if (empty($formID)) {
+                return response()->json(['message' => 'FormID is required'], 422);
+            }
+
+            $company = Company::where('formID', $formID)->first();
+            
+            if (!$company) {
+                return response()->json(['message' => 'Company not found'], 404);
+            }
+            
+            // Return necessary information including company_image
+            return response()->json([
+                'company_name' => $company->company_name,
+                'company_type' => $company->company_type,
+                'company_image' => $company->company_image,
+                'formID' => $company->formID
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error fetching company by formID: ' . $e->getMessage());
+            return response()->json(['message' => 'Failed to fetch company information', 'error' => $e->getMessage()], 500);
         }
     }
 }

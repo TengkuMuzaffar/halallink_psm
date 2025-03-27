@@ -163,4 +163,56 @@ class AuthController extends Controller
         
         return response()->json($userData);
     }
+
+    public function registerEmployee(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'formID' => 'required|string|exists:companies,formID',
+            'fullname' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255|unique:users',
+            'password' => 'required|string|min:6|confirmed',
+            'tel_number' => 'required|string|max:20',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+        ]);
+    
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+        
+        // Find the company by formID
+        $company = Company::where('formID', $request->formID)->first();
+        
+        if (!$company) {
+            return response()->json(['message' => 'Invalid company ID.'], 404);
+        }
+        
+        // Handle employee image upload
+        $imagePath = null;
+        if ($request->hasFile('image')) {
+            $imagePath = $request->file('image')->store('employee_image', 'public');
+        }
+    
+        // Create employee user with inactive status
+        $user = User::create([
+            'fullname' => $request->fullname,
+            'email' => $request->email,
+            'password' => Hash::make($request->password),
+            'tel_number' => $request->tel_number,
+            'companyID' => $company->companyID,
+            'role' => 'employee', // Default role is employee
+            'status' => 'inactive', // Default status is inactive until approved
+            'image' => $imagePath,
+        ]);
+    
+        // Format user image URL
+        $userData = $user->toArray();
+        if ($user->image) {
+            $userData['image'] = asset('storage/' . $user->image);
+        }
+    
+        return response()->json([
+            'message' => 'Registration successful. Your account is pending approval by your company administrator.',
+            'user' => $userData,
+        ], 201);
+    }
 }

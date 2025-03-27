@@ -13,6 +13,7 @@ const NotFound = () => import('../pages/NotFound.vue');
 const Unauthorized = () => import('../pages/Unauthorized.vue');
 const CompanyManagement = () => import('../pages/CompanyManagement.vue');
 const Register = () => import('../pages/RegisterPage.vue');
+const RegisterEmployee = () => import('../pages/RegisterEmployeePage.vue');
 const PoultryManagement = () => import('../pages/PoultryManagement.vue');
 const Profile = () => import('../pages/ProfilePage.vue');
 
@@ -28,6 +29,20 @@ const routes = [
     name: 'Register',
     component: Register,
     meta: { requiresAuth: false, redirectIfAuth: true }
+  },
+  {
+    path: '/register-employee',
+    name: 'RegisterEmployee',
+    component: RegisterEmployee,
+    meta: { requiresAuth: false, redirectIfAuth: false },
+    beforeEnter: (to, from, next) => {
+      // Only allow access if formID is present in query params
+      if (!to.query.formID) {
+        next({ name: 'Login' });
+      } else {
+        next();
+      }
+    }
   },
   {
     path: '/forgot-password',
