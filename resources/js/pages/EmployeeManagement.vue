@@ -15,12 +15,6 @@
       <!-- Custom filters -->
       <template #filters>
         <div class="d-flex gap-2">
-          <select class="form-select form-select-sm" v-model="roleFilter" @change="applyFilters">
-            <option value="">All Roles</option>
-            <option value="admin">Admin</option>
-            <option value="employee">Employee</option>
-          </select>
-          
           <select class="form-select form-select-sm" v-model="statusFilter" @change="applyFilters">
             <option value="">All Status</option>
             <option value="active">Active</option>
@@ -30,10 +24,6 @@
       </template>
       
       <!-- Custom column slots -->
-      <template #role="{ item }">
-        <span :class="getRoleBadgeClass(item.role)">{{ item.role }}</span>
-      </template>
-      
       <template #status="{ item }">
         <span :class="getStatusBadgeClass(item.status)">{{ item.status }}</span>
       </template>
@@ -63,7 +53,7 @@
 </template>
 
 <script>
-import { ref, reactive, onMounted } from 'vue';
+import { ref, reactive, onMounted, computed } from 'vue';
 import { useStore } from 'vuex';
 import EmployeeStats from '../components/employee/EmployeeStats.vue';
 import EmployeeTable from '../components/employee/EmployeeTable.vue';
@@ -79,277 +69,208 @@ export default {
   setup() {
     const store = useStore();
     const loading = ref(true);
-    const error = ref(null);
     const employees = ref([]);
-    const roleFilter = ref('');
+    const allEmployees = ref([]); // Store all employees for local filtering
     const statusFilter = ref('');
-    const companyFormID = ref('');
+    const searchQuery = ref('');
     
-    const employeeStats = reactive({
+    // Employee stats - change from reactive array to reactive object
+    const employeeStats = ref({
       total: 0,
       active: 0,
-      inactive: 0
+      inactive: 0,
+      managers: 0
     });
     
+    // Table columns - removed role column
     const columns = [
       { key: 'fullname', label: 'Name', sortable: true },
       { key: 'email', label: 'Email', sortable: true },
-      { key: 'role', label: 'Role', sortable: true },
-      { key: 'status', label: 'Status', sortable: true, class: 'text-center' },
+      { key: 'tel_number', label: 'Phone', sortable: false },
+      { key: 'status', label: 'Status', sortable: true },
       { key: 'created_at', label: 'Joined', sortable: true }
     ];
     
     // Fetch employees
     const fetchEmployees = async () => {
-      loading.value = true;
-      
       try {
-        // Use the new RESTful endpoint instead of /api/employees/all
-        const response = await api.get('/api/employees', {
-          onError: (err) => {
-            console.error('Error fetching employees:', err);
-            error.value = 'Failed to load employees. Please try again.';
-          }
-        });
+        loading.value = true;
+        const response = await api.get('/api/employees');
+        allEmployees.value = response;
+        applyFilters(); // Apply filters to the fetched data
         
-        employees.value = response;
+        // Update stats
+        updateStats();
         
-        // Calculate stats
-        employeeStats.total = employees.value.length;
-        employeeStats.active = employees.value.filter(emp => emp.status === 'active').length;
-        employeeStats.inactive = employees.value.filter(emp => emp.status === 'inactive').length;
-      } catch (err) {
-        // Error is already handled by onError callback
-      } finally {
         loading.value = false;
+      } catch (error) {
+        console.error('Error fetching employees:', error);
+        loading.value = false;
+        modal.danger('Error', 'Failed to load employees');
       }
     };
     
-    // Apply filters
-    const applyFilters = async () => {
-      loading.value = true;
+    // Update employee stats
+    const updateStats = () => {
+      const total = allEmployees.value.length;
+      const active = allEmployees.value.filter(emp => emp.status === 'active').length;
+      const inactive = allEmployees.value.filter(emp => emp.status === 'inactive').length;
+      const managers = allEmployees.value.filter(emp => emp.role === 'manager').length;
       
-      try {
-        // Build query parameters
-        const params = {};
-        if (roleFilter.value) params.role = roleFilter.value;
-        if (statusFilter.value) params.status = statusFilter.value;
-        
-        // Use the new RESTful endpoint instead of /api/employees/all
-        const response = await api.get('/api/employees', {
-          params,
-          onError: (err) => {
-            console.error('Error applying filters:', err);
-            error.value = 'Failed to filter employees. Please try again.';
-          }
-        });
-        
-        employees.value = response;
-        
-        // Update stats based on filtered results
-        employeeStats.total = employees.value.length;
-        employeeStats.active = employees.value.filter(emp => emp.status === 'active').length;
-        employeeStats.inactive = employees.value.filter(emp => emp.status === 'inactive').length;
-      } catch (err) {
-        // Error is already handled by onError callback
-      } finally {
-        loading.value = false;
+      employeeStats.value = {
+        total: total,
+        active: active,
+        inactive: inactive,
+        managers: managers
+      };
+    };
+    
+    // Apply filters
+    const applyFilters = () => {
+      let filteredData = [...allEmployees.value];
+      
+      // Apply status filter
+      if (statusFilter.value) {
+        filteredData = filteredData.filter(emp => emp.status === statusFilter.value);
       }
+      
+      // Apply search query if it exists
+      if (searchQuery.value) {
+        const query = searchQuery.value.toLowerCase();
+        filteredData = filteredData.filter(emp => 
+          emp.fullname?.toLowerCase().includes(query) || 
+          emp.email?.toLowerCase().includes(query) ||
+          emp.tel_number?.toLowerCase().includes(query)
+        );
+      }
+      
+      employees.value = filteredData;
+    };
+    
+    // Handle search
+    const handleSearch = (query) => {
+      searchQuery.value = query;
+      applyFilters();
     };
     
     // Format date
     const formatDate = (dateString) => {
       if (!dateString) return '';
       const date = new Date(dateString);
-      return date.toLocaleDateString();
+      return new Intl.DateTimeFormat('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      }).format(date);
     };
     
-    // Get badge classes
-    const getRoleBadgeClass = (role) => {
-      const classes = 'badge ';
-      switch (role) {
-        case 'admin': return classes + 'bg-primary';
-        case 'employee': return classes + 'bg-info';
-        default: return classes + 'bg-secondary';
-      }
-    };
-    
+    // Get badge class for status
     const getStatusBadgeClass = (status) => {
-      const classes = 'badge ';
-      switch (status) {
-        case 'active': return classes + 'bg-success';
-        case 'inactive': return classes + 'bg-danger';
-        default: return classes + 'bg-secondary';
-      }
+      return status === 'active' ? 'badge bg-success' : 'badge bg-danger';
     };
     
-    // Modal actions
-    const openAddModal = () => {
-      console.log('Opening add employee modal');
-      // Implement modal logic here
-    };
-    
-    const editEmployee = (employee) => {
-      console.log('Editing employee:', employee);
-      // Implement edit logic here
-    };
-    
-    const deleteEmployee = async (employee) => {
-      // Replace confirm with custom modal
-      modal.confirm(
-        'Delete Employee',
-        `Are you sure you want to delete ${employee.fullname}?`,
-        async () => {
-          loading.value = true;
-          try {
-            // Use the correct parameter name (employee) and ID field (userID)
-            await api.delete(`/api/employees/${employee.userID}`, {
-              onSuccess: () => {
-                // Remove from local array
-                employees.value = employees.value.filter(e => e.userID !== employee.userID);
-                
-                // Update stats
-                employeeStats.total = employees.value.length;
-                employeeStats.active = employees.value.filter(emp => emp.status === 'active').length;
-                employeeStats.inactive = employees.value.filter(emp => emp.status === 'inactive').length;
-                
-                // Show success message
-                modal.success('Success', 'Employee deleted successfully');
-              },
-              onError: (err) => {
-                console.error('Error deleting employee:', err);
-                error.value = 'Failed to delete employee. Please try again.';
-                
-                // Show error message
-                modal.danger('Error', 'Failed to delete employee. Please try again.');
-              }
-            });
-          } catch (err) {
-            // Error is already handled by onError callback
-          } finally {
-            loading.value = false;
-          }
-        },
-        null,
-        {
-          confirmLabel: 'Delete',
-          confirmType: 'danger'
-        }
-      );
-    };
-    
-    // Fetch company formID
-    // Replace fetchCompanyFormID with getCompanyFormID
-    const getCompanyFormID = () => {
-      const user = store.getters.user;
-      console.log('User from store:', user);
-      
-      if (user && user.company && user.company.formID) {
-        companyFormID.value = user.company.formID;
-        console.log('Company formID found:', companyFormID.value);
-        return true;
-      }
-      
-      console.error('Company formID not found in user data');
-      return false;
-    };
-    
-    // Update copyRegistrationLink to use store data
-    const copyRegistrationLink = async () => {
-      loading.value = true;
+    // Toggle employee status
+    const toggleEmployeeStatus = async (employee) => {
       try {
-        if (!companyFormID.value) {
-          if (!getCompanyFormID()) {
-            throw new Error('Company form ID not available');
+        const newStatus = employee.status === 'active' ? 'inactive' : 'active';
+        const confirmMessage = newStatus === 'active' 
+          ? `Are you sure you want to activate ${employee.fullname}?`
+          : `Are you sure you want to deactivate ${employee.fullname}?`;
+        
+        modal.confirm('Confirm Status Change', confirmMessage, async (event, modalInstance) => {
+          try {
+            loading.value = true;
+            modalInstance.hide();
+            
+            await api.patch(`/api/employees/${employee.userID}/status`, {
+              status: newStatus
+            });
+            
+            // Update employee status locally
+            const index = allEmployees.value.findIndex(e => e.userID === employee.userID);
+            if (index !== -1) {
+              allEmployees.value[index].status = newStatus;
+              applyFilters(); // Re-apply filters to update the view
+              updateStats(); // Update stats
+            }
+            
+            modal.success('Success', `Employee status updated to ${newStatus}`);
+            loading.value = false;
+          } catch (error) {
+            console.error('Error updating employee status:', error);
+            loading.value = false;
+            modal.danger('Error', 'Failed to update employee status');
           }
-        }
-        
-        if (!companyFormID.value) {
-          throw new Error('Could not get registration link');
-        }
-        
-        const registrationUrl = `${window.location.origin}/register-employee?formID=${companyFormID.value}`;
-        await navigator.clipboard.writeText(registrationUrl);
-        modal.success('Success', 'Registration link copied to clipboard!');
-      } catch (err) {
-        console.error('Error copying link:', err);
-        modal.danger('Error', 'Could not get registration link. Please try again.');
-      } finally {
-        loading.value = false;
+        });
+      } catch (error) {
+        console.error('Error in toggleEmployeeStatus:', error);
+        modal.danger('Error', 'An unexpected error occurred');
       }
     };
     
+    // Edit employee
+    const editEmployee = (employee) => {
+      // Implementation for editing employee
+      modal.info('Edit Employee', 'Edit employee functionality will be implemented soon.');
+    };
+    
+    // Delete employee
+    const deleteEmployee = (employee) => {
+      modal.confirm('Delete Employee', `Are you sure you want to delete ${employee.fullname}?`, async (event, modalInstance) => {
+        try {
+          loading.value = true;
+          modalInstance.hide();
+          
+          await api.delete(`/api/employees/${employee.userID}`);
+          
+          // Remove employee from local array
+          allEmployees.value = allEmployees.value.filter(e => e.userID !== employee.userID);
+          applyFilters(); // Re-apply filters to update the view
+          updateStats(); // Update stats
+          
+          modal.success('Success', 'Employee deleted successfully');
+          loading.value = false;
+        } catch (error) {
+          console.error('Error deleting employee:', error);
+          loading.value = false;
+          modal.danger('Error', 'Failed to delete employee');
+        }
+      });
+    };
+    
+    // Copy registration link
+    const copyRegistrationLink = () => {
+      const registrationLink = `${window.location.origin}/register-employee?companyID=${store.getters.user.companyID}`;
+      
+      navigator.clipboard.writeText(registrationLink)
+        .then(() => {
+          modal.success('Success', 'Registration link copied to clipboard');
+        })
+        .catch(err => {
+          console.error('Could not copy text: ', err);
+          modal.danger('Error', 'Failed to copy registration link');
+        });
+    };
+    
+    // Fetch employees on component mount
     onMounted(() => {
       fetchEmployees();
-      getCompanyFormID(); // Initialize formID from store
     });
-    
-    // Toggle employee status function
-    // Update the toggleEmployeeStatus function to use modal confirmation
-    const toggleEmployeeStatus = async (employee) => {
-      const newStatus = employee.status === 'active' ? 'inactive' : 'active';
-      const actionText = newStatus === 'active' ? 'activate' : 'deactivate';
-      
-      modal.confirm(
-        `${newStatus === 'active' ? 'Activate' : 'Deactivate'} Employee`,
-        `Are you sure you want to ${actionText} ${employee.fullname}?`,
-        async () => {
-          // Clear existing data to show loading state
-          employees.value = [];
-          loading.value = true;
-          
-          try {
-            await api.fetchData(`/api/employees/${employee.userID}/status`, {
-              method: 'patch',
-              data: { status: newStatus },
-              onSuccess: (data) => {
-                // Refresh the entire list instead of just updating local array
-                fetchEmployees();
-                
-                // Show success message
-                modal.success('Success', `Employee ${actionText}d successfully`);
-              },
-              onError: (err) => {
-                console.error(`Error ${actionText}ing employee:`, err);
-                modal.danger('Error', `Failed to ${actionText} employee. Please try again.`);
-                
-                // Reload the data even on error to ensure consistent state
-                fetchEmployees();
-              }
-            });
-          } catch (err) {
-            // Error is already handled by onError callback
-            // Reload the data even on error to ensure consistent state
-            fetchEmployees();
-          }
-        },
-        null,
-        {
-          confirmLabel: newStatus === 'active' ? 'Activate' : 'Deactivate',
-          confirmType: newStatus === 'active' ? 'success' : 'warning'
-        }
-      );
-    };
     
     return {
       loading,
-      error,
       employees,
       employeeStats,
-      roleFilter,
-      statusFilter,
-      companyFormID,
       columns,
-      roleFilter,
       statusFilter,
+      applyFilters,
+      handleSearch,
       formatDate,
-      getRoleBadgeClass,
       getStatusBadgeClass,
       toggleEmployeeStatus,
-      copyRegistrationLink, // Replace openAddModal with copyRegistrationLink
       editEmployee,
       deleteEmployee,
-      applyFilters
+      copyRegistrationLink
     };
   }
 };
