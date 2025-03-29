@@ -14,7 +14,7 @@ return new class extends Migration
             $table->string('formID')->index();
             $table->string('company_name');
             $table->string('company_image')->nullable();
-            $table->enum('company_type', ['admin', 'broiler', 'slaughterhouse', 'SME', 'logistic']);
+            $table->enum('company_type', ['admin', 'broiler', 'slaughterhouse', 'sme', 'logistic']);
             $table->timestamps();
         });
 

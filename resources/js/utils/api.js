@@ -175,6 +175,34 @@ export const del = (url, options = {}) => {
   return fetchData(url, { ...options, method: 'delete' });
 };
 
+/**
+ * Check if an image URL is valid and accessible
+ * @param {string} imageUrl - URL of the image to check
+ * @param {number} timeout - Request timeout in milliseconds
+ * @returns {Promise<boolean>} - Promise resolving to true if image exists, false otherwise
+ */
+export const checkImageExists = async (imageUrl, timeout = 5000) => {
+  if (!imageUrl) return false;
+  
+  try {
+    // Create a new instance without auth headers to avoid CORS issues with image requests
+    const imageClient = axios.create({
+      timeout: timeout,
+      responseType: 'blob'
+    });
+    
+    const response = await imageClient.head(imageUrl);
+    
+    // Check if response is successful and content type is an image
+    return response.status === 200 && 
+           response.headers['content-type'] && 
+           response.headers['content-type'].startsWith('image/');
+  } catch (error) {
+    console.log(`Image not found or inaccessible: ${imageUrl}`);
+    return false;
+  }
+};
+
 // Export default object with all methods
 export default {
   fetchData,
@@ -184,5 +212,6 @@ export default {
   put,
   patch,
   delete: del,
+  checkImageExists,
   client: apiClient
 };

@@ -10,7 +10,7 @@
           :disabled="loading"
         >
           <i class="fas" :class="loading ? 'fa-spinner fa-spin' : 'fa-copy'"></i>
-          <span class="ms-1">{{ loading ? 'Loading...' : 'Copy Registration Link' }}</span>
+          <span class="ms-1 d-none d-md-inline">{{ loading ? 'Loading...' : 'Copy Registration Link' }}</span>
         </button>
       </div>
       <div class="card-body">

@@ -18,7 +18,7 @@
                   height="32"
                 >
               </div>
-              <span>{{ displayName }}</span>
+              <span class="display-name-truncate" :title="displayName">{{ displayName }}</span>
             </a>
             <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
               <li><router-link class="dropdown-item" to="/profile"><i class="bi bi-person me-2"></i>My Profile</router-link></li>
@@ -49,7 +49,7 @@ export default {
     console.log('User from store here:', user.value);
     // Determine which profile image to display based on user role
     const userProfileImage = computed(() => {
-      if (!user.value) return '/images/avatar-placeholder.png';
+      if (!user.value) return '/images/blank.jpg';
       
       if (user.value.role === 'admin' && user.value.company?.company_image) {
         // Check if the image path already includes the full URL
@@ -164,5 +164,19 @@ export default {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.display-name-truncate {
+  max-width: 100px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-block;
+}
+
+@media (max-width: 576px) {
+  .display-name-truncate {
+    max-width: 100px;
+  }
 }
 </style>

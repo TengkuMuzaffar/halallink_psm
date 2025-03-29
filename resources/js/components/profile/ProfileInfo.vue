@@ -33,7 +33,7 @@
             <div class="col-md-3 text-center">
               <div class="avatar-container mb-3">
                 <img 
-                  :src="profileImage || '/images/avatar-placeholder.png'" 
+                  :src="profileImage || '/images/blank.jpg'" 
                   alt="Profile Picture" 
                   class="rounded-circle img-thumbnail" 
                   style="width: 150px; height: 150px; object-fit: cover;"

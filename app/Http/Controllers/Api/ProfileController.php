@@ -30,6 +30,7 @@ class ProfileController extends Controller
             'status' => $user->status,
             'role' => $user->role,
             'image' => $user->image ? asset('storage/' . $user->image) : null,
+            'email_verified_at' => $user->email_verified_at,
         ];
 
         // If user is admin, include company data
@@ -92,7 +93,7 @@ class ProfileController extends Controller
         $user->tel_number = $request->tel_number;
     
         // Handle profile image upload for non-admin users
-        if (!$user->role === 'admin' && $request->hasFile('profile_image')) {
+        if ($user->role !== 'admin' && $request->hasFile('profile_image')) {
             // Delete old image if exists
             if ($user->image) {
                 Storage::disk('public')->delete($user->image);
@@ -120,7 +121,7 @@ class ProfileController extends Controller
                     }
                     
                     // Store new image
-                    $imagePath = $request->file('company_image')->store('company_image', 'public');
+                    $imagePath = $request->file('company_image')->store('company_images', 'public');
                     $company->company_image = $imagePath;
                 }
                 
@@ -145,6 +146,7 @@ class ProfileController extends Controller
                 'status' => $user->status,
                 'role' => $user->role,
                 'image' => $user->image ? asset('storage/' . $user->image) : null,
+                'email_verified_at' => $user->email_verified_at,
             ]
         ];
 

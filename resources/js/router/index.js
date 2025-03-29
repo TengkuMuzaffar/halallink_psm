@@ -16,6 +16,7 @@ const Register = () => import('../pages/RegisterPage.vue');
 const RegisterEmployee = () => import('../pages/RegisterEmployeePage.vue');
 const PoultryManagement = () => import('../pages/PoultryManagement.vue');
 const Profile = () => import('../pages/ProfilePage.vue');
+const VerifyEmail = () => import('../pages/VerifyEmailPage.vue');
 
 const routes = [
   {
@@ -29,6 +30,12 @@ const routes = [
     name: 'Register',
     component: Register,
     meta: { requiresAuth: false, redirectIfAuth: true }
+  },
+  {
+    path: '/verify-email',
+    name: 'VerifyEmail',
+    component: VerifyEmail,
+    meta: { requiresAuth: false }
   },
   {
     path: '/register-employee',
@@ -71,20 +78,16 @@ const routes = [
     meta: { requiresAuth: true },
     children: [
       {
-        path: '',
-        redirect: { name: 'Dashboard' }
-      },
-      {
         path: 'dashboard',
-        name: 'Dashboard',  // This should be 'Dashboard' with capital D
+        name: 'Dashboard',
         component: Dashboard,
-        meta: { requiresAuth: true }
+        meta: { title: 'Dashboard' }
       },
       {
         path: 'profile',
         name: 'Profile',
         component: Profile,
-        meta: { requiresAuth: true }
+        meta: { title: 'My Profile' }
       },
       {
         path: 'employees',
@@ -101,7 +104,6 @@ const routes = [
         component: CompanyManagement,
         meta: {
           requiresAuth: true,
-          requiresRole: 'admin',
           requiresCompanyType: 'admin'
         }
       },
@@ -111,7 +113,6 @@ const routes = [
         component: PoultryManagement,
         meta: {
           requiresAuth: true,
-          requiresRole: 'admin',
           requiresCompanyType: 'admin'
         }
       },
@@ -145,54 +146,41 @@ const router = createRouter({
   routes
 });
 
-// Navigation guard for authentication and role-based access
+// Navigation guard
 router.beforeEach(async (to, from, next) => {
-  // Check if user is authenticated
+  // Check if route requires authentication
+  const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
+  const redirectIfAuth = to.matched.some(record => record.meta.redirectIfAuth);
+  
+  // Get authentication status
   const isAuthenticated = store.getters.isAuthenticated;
   
-  // Redirect authenticated users away from auth pages (login, register, forgot password)
-  if (to.meta.redirectIfAuth && isAuthenticated) {
-    return next({ name: 'Dashboard' });
+  // If route requires auth and user is not authenticated
+  if (requiresAuth && !isAuthenticated) {
+    next({ name: 'Login', query: { redirect: to.fullPath } });
+    return;
   }
   
-  // Check if route requires authentication
-  if (to.matched.some(record => record.meta.requiresAuth)) {
-    // Check if user is logged in
-    if (!isAuthenticated) {
-      return next({ name: 'Login', query: { redirect: to.fullPath } });
-    }
-    
-    // If we have a token but no user data, fetch the user
-    if (!store.getters.user && store.getters.token) {
-      try {
-        await store.dispatch('fetchUser');
-      } catch (error) {
-        console.error('Failed to fetch user data in router guard:', error);
-        return next({ name: 'Login', query: { redirect: to.fullPath } });
+  // If route should redirect authenticated users and user is authenticated
+  if (redirectIfAuth && isAuthenticated) {
+    next({ name: 'Dashboard' });
+    return;
+  }
+  
+  // Check email verification status for authenticated users
+  if (isAuthenticated && to.name !== 'Profile' && to.name !== 'VerifyEmail') {
+    try {
+      const response = await fetchData('/api/email/verification-status');
+      if (!response.verified) {
+        // Redirect to profile page if email is not verified
+        next({ name: 'Profile', query: { verifyEmail: 'true' } });
+        return;
       }
-    }
-    
-    const user = store.getters.user;
-    
-    // Check if route requires specific role
-    if (to.meta.requiresRole && user && user.role !== to.meta.requiresRole) {
-      return next({ name: 'Unauthorized' });
-    }
-    
-    // Check if route requires specific company type
-    if (to.meta.requiresCompanyType) {
-      // Check company type in different possible locations
-      const companyType = 
-        (user.company && user.company.company_type) || 
-        user.company_type;
-        
-      if (companyType !== to.meta.requiresCompanyType) {
-        return next({ name: 'Unauthorized' });
-      }
+    } catch (error) {
+      console.error('Error checking email verification status:', error);
     }
   }
   
-  // If route doesn't require auth or user is authenticated with correct role
   next();
 });
 

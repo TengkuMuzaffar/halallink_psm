@@ -58,15 +58,16 @@ export default {
         items.push({ label: 'Employee Management', path: '/employees', icon: 'fas fa-users' });
         
         // Get company type more robustly
-        const companyType = userCompany.value?.company_type;
         
         // Only show company management for admin role with admin company_type
-        if (companyType === 'admin') {
+      
+      }
+      const companyType = userCompany.value?.company_type;
+
+      if (companyType === 'admin') {
           items.push({ label: 'Company Management', path: '/companies', icon: 'fas fa-building' });
           items.push({ label: 'Poultry Management', path: '/poultries', icon: 'fas fa-feather' });
         }
-      }
-      
       return items;
     });
     

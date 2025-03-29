@@ -15,6 +15,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // Register route middleware
         $middleware->alias([
             'role.company' => \App\Http\Middleware\CheckRoleAndCompanyType::class,
+            'role' => \App\Http\Middleware\CheckRole::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
