@@ -44,6 +44,13 @@
       
       <!-- Actions slot -->
       <template #actions="{ item }">
+        <button 
+          class="btn btn-sm me-1" 
+          :class="item.status === 'active' ? 'btn-outline-warning' : 'btn-outline-success'"
+          @click="toggleEmployeeStatus(item)"
+        >
+          <i :class="item.status === 'active' ? 'fas fa-ban' : 'fas fa-check'"></i>
+        </button>
         <button class="btn btn-sm btn-outline-primary me-1" @click="editEmployee(item)">
           <i class="fas fa-edit"></i>
         </button>
@@ -57,7 +64,7 @@
 
 <script>
 import { ref, reactive, onMounted } from 'vue';
-import { useStore } from 'vuex'; // Add this import
+import { useStore } from 'vuex';
 import EmployeeStats from '../components/employee/EmployeeStats.vue';
 import EmployeeTable from '../components/employee/EmployeeTable.vue';
 import api from '../utils/api';
@@ -70,7 +77,7 @@ export default {
     EmployeeTable
   },
   setup() {
-    const store = useStore(); // Add store
+    const store = useStore();
     const loading = ref(true);
     const error = ref(null);
     const employees = ref([]);
@@ -277,17 +284,68 @@ export default {
       getCompanyFormID(); // Initialize formID from store
     });
     
+    // Toggle employee status function
+    // Update the toggleEmployeeStatus function to use modal confirmation
+    const toggleEmployeeStatus = async (employee) => {
+      const newStatus = employee.status === 'active' ? 'inactive' : 'active';
+      const actionText = newStatus === 'active' ? 'activate' : 'deactivate';
+      
+      modal.confirm(
+        `${newStatus === 'active' ? 'Activate' : 'Deactivate'} Employee`,
+        `Are you sure you want to ${actionText} ${employee.fullname}?`,
+        async () => {
+          // Clear existing data to show loading state
+          employees.value = [];
+          loading.value = true;
+          
+          try {
+            await api.fetchData(`/api/employees/${employee.userID}/status`, {
+              method: 'patch',
+              data: { status: newStatus },
+              onSuccess: (data) => {
+                // Refresh the entire list instead of just updating local array
+                fetchEmployees();
+                
+                // Show success message
+                modal.success('Success', `Employee ${actionText}d successfully`);
+              },
+              onError: (err) => {
+                console.error(`Error ${actionText}ing employee:`, err);
+                modal.danger('Error', `Failed to ${actionText} employee. Please try again.`);
+                
+                // Reload the data even on error to ensure consistent state
+                fetchEmployees();
+              }
+            });
+          } catch (err) {
+            // Error is already handled by onError callback
+            // Reload the data even on error to ensure consistent state
+            fetchEmployees();
+          }
+        },
+        null,
+        {
+          confirmLabel: newStatus === 'active' ? 'Activate' : 'Deactivate',
+          confirmType: newStatus === 'active' ? 'success' : 'warning'
+        }
+      );
+    };
+    
     return {
       loading,
       error,
       employees,
       employeeStats,
+      roleFilter,
+      statusFilter,
+      companyFormID,
       columns,
       roleFilter,
       statusFilter,
       formatDate,
       getRoleBadgeClass,
       getStatusBadgeClass,
+      toggleEmployeeStatus,
       copyRegistrationLink, // Replace openAddModal with copyRegistrationLink
       editEmployee,
       deleteEmployee,

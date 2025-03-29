@@ -12,13 +12,14 @@ use App\Http\Controllers\Api\PasswordController;
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']); // Added register route
 Route::post('/register-employee', [AuthController::class, 'registerEmployee']); // New employee registration route
-Route::get('/companies/{formID}', [CompanyController::class, 'getByFormID']); // New route to get company by formID
+// Route::get('/companies/{formID}', [CompanyController::class, 'getByFormID']); // New route to get company by formID
 // Password routes
 Route::post('/password/forgot', [PasswordController::class, 'sendResetLinkEmail']);
 Route::post('/password/reset', [PasswordController::class, 'resetPassword']);
 Route::post('/password/validate-token', [PasswordController::class, 'validateToken']);
 
 // Protected routes
+// Inside the protected routes middleware group
 Route::middleware('auth:sanctum')->group(function () {
     // Replace the inline function with the controller method
     Route::get('/user', [AuthController::class, 'user']);
@@ -37,12 +38,13 @@ Route::middleware('auth:sanctum')->group(function () {
         
         // Employee management routes for company admins
         Route::apiResource('employees', EmployeeController::class);
+        Route::patch('/employees/{id}/status', [EmployeeController::class, 'updateStatus']);
         
         // Super admin routes (admin of admin company)
         Route::middleware('role.company:admin,admin')->group(function () {
             // Company routes with middleware
             Route::get('/companies', [CompanyController::class, 'index']);
-            Route::get('/companies/stats', [CompanyController::class, 'getStats']);
+            Route::get('/companies/all/stats', [CompanyController::class, 'getStats']);
             Route::post('/companies', [CompanyController::class, 'store']);
             Route::get('/companies/{id}', [CompanyController::class, 'show']);
             Route::put('/companies/{id}', [CompanyController::class, 'update']);

@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class EmployeeController extends Controller
 {
@@ -59,37 +60,14 @@ class EmployeeController extends Controller
                 return response()->json(['message' => 'Unauthorized. Only company admins can create employees.'], 403);
             }
             
-            // Validate request
-            $validator = Validator::make($request->all(), [
-                'fullname' => 'required|string|max:255',
-                'email' => 'required|string|email|max:255|unique:users',
-                'password' => 'required|string|min:8',
-                'tel_number' => 'required|string|max:20',
-                'role' => 'required|string|in:employee,manager',
-            ]);
-            
-            if ($validator->fails()) {
-                return response()->json(['errors' => $validator->errors()], 422);
-            }
-            
-            // Create new employee
-            $employee = new User();
-            $employee->fullname = $request->fullname;
-            $employee->email = $request->email;
-            $employee->password = Hash::make($request->password);
-            $employee->tel_number = $request->tel_number;
-            $employee->role = $request->role;
-            $employee->companyID = $user->companyID; // Assign to the same company as admin
-            $employee->status = 'inactive'; // Default status
-            $employee->save();
-            
+            // Return response indicating direct employee creation is not available
             return response()->json([
-                'message' => 'Employee created successfully',
-                'employee' => $employee
-            ], 201);
+                'message' => 'Direct employee creation is not available. Please use the employee registration link instead.'
+            ], 400);
+            
         } catch (\Exception $e) {
-            Log::error('Error creating employee: ' . $e->getMessage());
-            return response()->json(['message' => 'Failed to create employee', 'error' => $e->getMessage()], 500);
+            Log::error('Error in employee store method: ' . $e->getMessage());
+            return response()->json(['message' => 'An error occurred', 'error' => $e->getMessage()], 500);
         }
     }
     
@@ -162,13 +140,26 @@ class EmployeeController extends Controller
                 'tel_number' => 'string|max:20',
                 'role' => 'string|in:employee,manager',
                 'status' => 'string|in:active,inactive',
+                'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
             ]);
             
             if ($validator->fails()) {
                 return response()->json(['errors' => $validator->errors()], 422);
             }
             
-            // Update employee
+            // Handle image update if provided
+            if ($request->hasFile('image')) {
+                // Delete old image if exists
+                if ($employee->image) {
+                    Storage::disk('public')->delete($employee->image);
+                }
+                
+                // Store new image
+                $imagePath = $request->file('image')->store('employee_image', 'public');
+                $employee->image = $imagePath;
+            }
+            
+            // Update employee fields
             if ($request->has('fullname')) $employee->fullname = $request->fullname;
             if ($request->has('email')) $employee->email = $request->email;
             if ($request->has('tel_number')) $employee->tel_number = $request->tel_number;
@@ -182,9 +173,15 @@ class EmployeeController extends Controller
             
             $employee->save();
             
+            // Format user image URL in response
+            $userData = $employee->toArray();
+            if ($employee->image) {
+                $userData['image'] = asset('storage/' . $employee->image);
+            }
+            
             return response()->json([
                 'message' => 'Employee updated successfully',
-                'employee' => $employee
+                'employee' => $userData
             ]);
         } catch (\Exception $e) {
             Log::error('Error updating employee: ' . $e->getMessage());
@@ -219,6 +216,11 @@ class EmployeeController extends Controller
                 return response()->json(['message' => 'Employee not found or not authorized to delete'], 404);
             }
             
+            // Delete employee image if exists
+            if ($employee->image) {
+                Storage::disk('public')->delete($employee->image);
+            }
+            
             // Delete employee tokens first
             $employee->tokens()->delete();
             
@@ -229,6 +231,56 @@ class EmployeeController extends Controller
         } catch (\Exception $e) {
             Log::error('Error deleting employee: ' . $e->getMessage());
             return response()->json(['message' => 'Failed to delete employee', 'error' => $e->getMessage()], 500);
+        }
+    }
+    
+    /**
+     * Update the status of an employee
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int  $id
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function updateStatus(Request $request, $id)
+    {
+        try {
+            // Get the authenticated user
+            $user = Auth::user();
+            
+            // Check if user is admin
+            if (!$user->isAdmin()) {
+                return response()->json(['message' => 'Unauthorized. Only company admins can update employee status.'], 403);
+            }
+            
+            $validator = Validator::make($request->all(), [
+                'status' => 'required|string|in:active,inactive',
+            ]);
+    
+            if ($validator->fails()) {
+                return response()->json(['errors' => $validator->errors()], 422);
+            }
+    
+            // Get employee from the same company
+            $employee = User::where('userID', $id)
+                ->where('companyID', $user->companyID)
+                ->where('role', '!=', 'admin')
+                ->first();
+            
+            if (!$employee) {
+                return response()->json(['message' => 'Employee not found or not authorized to update'], 404);
+            }
+            
+            // Update employee status
+            $employee->status = $request->status;
+            $employee->save();
+            
+            return response()->json([
+                'message' => 'Employee status updated successfully',
+                'employee' => $employee->fresh()
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error updating employee status: ' . $e->getMessage());
+            return response()->json(['message' => 'Failed to update employee status', 'error' => $e->getMessage()], 500);
         }
     }
 }

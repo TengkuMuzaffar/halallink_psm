@@ -4,9 +4,12 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Company;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 
 class CompanyController extends Controller
 {
@@ -17,9 +20,7 @@ class CompanyController extends Controller
      */
     public function __construct()
     {
-        // Remove these lines - they're causing the error
-        // $this->middleware('auth:sanctum');
-        // $this->middleware('role:admin');
+        // No middleware here - they're applied in the routes
     }
 
     /**
@@ -95,6 +96,28 @@ class CompanyController extends Controller
     }
 
     /**
+     * Get company by formID (public route)
+     *
+     * @param  string  $formID
+     * @return \Illuminate\Http\Response
+     */
+    public function getByFormID($formID)
+    {
+        try {
+            $company = Company::where('formID', $formID)->first();
+            
+            if (!$company) {
+                return response()->json(['message' => 'Company not found'], 404);
+            }
+            
+            return response()->json($company);
+        } catch (\Exception $e) {
+            Log::error('Error fetching company by formID: ' . $e->getMessage());
+            return response()->json(['message' => 'Failed to fetch company', 'error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
      * Store a newly created company
      *
      * @param  \Illuminate\Http\Request  $request
@@ -103,20 +126,52 @@ class CompanyController extends Controller
     public function store(Request $request)
     {
         try {
+            // Validate company data
             $validator = Validator::make($request->all(), [
                 'company_name' => 'required|string|max:255',
                 'company_type' => 'required|string|in:broiler,slaughterhouse,SME,logistic',
-                'email' => 'required|string|email|max:255|unique:companies',
-                'phone' => 'required|string|max:20',
-                'address' => 'required|string',
+                'company_image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+                
+                // Admin user details
+                'email' => 'required|string|email|max:255|unique:users',
+                'password' => 'required|string|min:6',
+                'tel_number' => 'required|string|max:20',
             ]);
 
             if ($validator->fails()) {
                 return response()->json(['errors' => $validator->errors()], 422);
             }
 
-            $company = Company::create($request->all());
-            return response()->json($company, 201);
+            // Handle company image if provided
+            $imagePath = null;
+            if ($request->hasFile('company_image')) {
+                $imagePath = $request->file('company_image')->store('company_images', 'public');
+            }
+
+            // Create company
+            $company = new Company();
+            $company->company_name = $request->company_name;
+            $company->company_type = $request->company_type;
+            $company->company_image = $imagePath;
+            $company->status = 'active';
+            $company->save();
+
+            // Create admin user for the company
+            $admin = new User();
+            $admin->fullname = $request->fullname ?? $request->company_name . ' Admin';
+            $admin->email = $request->email;
+            $admin->password = Hash::make($request->password);
+            $admin->tel_number = $request->tel_number;
+            $admin->role = 'admin';
+            $admin->status = 'active';
+            $admin->companyID = $company->companyID;
+            $admin->save();
+
+            return response()->json([
+                'message' => 'Company created successfully',
+                'company' => $company,
+                'admin' => $admin
+            ], 201);
         } catch (\Exception $e) {
             Log::error('Error creating company: ' . $e->getMessage());
             return response()->json(['message' => 'Failed to create company', 'error' => $e->getMessage()], 500);
@@ -131,8 +186,18 @@ class CompanyController extends Controller
      */
     public function show($id)
     {
-        $company = Company::findOrFail($id);
-        return response()->json($company);
+        try {
+            $company = Company::with('admin')->find($id);
+            
+            if (!$company) {
+                return response()->json(['message' => 'Company not found'], 404);
+            }
+            
+            return response()->json($company);
+        } catch (\Exception $e) {
+            Log::error('Error fetching company: ' . $e->getMessage());
+            return response()->json(['message' => 'Failed to fetch company', 'error' => $e->getMessage()], 500);
+        }
     }
 
     /**
@@ -144,23 +209,91 @@ class CompanyController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $company = Company::findOrFail($id);
-
-        $validator = Validator::make($request->all(), [
-            'company_name' => 'string|max:255',
-            'company_type' => 'string|in:broiler,slaughterhouse,SME,logistic',
-            'email' => 'string|email|max:255|unique:companies,email,' . $id,
-            'phone' => 'string|max:20',
-            'address' => 'string',
-            'status' => 'string|in:active,inactive',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
+        try {
+            $company = Company::find($id);
+            
+            if (!$company) {
+                return response()->json(['message' => 'Company not found'], 404);
+            }
+            
+            // Validate request
+            $validator = Validator::make($request->all(), [
+                'company_name' => 'string|max:255',
+                'company_type' => 'string|in:broiler,slaughterhouse,SME,logistic',
+                'company_image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            ]);
+            
+            if ($validator->fails()) {
+                return response()->json(['errors' => $validator->errors()], 422);
+            }
+            
+            // Handle image update if provided
+            if ($request->hasFile('company_image')) {
+                // Delete old image if exists
+                if ($company->company_image) {
+                    Storage::disk('public')->delete($company->company_image);
+                }
+                
+                // Store new image
+                $imagePath = $request->file('company_image')->store('company_images', 'public');
+                $company->company_image = $imagePath;
+            }
+            
+            // Update company fields
+            if ($request->has('company_name')) $company->company_name = $request->company_name;
+            if ($request->has('company_type')) $company->company_type = $request->company_type;
+            
+            $company->save();
+            
+            return response()->json([
+                'message' => 'Company updated successfully',
+                'company' => $company
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error updating company: ' . $e->getMessage());
+            return response()->json(['message' => 'Failed to update company', 'error' => $e->getMessage()], 500);
         }
+    }
 
-        $company->update($request->all());
-        return response()->json($company);
+    /**
+     * Update company status
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
+    public function updateStatus(Request $request, $id)
+    {
+        try {
+            $company = Company::with('admin')->find($id);
+            
+            if (!$company) {
+                return response()->json(['message' => 'Company not found'], 404);
+            }
+            
+            // Validate request
+            $validator = Validator::make($request->all(), [
+                'status' => 'required|string|in:active,inactive',
+            ]);
+            
+            if ($validator->fails()) {
+                return response()->json(['errors' => $validator->errors()], 422);
+            }
+            
+            // Update admin user status
+            if ($company->admin) {
+                $company->admin->status = $request->status;
+                $company->admin->save();
+            }
+            
+            return response()->json([
+                'message' => 'Company status updated successfully',
+                'company' => Company::with('admin')->find($id)
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error updating company status: ' . $e->getMessage());
+            return response()->json(['message' => 'Failed to update company status', 'error' => $e->getMessage()], 500);
+        }
     }
 
     /**
@@ -172,89 +305,39 @@ class CompanyController extends Controller
     public function destroy($id)
     {
         try {
-            $company = Company::with('admin')->findOrFail($id);
-            
-            // First delete the associated admin user if exists
-            if ($company->admin) {
-                // Delete user tokens first to avoid foreign key constraint issues
-                $company->admin->tokens()->delete();
-                $company->admin->delete();
-            }
-            
-            // Then delete the company
-            $company->delete();
-            
-            return response()->json(['message' => 'Company and associated user deleted successfully'], 200);
-        } catch (\Exception $e) {
-            Log::error('Error deleting company: ' . $e->getMessage());
-            return response()->json(['message' => 'Failed to delete company', 'error' => $e->getMessage()], 500);
-        }
-    }
-
-    /**
-     * Update the status of a company
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function updateStatus(Request $request, $id)
-    {
-        try {
-            $validator = Validator::make($request->all(), [
-                'status' => 'required|string|in:active,inactive',
-            ]);
-
-            if ($validator->fails()) {
-                return response()->json(['errors' => $validator->errors()], 422);
-            }
-
-            $company = Company::with('admin')->findOrFail($id);
-            
-            // Update the admin user status
-            if ($company->admin) {
-                $company->admin->status = $request->status;
-                $company->admin->save();
-            }
-            
-            return response()->json([
-                'message' => 'Company status updated successfully',
-                'company' => $company->fresh('admin')
-            ]);
-        } catch (\Exception $e) {
-            Log::error('Error updating company status: ' . $e->getMessage());
-            return response()->json(['message' => 'Failed to update company status', 'error' => $e->getMessage()], 500);
-        }
-    }
-     /**
-     * Get company information by formID
-     *
-     * @param  string  $formID
-     * @return \Illuminate\Http\Response
-     */
-    public function getByFormID($formID)
-    {
-        try {
-            if (empty($formID)) {
-                return response()->json(['message' => 'FormID is required'], 422);
-            }
-
-            $company = Company::where('formID', $formID)->first();
+            $company = Company::find($id);
             
             if (!$company) {
                 return response()->json(['message' => 'Company not found'], 404);
             }
             
-            // Return necessary information including company_image
-            return response()->json([
-                'company_name' => $company->company_name,
-                'company_type' => $company->company_type,
-                'company_image' => $company->company_image,
-                'formID' => $company->formID
-            ]);
+            // Delete company image if exists
+            if ($company->company_image) {
+                Storage::disk('public')->delete($company->company_image);
+            }
+            
+            // Delete associated users
+            $users = User::where('companyID', $id)->get();
+            foreach ($users as $user) {
+                // Delete user image if exists
+                if ($user->image) {
+                    Storage::disk('public')->delete($user->image);
+                }
+                
+                // Delete user tokens
+                $user->tokens()->delete();
+                
+                // Delete user
+                $user->delete();
+            }
+            
+            // Delete company
+            $company->delete();
+            
+            return response()->json(['message' => 'Company and associated users deleted successfully']);
         } catch (\Exception $e) {
-            Log::error('Error fetching company by formID: ' . $e->getMessage());
-            return response()->json(['message' => 'Failed to fetch company information', 'error' => $e->getMessage()], 500);
+            Log::error('Error deleting company: ' . $e->getMessage());
+            return response()->json(['message' => 'Failed to delete company', 'error' => $e->getMessage()], 500);
         }
     }
 }

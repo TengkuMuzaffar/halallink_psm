@@ -213,7 +213,7 @@ export default {
               );
             }
           }},
-          { url: '/api/companies/stats', options: {
+          { url: '/api/companies/all/stats', options: {
             onError: (err) => {
               console.error('Error fetching company stats:', err);
               error.value = 'Failed to load company statistics. Please try again.';
