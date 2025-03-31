@@ -95,6 +95,8 @@ export default {
     const fetchEmployees = async () => {
       try {
         loading.value = true;
+        employees.value = []; // Clear the current list while loading
+        
         const response = await api.get('/api/employees');
         allEmployees.value = response;
         applyFilters(); // Apply filters to the fetched data
@@ -108,6 +110,60 @@ export default {
         loading.value = false;
         modal.danger('Error', 'Failed to load employees');
       }
+    };
+    
+    // Toggle employee status
+    const toggleEmployeeStatus = async (employee) => {
+      try {
+        const newStatus = employee.status === 'active' ? 'inactive' : 'active';
+        const confirmMessage = newStatus === 'active' 
+          ? `Are you sure you want to activate ${employee.fullname}?`
+          : `Are you sure you want to deactivate ${employee.fullname}?`;
+        
+        modal.confirm('Confirm Status Change', confirmMessage, async () => {
+          try {
+            loading.value = true;
+            employees.value = []; // Clear the table while loading
+            
+            await api.patch(`/api/employees/${employee.userID}/status`, {
+              status: newStatus
+            });
+            
+            // Refresh the employee list instead of updating locally
+            await fetchEmployees();
+            
+            modal.success('Success', `Employee status updated to ${newStatus}`);
+          } catch (error) {
+            console.error('Error updating employee status:', error);
+            loading.value = false;
+            modal.danger('Error', 'Failed to update employee status');
+          }
+        });
+      } catch (error) {
+        console.error('Error in toggleEmployeeStatus:', error);
+        modal.danger('Error', 'An unexpected error occurred');
+      }
+    };
+    
+    // Delete employee
+    const deleteEmployee = (employee) => {
+      modal.confirm('Delete Employee', `Are you sure you want to delete ${employee.fullname}?`, async () => {
+        try {
+          loading.value = true;
+          employees.value = []; // Clear the table while loading
+          
+          await api.delete(`/api/employees/${employee.userID}`);
+          
+          // Refresh the employee list instead of updating locally
+          await fetchEmployees();
+          
+          modal.success('Success', 'Employee deleted successfully');
+        } catch (error) {
+          console.error('Error deleting employee:', error);
+          loading.value = false;
+          modal.danger('Error', 'Failed to delete employee');
+        }
+      });
     };
     
     // Update employee stats
@@ -169,86 +225,46 @@ export default {
       return status === 'active' ? 'badge bg-success' : 'badge bg-danger';
     };
     
-    // Toggle employee status
-    const toggleEmployeeStatus = async (employee) => {
-      try {
-        const newStatus = employee.status === 'active' ? 'inactive' : 'active';
-        const confirmMessage = newStatus === 'active' 
-          ? `Are you sure you want to activate ${employee.fullname}?`
-          : `Are you sure you want to deactivate ${employee.fullname}?`;
-        
-        modal.confirm('Confirm Status Change', confirmMessage, async (event, modalInstance) => {
-          try {
-            loading.value = true;
-            modalInstance.hide();
-            
-            await api.patch(`/api/employees/${employee.userID}/status`, {
-              status: newStatus
-            });
-            
-            // Update employee status locally
-            const index = allEmployees.value.findIndex(e => e.userID === employee.userID);
-            if (index !== -1) {
-              allEmployees.value[index].status = newStatus;
-              applyFilters(); // Re-apply filters to update the view
-              updateStats(); // Update stats
-            }
-            
-            modal.success('Success', `Employee status updated to ${newStatus}`);
-            loading.value = false;
-          } catch (error) {
-            console.error('Error updating employee status:', error);
-            loading.value = false;
-            modal.danger('Error', 'Failed to update employee status');
-          }
-        });
-      } catch (error) {
-        console.error('Error in toggleEmployeeStatus:', error);
-        modal.danger('Error', 'An unexpected error occurred');
-      }
-    };
-    
     // Edit employee
     const editEmployee = (employee) => {
       // Implementation for editing employee
       modal.info('Edit Employee', 'Edit employee functionality will be implemented soon.');
     };
     
-    // Delete employee
-    const deleteEmployee = (employee) => {
-      modal.confirm('Delete Employee', `Are you sure you want to delete ${employee.fullname}?`, async (event, modalInstance) => {
-        try {
-          loading.value = true;
-          modalInstance.hide();
-          
-          await api.delete(`/api/employees/${employee.userID}`);
-          
-          // Remove employee from local array
-          allEmployees.value = allEmployees.value.filter(e => e.userID !== employee.userID);
-          applyFilters(); // Re-apply filters to update the view
-          updateStats(); // Update stats
-          
-          modal.success('Success', 'Employee deleted successfully');
-          loading.value = false;
-        } catch (error) {
-          console.error('Error deleting employee:', error);
-          loading.value = false;
-          modal.danger('Error', 'Failed to delete employee');
-        }
-      });
-    };
-    
     // Copy registration link
     const copyRegistrationLink = () => {
       const registrationLink = `${window.location.origin}/register-employee?companyID=${store.getters.user.companyID}`;
       
+      // Show loading indicator or disable button if needed
       navigator.clipboard.writeText(registrationLink)
         .then(() => {
+          // Success handling
           modal.success('Success', 'Registration link copied to clipboard');
         })
         .catch(err => {
           console.error('Could not copy text: ', err);
-          modal.danger('Error', 'Failed to copy registration link');
+          
+          // Fallback method for older browsers or if clipboard API fails
+          try {
+            const textArea = document.createElement('textarea');
+            textArea.value = registrationLink;
+            textArea.style.position = 'fixed';  // Avoid scrolling to bottom
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            
+            const successful = document.execCommand('copy');
+            if (successful) {
+              modal.success('Success', 'Registration link copied to clipboard');
+            } else {
+              modal.warning('Note', 'Please copy the link manually: ' + registrationLink);
+            }
+            
+            document.body.removeChild(textArea);
+          } catch (fallbackErr) {
+            console.error('Fallback clipboard method failed:', fallbackErr);
+            modal.danger('Error', 'Failed to copy registration link');
+          }
         });
     };
     
