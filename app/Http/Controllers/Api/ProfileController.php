@@ -39,6 +39,7 @@ class ProfileController extends Controller
             if ($company) {
                 $data['company'] = [
                     'companyID' => $company->companyID,
+                    'formID' => $company->formID, // Added formID here
                     'company_name' => $company->company_name,
                     'company_image' => $company->company_image ? asset('storage/' . $company->company_image) : null,
                     'company_type' => $company->company_type,

@@ -80,24 +80,21 @@ export default {
     const fetchCompanyInfo = async (id) => {
       try {
         loading.value = true;
-        const response = await axios.get(`/api/companies/${id}`);
+        const response = await axios.get(`/api/companies/form/${id}`);
         
         if (response.data) {
           companyName.value = response.data.company_name;
           
           // Handle company image path
           if (response.data.company_image) {
-            if (response.data.company_image.startsWith('http')) {
-              companyImage.value = response.data.company_image;
-            } else {
-              companyImage.value = `/storage/${response.data.company_image}`;
-            }
+            companyImage.value = response.data.company_image;
           }
         }
-      } catch (err) {
-        console.error('Error fetching company info:', err);
-        // Don't set error here as we still want to allow registration
-      } finally {
+        
+        loading.value = false;
+      } catch (error) {
+        console.error('Error fetching company info:', error);
+        error.value = 'Could not retrieve company information. Please check the registration link.';
         loading.value = false;
       }
     };

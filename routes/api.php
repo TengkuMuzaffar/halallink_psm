@@ -8,11 +8,14 @@ use App\Http\Controllers\Api\EmployeeController;
 use App\Http\Controllers\Api\CompanyController;
 use App\Http\Controllers\Api\PasswordController;
 use App\Http\Controllers\Api\EmailVerificationController;
+use App\Http\Controllers\Api\ItemController;
 
 // Public routes
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']); // Added register route
 Route::post('/register-employee', [AuthController::class, 'registerEmployee']); // New employee registration route
+Route::get('/companies/form/{formID}', [CompanyController::class, 'getByFormID']);
+
 // Password routes
 Route::post('/password/forgot', [PasswordController::class, 'sendResetLinkEmail']);
 Route::post('/password/reset', [PasswordController::class, 'resetPassword']);
@@ -37,7 +40,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/profile/update', [App\Http\Controllers\Api\ProfileController::class, 'updateProfile']);
     Route::post('/profile/password', [App\Http\Controllers\Api\ProfileController::class, 'updatePassword']);
     Route::post('/profile/locations', [App\Http\Controllers\Api\ProfileController::class, 'manageLocations']);
-    
+    // Poultry routes
+    Route::apiResource('poultries', \App\Http\Controllers\Api\PoultryController::class);
     // Dashboard routes
     Route::get('/dashboard/stats', [DashboardController::class, 'getStats']);
 
@@ -51,11 +55,19 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/companies/{id}', [CompanyController::class, 'update']);
         Route::patch('/companies/{id}/status', [CompanyController::class, 'updateStatus']);
         Route::delete('/companies/{id}', [CompanyController::class, 'destroy']);
-
-        // Poultry routes
-        Route::apiResource('poultries', \App\Http\Controllers\Api\PoultryController::class);
     });
-    
+    Route::middleware('role.company:both,broiler')->group(function () {
+        // Specific routes should come before wildcard routes
+        Route::get('/items/stats', [ItemController::class, 'getItemStats']);
+        Route::get('/items/locations', [ItemController::class, 'getCompanyLocations']);
+        
+        // General item routes
+        Route::get('/items', [ItemController::class, 'index']);
+        Route::post('/items', [ItemController::class, 'store']);
+        Route::get('/items/{id}', [ItemController::class, 'show']);
+        Route::post('/items/{id}', [ItemController::class, 'update']);
+        Route::delete('/items/{id}', [ItemController::class, 'destroy']);
+    });
     // Admin role only routes - regardless of company type
     Route::middleware('role:admin')->group(function () {
         // Employee management routes
@@ -63,6 +75,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::apiResource('employees', EmployeeController::class);
         Route::patch('/employees/{id}/status', [EmployeeController::class, 'updateStatus']);
     });
+    
+  
 });
 
 

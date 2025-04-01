@@ -221,17 +221,7 @@ export default {
       emailVerified.value = newValue;
     });
     
-    // In onMounted, also check the store state
-    onMounted(() => {
-      fetchProfileData();
-      
-      // Also set initial value from store if available
-      emailVerified.value = store.getters.emailVerified;
-      
-      if (route.query.verifyEmail === 'true') {
-        modal.warning('Email Verification Required', 'Please verify your email to access all features');
-      }
-    });
+    
     
     // Send verification email
     const sendVerificationEmail = async () => {

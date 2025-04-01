@@ -50,7 +50,7 @@ export default {
     // Define navigation items based on user role and company type
     const navItems = computed(() => {
       const items = [
-        { label: 'Dashboard', path: '/dashboard', icon: 'fas fa-tachometer-alt' }
+        { label: 'Dashboard', path: '/', icon: 'fas fa-tachometer-alt' }
       ];
       
       // Only show employee management for admins
@@ -67,7 +67,11 @@ export default {
       if (companyType === 'admin') {
           items.push({ label: 'Company Management', path: '/companies', icon: 'fas fa-building' });
           items.push({ label: 'Poultry Management', path: '/poultries', icon: 'fas fa-feather' });
-        }
+      }
+      if (companyType === 'broiler'){
+        items.push({ label: 'Items Management', path: '/items', icon: 'fas fa-boxes' });
+      }
+
       return items;
     });
     

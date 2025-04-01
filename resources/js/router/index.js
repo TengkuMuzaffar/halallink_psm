@@ -17,6 +17,8 @@ const RegisterEmployee = () => import('../pages/RegisterEmployeePage.vue');
 const PoultryManagement = () => import('../pages/PoultryManagement.vue');
 const Profile = () => import('../pages/ProfilePage.vue');
 const VerifyEmail = () => import('../pages/VerifyEmailPage.vue');
+const ItemManagement = () =>  import('../pages/ItemManagement.vue')
+
 
 const routes = [
   {
@@ -78,7 +80,7 @@ const routes = [
     meta: { requiresAuth: true },
     children: [
       {
-        path: 'dashboard',
+        path: '/',
         name: 'Dashboard',
         component: Dashboard,
         meta: { title: 'Dashboard' }
@@ -114,6 +116,15 @@ const routes = [
         meta: {
           requiresAuth: true,
           requiresCompanyType: 'admin'
+        }
+      },
+      {
+        path: '/items',
+        name: 'ItemManagement',
+        component: ItemManagement,
+        meta: {
+          requiresAuth: true,
+          title: 'Item Management'
         }
       },
       // Remove duplicate companies route
@@ -185,3 +196,4 @@ router.beforeEach(async (to, from, next) => {
 });
 
 export default router;
+

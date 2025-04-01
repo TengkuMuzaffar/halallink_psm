@@ -232,40 +232,37 @@ export default {
     };
     
     // Copy registration link
-    const copyRegistrationLink = () => {
-      const registrationLink = `${window.location.origin}/register-employee?companyID=${store.getters.user.companyID}`;
-      
-      // Show loading indicator or disable button if needed
-      navigator.clipboard.writeText(registrationLink)
-        .then(() => {
-          // Success handling
-          modal.success('Success', 'Registration link copied to clipboard');
-        })
-        .catch(err => {
-          console.error('Could not copy text: ', err);
-          
-          // Fallback method for older browsers or if clipboard API fails
-          try {
-            const textArea = document.createElement('textarea');
-            textArea.value = registrationLink;
-            textArea.style.position = 'fixed';  // Avoid scrolling to bottom
-            document.body.appendChild(textArea);
-            textArea.focus();
-            textArea.select();
-            
-            const successful = document.execCommand('copy');
-            if (successful) {
-              modal.success('Success', 'Registration link copied to clipboard');
-            } else {
-              modal.warning('Note', 'Please copy the link manually: ' + registrationLink);
-            }
-            
-            document.body.removeChild(textArea);
-          } catch (fallbackErr) {
-            console.error('Fallback clipboard method failed:', fallbackErr);
-            modal.danger('Error', 'Failed to copy registration link');
-          }
-        });
+    // Update the copyRegistrationLink function to use formID
+    const copyRegistrationLink = async () => {
+      try {
+        // Get the company data for the current admin
+        const companyData = await api.get('/api/profile');
+        console.log('Company Data:', companyData);  
+        if (!companyData || !companyData.company || !companyData.company.formID) {
+          modal.danger('Error', 'Could not retrieve company registration link.');
+          return;
+        }
+        
+        // Create the registration link with formID instead of companyID
+        const registrationLink = `${window.location.origin}/register-employee?formID=${companyData.company.formID}`;
+        
+        // Copy to clipboard
+        navigator.clipboard.writeText(registrationLink)
+          .then(() => {
+            modal.success('Success', 'Employee registration link copied to clipboard. Share this with new employees.');
+          })
+          .catch(err => {
+            console.error('Could not copy text: ', err);
+            // Fallback - show the link to the user to manually copy
+            modal.info('Registration Link', 
+              `<p>Please copy this link and share with new employees:</p>
+               <input type="text" class="form-control" value="${registrationLink}" readonly onClick="this.select();">`
+            );
+          });
+      } catch (error) {
+        console.error('Error getting company data:', error);
+        modal.danger('Error', 'Failed to generate registration link.');
+      }
     };
     
     // Fetch employees on component mount

@@ -31,22 +31,27 @@ class CompanyController extends Controller
     public function index(Request $request)
     {
         try {
-            $query = Company::query();
+            // Start with a base query that excludes admin companies
+            $query = Company::where('company_type', '!=', 'admin');
             
-            // Apply filters if provided
-            if ($request->has('company_type')) {
+            // Apply company type filter if provided
+            if ($request->has('company_type') && !empty($request->company_type)) {
                 $query->where('company_type', $request->company_type);
             }
             
-            if ($request->has('status')) {
-                $query->where('status', $request->status);
+            // Apply status filter to admin users if provided
+            if ($request->has('status') && !empty($request->status)) {
+                $query->whereHas('admin', function($adminQuery) use ($request) {
+                    $adminQuery->where('status', $request->status);
+                });
             }
             
-            // Handle search parameter
+            // Handle search parameter more efficiently
             if ($request->has('search') && !empty($request->search)) {
                 $searchTerm = '%' . $request->search . '%';
                 $query->where(function($q) use ($searchTerm) {
                     $q->where('company_name', 'LIKE', $searchTerm)
+                      ->orWhere('company_type', 'LIKE', $searchTerm)
                       ->orWhereHas('admin', function($adminQuery) use ($searchTerm) {
                           $adminQuery->where('email', 'LIKE', $searchTerm)
                                     ->orWhere('tel_number', 'LIKE', $searchTerm);
@@ -54,17 +59,10 @@ class CompanyController extends Controller
                 });
             }
             
-            // Always exclude admin companies
-            $query->where('company_type', '!=', 'admin');
-            
-            // Get companies with their admin information
-            $companies = $query->with('admin')->get();
-            
-            // Transform the response to include admin details
-            $companies = $companies->map(function($company) {
-                $companyData = $company->toArray();
-                return $companyData;
-            });
+            // Get companies with their admin information in a single query
+            $companies = $query->with(['admin' => function($query) {
+                $query->select('id', 'companyID', 'email', 'tel_number', 'status', 'created_at');
+            }])->get();
             
             return response()->json($companies);
         } catch (\Exception $e) {
@@ -101,6 +99,12 @@ class CompanyController extends Controller
      * @param  string  $formID
      * @return \Illuminate\Http\Response
      */
+    /**
+     * Get company by formID
+     *
+     * @param  string  $formID
+     * @return \Illuminate\Http\Response
+     */
     public function getByFormID($formID)
     {
         try {
@@ -110,7 +114,16 @@ class CompanyController extends Controller
                 return response()->json(['message' => 'Company not found'], 404);
             }
             
-            return response()->json($company);
+            // Format company image URL
+            $data = [
+                'companyID' => $company->companyID,
+                'formID' => $company->formID,
+                'company_name' => $company->company_name,
+                'company_type' => $company->company_type,
+                'company_image' => $company->company_image ? asset('storage/' . $company->company_image) : null,
+            ];
+            
+            return response()->json($data);
         } catch (\Exception $e) {
             Log::error('Error fetching company by formID: ' . $e->getMessage());
             return response()->json(['message' => 'Failed to fetch company', 'error' => $e->getMessage()], 500);
