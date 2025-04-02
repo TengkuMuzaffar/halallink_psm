@@ -176,11 +176,53 @@ export const showModal = (options) => {
   
   // Fix for aria-hidden accessibility issue
   modalElement.addEventListener('hide.bs.modal', () => {
-    // Remove focus from any buttons inside the modal before it's hidden
-    document.activeElement.blur();
+    // Find all focusable elements in the modal
+    const focusableElements = modalElement.querySelectorAll(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
     
-    // Or focus on the body
-    document.body.focus();
+    // Remove focus from any elements inside the modal before it's hidden
+    if (focusableElements.length > 0) {
+      // Check if any element inside the modal has focus
+      const activeElement = document.activeElement;
+      if (modalElement.contains(activeElement) && activeElement instanceof HTMLElement) {
+        // Store reference to the focused element
+        activeElement.dataset.lastFocused = 'true';
+        activeElement.blur();
+        
+        // Move focus to the body explicitly
+        document.body.focus();
+        
+        // Temporarily disable focus for all focusable elements
+        focusableElements.forEach(el => {
+          if (el instanceof HTMLElement) {
+            el.dataset.originalTabindex = el.tabIndex;
+            el.tabIndex = -1;
+          }
+        });
+      }
+    }
+  });
+
+  // Restore original state when modal is fully hidden
+  modalElement.addEventListener('hidden.bs.modal', () => {
+    const focusableElements = modalElement.querySelectorAll(
+      'button, [href], input, select, textarea, [tabindex]'
+    );
+    
+    // Restore original tabindex values
+    focusableElements.forEach(el => {
+      if (el.dataset.originalTabindex) {
+        el.tabIndex = Number(el.dataset.originalTabindex);
+        delete el.dataset.originalTabindex;
+      }
+    });
+    
+    // Remove temporary focus marker
+    const lastFocused = document.querySelector('[data-last-focused]');
+    if (lastFocused) {
+      delete lastFocused.dataset.lastFocused;
+    }
   });
   
   // Add listener to remove modal from DOM after it's hidden

@@ -16,37 +16,7 @@ use Illuminate\Support\Facades\Log;
 
 class ItemController extends Controller
 {
-    /**
-     * Check if the authenticated user belongs to a broiler company
-     *
-     * @return bool
-     */
-    private function isBroilerCompany()
-    {
-        $user = Auth::user();
-        
-        if (!$user) {
-            return false;
-        }
-        
-        if ($user->role === 'admin') {
-            $company = Company::find($user->companyID);
-            return $company && $company->company_type === 'broiler';
-        } elseif ($user->role === 'employee') {
-            // Using the properly imported User model
-            $admin = User::where('companyID', $user->companyID)
-                ->where('role', 'admin')
-                ->first();
-                
-            if ($admin) {
-                $company = Company::find($admin->companyID);
-                return $company && $company->company_type === 'broiler';
-            }
-        }
-        
-        return false;
-    }
-    
+
     /**
      * Display a listing of the items.
      *
@@ -57,22 +27,14 @@ class ItemController extends Controller
         try {
             $user = Auth::user();
             
-            // Get items for the user or their company (if admin)
-            $query = Item::with(['poultry', 'location', 'user']);
-            
-            if ($user->role === 'admin') {
-                // If admin, get all items from the company
-                $query->whereHas('user', function($q) use ($user) {
+            // Get all items for the user's company
+            $items = Item::with(['poultry', 'location', 'user'])
+                ->whereHas('user', function($q) use ($user) {
                     $q->where('companyID', $user->companyID);
-                });
-            } else {
-                // If employee, only get their own items
-                $query->where('userID', $user->userID);
-            }
+                })
+                ->get();
             
-            $items = $query->get();
-            
-            // Format the response
+            // Format the response (remaining code remains the same)
             $formattedItems = $items->map(function($item) {
                 return [
                     'itemID' => $item->itemID,
@@ -94,7 +56,6 @@ class ItemController extends Controller
             return response()->json($formattedItems);
         } catch (\Exception $e) {
             Log::error('Error fetching items: ' . $e->getMessage());
-            Log::error('Stack trace: ' . $e->getTraceAsString());
             return response()->json(['message' => 'Failed to fetch items', 'error' => $e->getMessage()], 500);
         }
     }
@@ -363,34 +324,12 @@ class ItemController extends Controller
     }
     
     /**
-     * Get company locations for dropdown
-     *
-     * @return \Illuminate\Http\Response
-     */
-    public function getCompanyLocations()
-    {
-        
-        try {
-            $user = Auth::user();
-            $locations = Location::where('companyID', $user->companyID)
-                ->select('locationID', 'company_address', 'location_type')
-                ->get();
-            
-            return response()->json($locations);
-        } catch (\Exception $e) {
-            Log::error('Error fetching company locations: ' . $e->getMessage());
-            return response()->json(['message' => 'Failed to fetch company locations', 'error' => $e->getMessage()], 500);
-        }
-    }
-    
-    /**
      * Get item statistics
      *
      * @return \Illuminate\Http\Response
      */
-    public function getStats()
+    public function getItemStats()
     {
-        
         try {
             $user = Auth::user();
             
@@ -416,6 +355,29 @@ class ItemController extends Controller
         } catch (\Exception $e) {
             Log::error('Error fetching item stats: ' . $e->getMessage());
             return response()->json(['message' => 'Failed to fetch item statistics', 'error' => $e->getMessage()], 500);
+        }
+    }
+    
+    /**
+     * Get locations for the authenticated user's company
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function getCompanyLocations()
+    {
+        try {
+            $user = Auth::user();
+            
+            // Get only supplier locations for the user's company
+            $locations = Location::where('companyID', $user->companyID)
+                ->where('location_type', 'supplier')
+                ->select('locationID', 'company_address', 'location_type')
+                ->get();
+            
+            return response()->json($locations);
+        } catch (\Exception $e) {
+            Log::error('Error fetching locations: ' . $e->getMessage());
+            return response()->json(['message' => 'Failed to fetch locations', 'error' => $e->getMessage()], 500);
         }
     }
     

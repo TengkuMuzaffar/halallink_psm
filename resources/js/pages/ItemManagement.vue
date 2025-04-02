@@ -4,36 +4,12 @@
     
     <!-- Item Stats -->
     <div class="row mb-4">
-      <div class="col-md-3 col-sm-6 mb-3">
+      <div class="col-md-4 col-sm-6 mb-3">
         <StatsCard 
           title="Total Items" 
           :count="itemStats.total_items" 
           icon="fas fa-boxes" 
           bg-color="bg-primary"
-        />
-      </div>
-      <div class="col-md-3 col-sm-6 mb-3">
-        <StatsCard 
-          title="Total KG" 
-          :count="itemStats.total_kg" 
-          icon="fas fa-weight-hanging" 
-          bg-color="bg-success"
-        />
-      </div>
-      <div class="col-md-3 col-sm-6 mb-3">
-        <StatsCard 
-          title="Total Units" 
-          :count="itemStats.total_units" 
-          icon="fas fa-cubes" 
-          bg-color="bg-info"
-        />
-      </div>
-      <div class="col-md-3 col-sm-6 mb-3">
-        <StatsCard 
-          title="Total Value (RM)" 
-          :count="itemStats.total_value" 
-          icon="fas fa-dollar-sign" 
-          bg-color="bg-warning"
         />
       </div>
     </div>
@@ -90,20 +66,16 @@
             </div>
           </template>
           
-          <template #measurement="{ item }">
-            <span>{{ item.measurement_value }} {{ item.measurement_type === 'kg' ? 'KG' : 'Units' }}</span>
-          </template>
-          
           <template #price="{ item }">
             <span>RM {{ formatPrice(item.price) }}</span>
           </template>
           
-          <template #total_value="{ item }">
-            <span>RM {{ formatPrice(item.price * item.measurement_value) }}</span>
+          <template #measurement_value="{ item }">
+            <span>{{ item.measurement_value }} {{ item.measurement_type === 'kg' ? 'KG' : 'Units' }}</span>
           </template>
           
-          <template #created_at="{ item }">
-            <span>{{ formatDate(item.created_at) }}</span>
+          <template #total_value="{ item }">
+            <span>RM {{ formatPrice(item.price * item.measurement_value) }}</span>
           </template>
           
           <!-- Actions column -->
@@ -124,8 +96,16 @@
           <!-- Empty state -->
           <template #empty>
             <div class="text-center py-4">
-              <i class="fas fa-box-open fa-3x text-muted mb-3"></i>
-              <p class="mb-0">No items found. Add your first item to get started.</p>
+              <template v-if="loading">
+                <div class="spinner-border text-primary" role="status">
+                  <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2 text-muted">Loading items...</p>
+              </template>
+              <template v-else>
+                <i class="fas fa-box-open fa-3x text-muted mb-3"></i>
+                <p class="mb-0">No items found. Add your first item to get started.</p>
+              </template>
             </div>
           </template>
         </ResponsiveTable>
@@ -335,11 +315,8 @@ export default {
     // Table columns
     const columns = [
       { key: 'poultry_name', label: 'Poultry Type', sortable: true },
-      { key: 'location_name', label: 'Location', sortable: true },
-      { key: 'measurement', label: 'Measurement', sortable: false },
       { key: 'price', label: 'Price (RM)', sortable: true },
-      { key: 'total_value', label: 'Total Value (RM)', sortable: true },
-      { key: 'created_at', label: 'Added On', sortable: true }
+      { key: 'measurement_value', label: 'Quantity', sortable: true }
     ];
     
     // Fetch items
@@ -361,6 +338,155 @@ export default {
         loading.value = false;
         modal.danger('Error', 'Failed to load items');
       }
+    };
+    
+    // Apply filters
+    const applyFilters = () => {
+      // Set loading to true and clear items when applying filters
+      loading.value = true;
+      items.value = []; // Clear the current list while loading
+      
+      let filteredData = [...allItems.value];
+      
+      // Apply poultry filter
+      if (poultryFilter.value) {
+        filteredData = filteredData.filter(item => item.poultryID === poultryFilter.value);
+      }
+      
+      // Apply measurement filter
+      if (measurementFilter.value) {
+        filteredData = filteredData.filter(item => item.measurement_type === measurementFilter.value);
+      }
+      
+      // Apply location filter
+      if (locationFilter.value) {
+        filteredData = filteredData.filter(item => item.locationID === locationFilter.value);
+      }
+      
+      // Apply search query if it exists
+      if (searchQuery.value) {
+        const query = searchQuery.value.toLowerCase();
+        filteredData = filteredData.filter(item => 
+          item.poultry_name?.toLowerCase().includes(query) || 
+          item.location_name?.toLowerCase().includes(query)
+        );
+      }
+      
+      // Short delay to ensure loading state is visible
+      setTimeout(() => {
+        items.value = filteredData;
+        loading.value = false;
+      }, 300);
+    };
+    
+    // Handle search
+    const handleSearch = (query) => {
+      searchQuery.value = query;
+      // Clear items and show loading
+      loading.value = true;
+      items.value = [];
+      applyFilters();
+    };
+    
+    // Save item (add/edit)
+    const saveItem = async () => {
+      try {
+        formLoading.value = true;
+        
+        // Clear items to show loading state in the table
+        items.value = [];
+        loading.value = true;
+        
+        // Create form data for file upload
+        const formData = new FormData();
+        
+        // Add all form fields to formData
+        for (const key in itemForm) {
+          if (key !== 'item_image' && itemForm[key] !== null) {
+            formData.append(key, itemForm[key]);
+          }
+        }
+        
+        // Add image if it exists
+        if (itemForm.item_image instanceof File) {
+          formData.append('item_image', itemForm.item_image);
+        }
+        
+        let response;
+        if (isEditing.value) {
+          response = await api.post(`/api/items/${itemForm.itemID}`, formData, {
+            headers: {
+              'Content-Type': 'multipart/form-data'
+            }
+          });
+        } else {
+          response = await api.post('/api/items', formData, {
+            headers: {
+              'Content-Type': 'multipart/form-data'
+            }
+          });
+        }
+        
+        // Close modal - Use the Bootstrap modal instance directly
+        if (itemModal.value) {
+          itemModal.value.hide();
+        }
+        
+        // Reset form before showing success message
+        // resetForm();
+        
+        // Show success message after a short delay to ensure modal is closed
+        setTimeout(() => {
+          modal.success(
+            isEditing.value ? 'Item Updated' : 'Item Added',
+            isEditing.value ? 'Item has been updated successfully.' : 'New item has been added successfully.'
+          );
+          
+          // Refresh items after successful save
+          fetchItems();
+        }, 300);
+        
+        formLoading.value = false;
+      } catch (error) {
+        console.error('Error saving item:', error);
+        formLoading.value = false;
+        loading.value = false; // Make sure to reset loading state on error
+        
+        // Show error message
+        modal.danger('Error', 'Failed to save item. Please try again.');
+        
+        // Restore previous state without making additional API calls
+        items.value = [...allItems.value];
+        applyFilters();
+      }
+    };
+    
+    // Delete item
+    const deleteItem = async (item) => {
+      modal.confirm(
+        'Delete Item',
+        `Are you sure you want to delete this item?`,
+        async () => {
+          try {
+            loading.value = true;
+            items.value = []; // Clear items to show loading state
+            
+            await api.delete(`/api/items/${item.itemID}`);
+            
+            // Show success message
+            modal.success('Item Deleted', 'Item has been deleted successfully.');
+            
+            // Refresh items
+            await fetchItems();
+          } catch (error) {
+            console.error('Error deleting item:', error);
+            modal.danger('Error', 'Failed to delete item. Please try again.');
+            
+            // Refresh items to ensure consistent state
+            await fetchItems();
+          }
+        }
+      );
     };
     
     // Fetch item stats
@@ -397,42 +523,13 @@ export default {
       }
     };
     
-    // Apply filters
-    const applyFilters = () => {
-      let filteredData = [...allItems.value];
-      
-      // Apply poultry filter
-      if (poultryFilter.value) {
-        filteredData = filteredData.filter(item => item.poultryID === poultryFilter.value);
-      }
-      
-      // Apply measurement filter
-      if (measurementFilter.value) {
-        filteredData = filteredData.filter(item => item.measurement_type === measurementFilter.value);
-      }
-      
-      // Apply location filter
-      if (locationFilter.value) {
-        filteredData = filteredData.filter(item => item.locationID === locationFilter.value);
-      }
-      
-      // Apply search query if it exists
-      if (searchQuery.value) {
-        const query = searchQuery.value.toLowerCase();
-        filteredData = filteredData.filter(item => 
-          item.poultry_name?.toLowerCase().includes(query) || 
-          item.location_name?.toLowerCase().includes(query)
-        );
-      }
-      
-      items.value = filteredData;
-    };
-    
+    /* REMOVE THIS DUPLICATE FUNCTION
     // Handle search
     const handleSearch = (query) => {
       searchQuery.value = query;
       applyFilters();
     };
+    */
     
     // Format price
     const formatPrice = (price) => {
@@ -513,7 +610,8 @@ export default {
       itemModal.value.show();
     };
     
-    // Delete item
+    /* 
+    // This is a duplicate deleteItem function - commenting out to fix the error
     const deleteItem = (item) => {
       modal.confirm('Delete Item', `Are you sure you want to delete this item?`, async () => {
         try {
@@ -533,6 +631,7 @@ export default {
         }
       });
     };
+    */
     
     // Handle image change
     const handleImageChange = (event) => {
@@ -560,66 +659,6 @@ export default {
         imagePreview.value = e.target.result;
       };
       reader.readAsDataURL(file);
-    };
-    
-    // Save item
-    const saveItem = async () => {
-      try {
-        formLoading.value = true;
-        
-        const formData = new FormData();
-        formData.append('poultryID', itemForm.poultryID);
-        formData.append('locationID', itemForm.locationID);
-        formData.append('measurement_type', itemForm.measurement_type);
-        formData.append('measurement_value', itemForm.measurement_value);
-        formData.append('price', itemForm.price);
-        
-        if (itemForm.item_image && typeof itemForm.item_image !== 'string') {
-          formData.append('item_image', itemForm.item_image);
-        }
-        
-        let response;
-        
-        if (isEditing.value) {
-          // Update existing item
-          response = await api.post(`/api/items/${itemForm.itemID}`, formData, {
-            headers: {
-              'Content-Type': 'multipart/form-data'
-            }
-          });
-          
-          modal.success('Success', 'Item updated successfully');
-        } else {
-          // Create new item
-          response = await api.post('/api/items', formData, {
-            headers: {
-              'Content-Type': 'multipart/form-data'
-            }
-          });
-          
-          modal.success('Success', 'Item added successfully');
-        }
-        
-        // Close modal
-        if (itemModal.value) {
-          itemModal.value.hide();
-        }
-        
-        // Refresh items
-        await fetchItems();
-        
-        formLoading.value = false;
-      } catch (error) {
-        console.error('Error saving item:', error);
-        formLoading.value = false;
-        
-        if (error.response && error.response.data && error.response.data.errors) {
-          const errorMessages = Object.values(error.response.data.errors).flat().join('\n');
-          modal.danger('Validation Error', errorMessages);
-        } else {
-          modal.danger('Error', 'Failed to save item');
-        }
-      }
     };
     
     // Initialize component

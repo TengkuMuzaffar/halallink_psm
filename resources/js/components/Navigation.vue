@@ -56,20 +56,22 @@ export default {
       // Only show employee management for admins
       if (user.value && user.value.role === 'admin') {
         items.push({ label: 'Employee Management', path: '/employees', icon: 'fas fa-users' });
-        
-        // Get company type more robustly
-        
-        // Only show company management for admin role with admin company_type
-      
       }
+      
       const companyType = userCompany.value?.company_type;
 
       if (companyType === 'admin') {
-          items.push({ label: 'Company Management', path: '/companies', icon: 'fas fa-building' });
-          items.push({ label: 'Poultry Management', path: '/poultries', icon: 'fas fa-feather' });
+        items.push({ label: 'Company Management', path: '/companies', icon: 'fas fa-building' });
+        items.push({ label: 'Poultry Management', path: '/poultries', icon: 'fas fa-feather' });
       }
-      if (companyType === 'broiler'){
+      
+      if (companyType === 'broiler') {
         items.push({ label: 'Items Management', path: '/items', icon: 'fas fa-boxes' });
+      }
+      
+      // Add Marketplace for SME users
+      if (companyType === 'SME') {
+        items.push({ label: 'Marketplace', path: '/marketplace', icon: 'fas fa-store' });
       }
 
       return items;

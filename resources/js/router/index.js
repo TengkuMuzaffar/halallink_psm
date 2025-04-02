@@ -17,8 +17,8 @@ const RegisterEmployee = () => import('../pages/RegisterEmployeePage.vue');
 const PoultryManagement = () => import('../pages/PoultryManagement.vue');
 const Profile = () => import('../pages/ProfilePage.vue');
 const VerifyEmail = () => import('../pages/VerifyEmailPage.vue');
-const ItemManagement = () =>  import('../pages/ItemManagement.vue')
-
+const ItemManagement = () =>  import('../pages/ItemManagement.vue');
+const Marketplace = () => import('../pages/MarketplacePage.vue');
 
 const routes = [
   {
@@ -127,6 +127,16 @@ const routes = [
           title: 'Item Management'
         }
       },
+      {
+        path: 'marketplace',
+        name: 'Marketplace',
+        component: Marketplace,
+        meta: {
+          requiresAuth: true,
+          requiresCompanyType: 'SME',
+          title: 'Marketplace'
+        }
+      },
       // Remove duplicate companies route
       // {
       // path: 'companies',
@@ -162,6 +172,8 @@ router.beforeEach(async (to, from, next) => {
   // Check if route requires authentication
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
   const redirectIfAuth = to.matched.some(record => record.meta.redirectIfAuth);
+  const requiresRole = to.matched.some(record => record.meta.requiresRole);
+  const requiresCompanyType = to.matched.some(record => record.meta.requiresCompanyType);
   
   // Get authentication status
   const isAuthenticated = store.getters.isAuthenticated;
@@ -176,6 +188,23 @@ router.beforeEach(async (to, from, next) => {
   if (redirectIfAuth && isAuthenticated) {
     next({ name: 'Dashboard' });
     return;
+  }
+  
+  // Check role and company type requirements if user is authenticated
+  if (isAuthenticated && (requiresRole || requiresCompanyType)) {
+    const user = store.getters.user;
+    
+    // Check if route requires specific role
+    if (requiresRole && to.meta.requiresRole && user.role !== to.meta.requiresRole) {
+      next({ name: 'Unauthorized' });
+      return;
+    }
+    
+    // Check if route requires specific company type
+    if (requiresCompanyType && to.meta.requiresCompanyType && user.company?.company_type !== to.meta.requiresCompanyType) {
+      next({ name: 'Unauthorized' });
+      return;
+    }
   }
   
   // Check email verification status for authenticated users

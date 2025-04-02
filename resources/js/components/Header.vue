@@ -50,26 +50,23 @@ export default {
     // Determine which profile image to display based on user role
     const userProfileImage = computed(() => {
       if (!user.value) return '/images/blank.jpg';
-      
+
+      // Check for admin company image first
       if (user.value.role === 'admin' && user.value.company?.company_image) {
-        // Check if the image path already includes the full URL
-        if (user.value.company.company_image.startsWith('http')) {
-          return user.value.company.company_image;
-        } else {
-          // Add the storage URL prefix if it's just a relative path
-          return `/storage/${user.value.company.company_image}`;
-        }
-      } else if (user.value.image) {
-        // Check if the image path already includes the full URL
-        if (user.value.image.startsWith('http')) {
-          return user.value.image;
-        } else {
-          // Add the storage URL prefix if it's just a relative path
-          return `/storage/${user.value.image}`;
-        }
+        return user.value.company.company_image.startsWith('http')
+          ? user.value.company.company_image
+          : `/storage/${user.value.company.company_image}`;
       }
-      
-      return '/images/avatar-placeholder.png';
+
+      // Fallback to user's personal image
+      if (user.value.image) {
+        return user.value.image.startsWith('http')
+          ? user.value.image
+          : `/storage/${user.value.image}`;
+      }
+
+      // Ultimate fallback to blank.jpg
+      return '/images/blank.jpg';
     });
     
     // Display name based on user role

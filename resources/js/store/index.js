@@ -17,8 +17,9 @@ export default createStore({
   },
   mutations: {
     SET_USER(state, user) {
-      state.user = user;
-      // Set email verification status based on user data
+      // Preserve existing company data when updating user
+      const existingCompany = state.user?.company;
+      state.user = user ? { ...user, company: user.company || existingCompany } : null;
       state.emailVerified = !!user?.email_verified_at;
     },
     SET_TOKEN(state, token) {
