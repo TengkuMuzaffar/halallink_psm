@@ -27,18 +27,20 @@
     <div class="row">
       <!-- Profile Information Card -->
       <div class="col-lg-8">
-        <ProfileInfo 
-          :profileData="formattedProfileData"
-          :profileImage="isAdmin ? profileData.company?.company_image : profileData.image"
-          :editMode="editProfileMode"
-          :loading="loading"
-          @toggle-edit="editProfileMode = !editProfileMode"
-          @save="saveProfile"
-          @image-change="handleImageChange"
-        />
+        <div class="mb-4">  <!-- Added wrapper div with margin -->
+          <ProfileInfo 
+            :profileData="formattedProfileData"
+            :profileImage="isAdmin ? profileData.company?.company_image : profileData.image"
+            :editMode="editProfileMode"
+            :loading="loading"
+            @toggle-edit="editProfileMode = !editProfileMode"
+            @save="saveProfile"
+            @image-change="handleImageChange"
+          />
+        </div>
         
         <!-- Company Locations (Admin Only) -->
-        <div v-if="isAdmin">
+        <div v-if="isAdmin" class="mb-4">  <!-- Added margin bottom -->
           <CompanyLocations
             v-model:locations="profileData.locations"
             :loading="locationsLoading"
@@ -183,6 +185,12 @@ export default {
     
     // Format profile data for the form
     const formattedProfileData = computed(() => {
+      if (profileData.value.role === 'admin') {
+        return {
+          ...profileData.value,
+          company_name: profileData.value.company?.company_name
+        };
+      }
       return {
         ...profileData.value
       };
@@ -306,17 +314,19 @@ export default {
           }
         });
         
-        // Update local data with response
-        if (isAdmin.value && response.company) {
-          profileData.value.company = response.company;
-        }
-        
-        // Update user data
+        // Update local data and Vuex store with complete user data
         if (response.user) {
-          Object.assign(profileData.value, response.user);
+          // Update the complete user object including company data
+          const updatedUser = {
+            ...response.user,
+            company: response.company || user.value?.company
+          };
           
-          // Update the Vuex store with the new user data
-          store.commit('SET_USER', response.user);
+          // Update local state
+          profileData.value = updatedUser;
+          
+          // Update Vuex store with complete user data
+          store.commit('SET_USER', updatedUser);
         }
         
         // Reset image variables

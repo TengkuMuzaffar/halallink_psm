@@ -133,7 +133,7 @@ const routes = [
         component: Marketplace,
         meta: {
           requiresAuth: true,
-          requiresCompanyType: 'SME',
+          requiresCompanyType: 'sme',
           title: 'Marketplace'
         }
       },

@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\PasswordController;
 use App\Http\Controllers\Api\EmailVerificationController;
 use App\Http\Controllers\Api\ItemController;
 use App\Http\Controllers\Api\PoultryController;
+use App\Http\Controllers\Api\MarketplaceController;
 
 // Public routes
 Route::post('/login', [AuthController::class, 'login']);
@@ -79,6 +80,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/items/{id}', [ItemController::class, 'update']);
         Route::delete('/items/{id}', [ItemController::class, 'destroy']);
     });
+
+    Route::middleware('role.company:both,SME')->group(function () {
+        Route::get('/marketplace/items', [MarketplaceController::class, 'getItems']);
+        Route::get('/marketplace/poultry-types', [MarketplaceController::class, 'getPoultryTypes']);
+    });
     
     // Admin role only routes - regardless of company type
     Route::middleware('role:admin')->group(function () {
@@ -88,6 +94,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::patch('/employees/{id}/status', [EmployeeController::class, 'updateStatus']);
     });
 });
+
 
 
 

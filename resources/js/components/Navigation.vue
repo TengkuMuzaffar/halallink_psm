@@ -70,7 +70,7 @@ export default {
       }
       
       // Add Marketplace for SME users
-      if (companyType === 'SME') {
+      if (companyType === 'sme') {
         items.push({ label: 'Marketplace', path: '/marketplace', icon: 'fas fa-store' });
       }
 

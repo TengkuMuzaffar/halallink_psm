@@ -13,10 +13,9 @@ return new class extends Migration
     {
         Schema::create('orders', function (Blueprint $table) {
             $table->id('orderID');
-            $table->foreignId('itemID')->constrained('items', 'itemID');
             $table->foreignId('locationID')->constrained('locations', 'locationID');
             $table->foreignId('userID')->constrained('users', 'userID');
-            $table->unsignedBigInteger('paymentID')->nullable();
+            $table->foreignId('paymentID')->nullable()->constrained('payments', 'paymentID');
             $table->timestamp('order_timestamp')->nullable();
             $table->timestamp('deliver_timestamp')->nullable();
             $table->string('order_status');

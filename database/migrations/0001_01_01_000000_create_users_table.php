@@ -22,7 +22,7 @@ return new class extends Migration
         Schema::create('users', function (Blueprint $table) {
             $table->bigIncrements('userID');
             $table->unsignedBigInteger('companyID');
-            $table->string('fullname');
+            $table->string('fullname')->nullable();  // Changed: made fullname nullable
             $table->string('email')->unique();
             $table->string('password');
             $table->string('tel_number')->nullable();

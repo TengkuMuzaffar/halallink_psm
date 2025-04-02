@@ -22,7 +22,6 @@ class Order extends Model
      * @var array<int, string>
      */
     protected $fillable = [
-        'itemID',
         'locationID',
         'userID',
         'paymentID',
@@ -42,14 +41,6 @@ class Order extends Model
     ];
 
     /**
-     * Get the item that owns the order.
-     */
-    public function item()
-    {
-        return $this->belongsTo(Item::class, 'itemID', 'itemID');
-    }
-
-    /**
      * Get the location that owns the order.
      */
     public function location()
@@ -63,6 +54,37 @@ class Order extends Model
     public function user()
     {
         return $this->belongsTo(User::class, 'userID', 'userID');
+    }
+
+    /**
+     * Get the payment associated with the order.
+     */
+    public function payment()
+    {
+        return $this->belongsTo(Payment::class, 'paymentID', 'paymentID');
+    }
+
+    /**
+     * Get the cart items for the order.
+     */
+    public function cartItems()
+    {
+        return $this->hasMany(Cart::class, 'orderID', 'orderID');
+    }
+
+    /**
+     * Get the items through cart.
+     */
+    public function items()
+    {
+        return $this->hasManyThrough(
+            Item::class,
+            Cart::class,
+            'orderID', // Foreign key on carts table
+            'itemID',   // Foreign key on items table
+            'orderID',  // Local key on orders table
+            'itemID'    // Local key on carts table
+        );
     }
 
     /**
