@@ -7,34 +7,104 @@ use App\Models\Poultry;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class PoultryController extends Controller
 {
     /**
-     * Display a listing of the resource.
+     * Display a listing of the resource with pagination and search.
      */
     public function index(Request $request)
     {
-        // Handle filtering if poultry_name parameter is provided
-        if ($request->has('poultry_name')) {
-            $poultries = Poultry::where('poultry_name', $request->poultry_name)->get();
-        } else {
-            $poultries = Poultry::all();
-        }
-        
-        // Format image URLs
-        $poultries = $poultries->map(function($poultry) {
-            $poultryData = $poultry->toArray();
-            if ($poultry->poultry_image) {
-                // Remove the /storage/ prefix if it exists
-                $imagePath = str_replace('/storage/', '', $poultry->poultry_image);
-                $poultryData['poultry_image'] = asset('storage/' . $imagePath);
+        try {
+            // Start with a base query
+            $query = Poultry::query();
+            
+            // Apply search if provided
+            if ($request->has('search') && !empty($request->search)) {
+                $searchTerm = '%' . $request->search . '%';
+                $query->where('poultry_name', 'LIKE', $searchTerm);
             }
-            return $poultryData;
-        });
-        
-        return response()->json($poultries);
+            
+            // Get poultries with pagination
+            $perPage = $request->input('per_page', 10); // Default to 10 items per page
+            $page = $request->input('page', 1);
+            
+            $paginatedPoultries = $query->orderBy('created_at', 'desc')
+                ->paginate($perPage);
+            
+            // Format image URLs
+            $formattedPoultries = $paginatedPoultries->getCollection()->map(function($poultry) {
+                $poultryData = $poultry->toArray();
+                if ($poultry->poultry_image) {
+                    // Remove the /storage/ prefix if it exists
+                    $imagePath = str_replace('/storage/', '', $poultry->poultry_image);
+                    $poultryData['poultry_image'] = asset('storage/' . $imagePath);
+                }
+                return $poultryData;
+            });
+            
+            // Replace the items in the paginator with our formatted items
+            $paginatedPoultries->setCollection($formattedPoultries);
+            
+            // Format the response to match what the frontend expects
+            return response()->json([
+                'success' => true,
+                'data' => $paginatedPoultries->items(),
+                'pagination' => [
+                    'current_page' => $paginatedPoultries->currentPage(),
+                    'last_page' => $paginatedPoultries->lastPage(),
+                    'per_page' => $paginatedPoultries->perPage(),
+                    'total' => $paginatedPoultries->total(),
+                    'from' => $paginatedPoultries->firstItem(),
+                    'to' => $paginatedPoultries->lastItem()
+                ]
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error fetching poultries: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch poultries',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get poultry statistics
+     */
+    public function getStats(Request $request)
+    {
+        try {
+            // Start with a base query
+            $query = Poultry::query();
+            
+            // Apply search if provided
+            if ($request->has('search') && !empty($request->search)) {
+                $searchTerm = '%' . $request->search . '%';
+                $query->where('poultry_name', 'LIKE', $searchTerm);
+            }
+            
+            // Get total count
+            $total = $query->count();
+            
+            // Get unique poultry names count
+            $uniqueNames = Poultry::distinct('poultry_name')->count('poultry_name');
+            
+            $stats = [
+                'total' => $total,
+                'unique_types' => $uniqueNames
+            ];
+            
+            return response()->json($stats);
+        } catch (\Exception $e) {
+            Log::error('Error fetching poultry stats: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Failed to fetch poultry statistics',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
@@ -166,5 +236,25 @@ class PoultryController extends Controller
         $poultry->delete();
         
         return response()->json(['message' => 'Poultry deleted successfully']);
+    }
+
+    /**
+     * Get unique poultry names for filtering
+     */
+    public function getUniqueNames()
+    {
+        try {
+            $uniqueNames = Poultry::distinct('poultry_name')
+                ->pluck('poultry_name')
+                ->toArray();
+            
+            return response()->json($uniqueNames);
+        } catch (\Exception $e) {
+            Log::error('Error fetching unique poultry names: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Failed to fetch unique poultry names',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 }

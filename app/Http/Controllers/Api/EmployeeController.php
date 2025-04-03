@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Storage;
 class EmployeeController extends Controller
 {
     /**
-     * Get employees for the current admin's company
+     * Get employees for the current admin's company with pagination, search, and filters
      *
      * @return \Illuminate\Http\JsonResponse
      */
@@ -30,16 +30,83 @@ class EmployeeController extends Controller
                 return response()->json(['message' => 'Unauthorized. Only company admins can access employee data.'], 403);
             }
             
-            // Get employees from the same company, excluding the admin
-            $employees = User::where('companyID', $user->companyID)
+            // Start with a base query for employees from the same company, excluding the admin
+            $query = User::where('companyID', $user->companyID)
                 ->where('userID', '!=', $user->userID)
-                ->where('role', '!=', 'admin')
-                ->get();
+                ->where('role', '!=', 'admin');
             
-            return response()->json($employees);
+            // Apply status filter if provided
+            if ($request->has('status') && !empty($request->status)) {
+                $query->where('status', $request->status);
+            }
+            
+            // Apply search if provided
+            if ($request->has('search') && !empty($request->search)) {
+                $searchTerm = '%' . $request->search . '%';
+                $query->where(function($q) use ($searchTerm) {
+                    $q->where('name', 'LIKE', $searchTerm)
+                      ->orWhere('email', 'LIKE', $searchTerm)
+                      ->orWhere('phone', 'LIKE', $searchTerm);
+                });
+            }
+            
+            // Apply sorting if provided
+            $sortField = $request->input('sort_field', 'created_at');
+            $sortDirection = $request->input('sort_direction', 'desc');
+            
+            // Validate sort field to prevent SQL injection
+            $allowedSortFields = ['name', 'email', 'phone', 'status', 'created_at'];
+            if (!in_array($sortField, $allowedSortFields)) {
+                $sortField = 'created_at';
+            }
+            
+            $query->orderBy($sortField, $sortDirection === 'asc' ? 'asc' : 'desc');
+            
+            // Get pagination parameters
+            $perPage = $request->input('per_page', 10);
+            $page = $request->input('page', 1);
+            
+            // Get paginated results directly from the database
+            $employees = $query->paginate($perPage, ['*'], 'page', $page);
+            
+            // Get employee stats
+            $stats = [
+                'total' => User::where('companyID', $user->companyID)
+                    ->where('userID', '!=', $user->userID)
+                    ->where('role', '!=', 'admin')
+                    ->count(),
+                'active' => User::where('companyID', $user->companyID)
+                    ->where('userID', '!=', $user->userID)
+                    ->where('role', '!=', 'admin')
+                    ->where('status', 'active')
+                    ->count(),
+                'inactive' => User::where('companyID', $user->companyID)
+                    ->where('userID', '!=', $user->userID)
+                    ->where('role', '!=', 'admin')
+                    ->where('status', 'inactive')
+                    ->count()
+            ];
+            
+            return response()->json([
+                'success' => true,
+                'data' => $employees->items(),
+                'pagination' => [
+                    'current_page' => $employees->currentPage(),
+                    'last_page' => $employees->lastPage(),
+                    'per_page' => $employees->perPage(),
+                    'total' => $employees->total(),
+                    'from' => $employees->firstItem(),
+                    'to' => $employees->lastItem()
+                ],
+                'stats' => $stats
+            ]);
         } catch (\Exception $e) {
             Log::error('Error fetching employees: ' . $e->getMessage());
-            return response()->json(['message' => 'Failed to fetch employees', 'error' => $e->getMessage()], 500);
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch employees', 
+                'error' => $e->getMessage()
+            ], 500);
         }
     }
     
@@ -281,6 +348,61 @@ class EmployeeController extends Controller
         } catch (\Exception $e) {
             Log::error('Error updating employee status: ' . $e->getMessage());
             return response()->json(['message' => 'Failed to update employee status', 'error' => $e->getMessage()], 500);
+        }
+    }
+    
+    /**
+     * Get employee statistics for the current admin's company
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getAllEmployeeStats(Request $request)
+    {
+        try {
+            // Get the authenticated user
+            $user = Auth::user();
+            
+            // Check if user is admin
+            if (!$user->isAdmin()) {
+                return response()->json(['message' => 'Unauthorized. Only company admins can access employee stats.'], 403);
+            }
+            
+            // Start with a base query for employees from the same company, excluding the admin
+            $baseQuery = User::where('companyID', $user->companyID)
+                ->where('userID', '!=', $user->userID)
+                ->where('role', '!=', 'admin');
+            
+            // Apply search filter if provided
+            if ($request->has('search') && !empty($request->search)) {
+                $searchTerm = '%' . $request->search . '%';
+                $baseQuery->where(function($q) use ($searchTerm) {
+                    $q->where('fullname', 'LIKE', $searchTerm)
+                      ->orWhere('email', 'LIKE', $searchTerm)
+                      ->orWhere('tel_number', 'LIKE', $searchTerm);
+                });
+            }
+            
+            // Apply status filter if provided
+            if ($request->has('status') && !empty($request->status)) {
+                $baseQuery->where('status', $request->status);
+            }
+            
+            // Clone the base query for each status
+            $totalQuery = clone $baseQuery;
+            $activeQuery = clone $baseQuery;
+            $inactiveQuery = clone $baseQuery;
+            
+            $stats = [
+                'total' => $totalQuery->count(),
+                'active' => $activeQuery->where('status', 'active')->count(),
+                'inactive' => $inactiveQuery->where('status', 'inactive')->count()
+            ];
+            
+            return response()->json($stats);
+        } catch (\Exception $e) {
+            Log::error('Error fetching employee stats: ' . $e->getMessage());
+            return response()->json(['message' => 'Failed to fetch employee statistics', 'error' => $e->getMessage()], 500);
         }
     }
 }

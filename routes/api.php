@@ -22,6 +22,8 @@ Route::get('/companies/form/{formID}', [CompanyController::class, 'getByFormID']
 Route::get('/poultries', [PoultryController::class, 'index']);
 Route::get('/poultries/{poultry}', [PoultryController::class, 'show']);
 
+
+
 // Password routes
 Route::post('/password/forgot', [PasswordController::class, 'sendResetLinkEmail']);
 Route::post('/password/reset', [PasswordController::class, 'resetPassword']);
@@ -66,6 +68,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/poultries/{poultry}', [PoultryController::class, 'update']);
         Route::patch('/poultries/{poultry}', [PoultryController::class, 'update']);
         Route::delete('/poultries/{poultry}', [PoultryController::class, 'destroy']);
+        // Add this to your existing poultry routes
+        Route::get('/poultries/all/stats', [PoultryController::class, 'getStats']);
     });
     
     Route::middleware('role.company:both,broiler')->group(function () {
@@ -90,7 +94,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Admin role only routes - regardless of company type
     Route::middleware('role:admin')->group(function () {
         // Employee management routes
-        Route::get('/employees/all', [EmployeeController::class, 'getAllEmployees']);
+        Route::get('/employees/all/stats', [EmployeeController::class, 'getAllEmployeeStats']);
         Route::apiResource('employees', EmployeeController::class);
         Route::patch('/employees/{id}/status', [EmployeeController::class, 'updateStatus']);
     });

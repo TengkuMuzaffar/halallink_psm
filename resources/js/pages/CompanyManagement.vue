@@ -23,6 +23,12 @@
         </button>
       </div>
       <div class="card-body">
+        <!-- Error State -->
+        <div v-if="error" class="alert alert-danger" role="alert">
+          {{ error }}
+        </div>
+        
+        <!-- Table (always show, with loading state inside) -->
         <ResponsiveTable
           :columns="columns"
           :items="companies"
@@ -30,6 +36,8 @@
           :has-actions="true"
           item-key="companyID"
           @search="handleSearch"
+          :show-pagination="false"
+          :server-side="true"
         >
           <!-- Custom filters -->
           <template #filters>
@@ -83,36 +91,58 @@
           
           <!-- Actions slot -->
           <template #actions="{ item }">
-            <button 
-              v-if="item.admin"
-              class="btn btn-sm me-1" 
-              :class="item.admin.status === 'active' ? 'btn-outline-warning' : 'btn-outline-success'"
-              @click="toggleCompanyStatus(item)"
-            >
-              <i :class="item.admin.status === 'active' ? 'fas fa-ban' : 'fas fa-check'"></i>
-              <!-- {{ item.admin.status === 'active' ? 'Deactivate' : 'Activate' }} -->
-            </button>
-            <button class="btn btn-sm btn-outline-danger" @click="deleteCompany(item)">
-              <i class="fas fa-trash"></i>
-            </button>
+            <div class="d-flex justify-content-end">
+              <button 
+                v-if="item.admin"
+                class="btn btn-sm me-1" 
+                :class="item.admin.status === 'active' ? 'btn-outline-warning' : 'btn-outline-success'"
+                @click="toggleCompanyStatus(item)"
+              >
+                <i :class="item.admin.status === 'active' ? 'fas fa-ban' : 'fas fa-check'"></i>
+              </button>
+              <button class="btn btn-sm btn-outline-danger" @click="deleteCompany(item)">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
           </template>
           
           <!-- Empty state slot -->
           <template #empty>
             <div class="text-center py-4">
-              <template v-if="loading">
-                <div class="spinner-border text-primary" role="status">
-                  <span class="visually-hidden">Loading...</span>
-                </div>
-                <p class="mt-2 text-muted">Loading companies...</p>
-              </template>
-              <template v-else>
-                <i class="fas fa-building text-muted mb-2" style="font-size: 2rem;"></i>
-                <p class="text-muted">No companies found</p>
-              </template>
+              <i class="fas fa-building text-muted mb-2" style="font-size: 2rem;"></i>
+              <p class="text-muted">No companies found</p>
             </div>
           </template>
         </ResponsiveTable>
+        
+        <!-- Add custom pagination controls (always visible) -->
+        <div v-if="pagination.last_page > 0" class="d-flex justify-content-between align-items-center mt-3">
+          <div>
+            <span class="text-muted">Showing {{ pagination.from || 0 }} to {{ pagination.to || 0 }} of {{ pagination.total || 0 }} entries</span>
+          </div>
+          <nav aria-label="Table pagination">
+            <ul class="pagination mb-0">
+              <li class="page-item" :class="{ disabled: currentPage === 1 || loading }">
+                <a class="page-link" href="#" @click.prevent="!loading && changePage(currentPage - 1)">
+                  <i class="fas fa-chevron-left"></i>
+                </a>
+              </li>
+              <li 
+                v-for="page in paginationRange" 
+                :key="page" 
+                class="page-item"
+                :class="{ active: page === currentPage, disabled: loading }"
+              >
+                <a class="page-link" href="#" @click.prevent="!loading && changePage(page)">{{ page }}</a>
+              </li>
+              <li class="page-item" :class="{ disabled: currentPage === pagination.last_page || loading }">
+                <a class="page-link" href="#" @click.prevent="!loading && changePage(currentPage + 1)">
+                  <i class="fas fa-chevron-right"></i>
+                </a>
+              </li>
+            </ul>
+          </nav>
+        </div>
       </div>
     </div>
   </div>
@@ -137,7 +167,48 @@ export default {
     const companies = ref([]);
     const typeFilter = ref('');
     const statusFilter = ref('');
-    const searchQuery = ref(''); // Add this line
+    const searchQuery = ref('');
+    
+    // Add pagination state
+    const currentPage = ref(1);
+    const perPage = ref(3); // Default to 3 items per page
+    const pagination = ref({
+      current_page: 1,
+      last_page: 1,
+      per_page: 3,
+      total: 0,
+      from: 0,
+      to: 0
+    });
+    
+    // Computed property for pagination range
+    const paginationRange = computed(() => {
+      const range = [];
+      const maxVisiblePages = 5;
+      const totalPages = pagination.value.last_page;
+      
+      if (totalPages <= maxVisiblePages) {
+        // Show all pages if total is less than max visible
+        for (let i = 1; i <= totalPages; i++) {
+          range.push(i);
+        }
+      } else {
+        // Show limited pages with current page in the middle
+        let startPage = Math.max(1, pagination.value.current_page - Math.floor(maxVisiblePages / 2));
+        let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+        
+        // Adjust if we're near the end
+        if (endPage === totalPages) {
+          startPage = Math.max(1, endPage - maxVisiblePages + 1);
+        }
+        
+        for (let i = startPage; i <= endPage; i++) {
+          range.push(i);
+        }
+      }
+      
+      return range;
+    });
     
     const stats = ref({
       broiler: 0,
@@ -186,93 +257,55 @@ export default {
     
     // Fetch companies and stats
     const fetchCompanies = async () => {
-      // Clear existing data first
-      companies.value = [];
-      loading.value = true;
-      error.value = null;
-      
       try {
-        // Build query parameters
-        const params = {};
-        if (typeFilter.value) params.company_type = typeFilter.value;
-        if (statusFilter.value) params.status = statusFilter.value;
-        if (searchQuery.value) params.search = searchQuery.value;
+        // Clear existing data first and show loading
+        companies.value = [];
+        loading.value = true;
+        error.value = null;
         
-        // Use Promise.all with our API utilities to fetch both resources in parallel
-        const [companiesData, statsData] = await api.fetchMultiple([
-          { url: '/api/companies', options: {
-            params,
-            onError: (err) => {
-              console.error('Error fetching companies:', err);
-              error.value = 'Failed to load companies. Please try again.';
-              
-              // Show error message with modal
-              modal.danger(
-                'Error Loading Companies',
-                'Failed to load company data. Please try again.'
-              );
-            }
-          }},
-          { url: '/api/companies/all/stats', options: {
-            onError: (err) => {
-              console.error('Error fetching company stats:', err);
-              error.value = 'Failed to load company statistics. Please try again.';
-            }
-          }}
-        ]);
+        const params = {
+          page: currentPage.value,
+          per_page: perPage.value,
+          search: searchQuery.value || null,
+          company_type: typeFilter.value || null,
+          status: statusFilter.value || null
+        };
         
-        if (Array.isArray(companiesData)) {
-          companies.value = companiesData;
-          console.log('Fetched companies:', companiesData);
-        }
+        const response = await api.get('/api/companies', { params });
         
-        if (typeof statsData === 'object' && statsData !== null) {
-          stats.value = statsData;
+        if (response.data && response.success) {
+          companies.value = response.data;
+          pagination.value = response.pagination;
+          
+          // Also fetch updated stats whenever companies are fetched
+          await fetchCompanyStats();
+        } else {
+          companies.value = [];
+          console.error('Unexpected response format:', response);
         }
       } catch (err) {
-        // Errors are already handled by onError callbacks
+        console.error('Error fetching companies:', err);
+        error.value = err.message || 'Failed to load companies. Please try again later.';
+        companies.value = [];
       } finally {
         loading.value = false;
       }
     };
     
-    // Apply filters
-    const applyFilters = async () => {
-      // Clear existing data first
-      companies.value = [];
-      loading.value = true;
-      error.value = null;
-      
-      try {
-        // Build query parameters
-        const params = {};
-        if (typeFilter.value) params.company_type = typeFilter.value;
-        if (statusFilter.value) params.status = statusFilter.value;
-        if (searchQuery.value) params.search = searchQuery.value;
-        
-        const filteredCompanies = await api.get('/api/companies', {
-          params,
-          onError: (err) => {
-            console.error('Error applying filters:', err);
-            error.value = 'Failed to filter companies. Please try again.';
-            
-            // Show error message
-            modal.danger('Error', 'Failed to filter companies. Please try again.');
-          }
-        });
-        
-        companies.value = filteredCompanies || [];
-      } catch (err) {
-        // Error is already handled by onError callback
-      } finally {
-        loading.value = false;
-      }
+    // Apply filters - simplified to use fetchCompanies
+    const applyFilters = () => {
+      // Reset to first page when applying filters
+      currentPage.value = 1;
+      // Use the fetchCompanies function to maintain consistent behavior
+      fetchCompanies();
     };
     
     // Handle search from ResponsiveTable
     const handleSearch = (query) => {
       searchQuery.value = query;
-      applyFilters();
+      // Reset to first page when searching
+      currentPage.value = 1;
+      fetchCompanies();
     };
     
     // Format date
@@ -358,7 +391,7 @@ export default {
     // Separate function to fetch only stats
     const fetchCompanyStats = async () => {
       try {
-        const statsData = await api.get('/api/companies/stats', {
+        const statsData = await api.get('/api/companies/all/stats', {
           onError: (err) => {
             console.error('Error fetching company stats:', err);
             error.value = 'Failed to load company statistics. Please try again.';
@@ -425,6 +458,18 @@ export default {
       );
     };
     
+    // Add the changePage function before the return statement
+    // Update the changePage function
+    const changePage = (page) => {
+      if (page < 1 || page > pagination.value.last_page || loading.value) return;
+      
+      // Update the current page immediately for UI feedback
+      currentPage.value = page;
+      
+      // Then fetch the data for the new page
+      fetchCompanies();
+    };
+    
     // Add toggleCompanyStatus to the return statement
     return {
       loading,
@@ -434,15 +479,20 @@ export default {
       columns,
       typeFilter,
       statusFilter,
+      pagination,
+      paginationRange,
+      currentPage, // Add this line to expose currentPage to the template
       formatDate,
       getTypeBadgeClass,
       getStatusBadgeClass,
       openAddModal,
       editCompany,
       deleteCompany,
-      toggleCompanyStatus, // Add this line
+      toggleCompanyStatus,
       applyFilters,
-      handleSearch // Add this line
+      handleSearch,
+      changePage,
+      fetchCompanyStats
     };
   }
 };
@@ -451,6 +501,38 @@ export default {
 <style scoped>
 .company-management h1 {
   color: #123524;
+}
+
+/* Pagination styling to match MarketplacePage */
+.pagination {
+  margin-bottom: 0;
+}
+
+.page-link {
+  color: #123524;
+}
+
+.page-item.active .page-link {
+  background-color: #123524;
+  border-color: #123524;
+  color: #fff;
+}
+
+.page-item.disabled .page-link {
+  color: #6c757d;
+  pointer-events: none;
+  background-color: #fff;
+  border-color: #dee2e6;
+}
+
+.page-link:hover {
+  color: #0a1f15;
+  background-color: #e9ecef;
+  border-color: #dee2e6;
+}
+
+.page-link:focus {
+  box-shadow: 0 0 0 0.25rem rgba(18, 53, 36, 0.25);
 }
 
 .badge {

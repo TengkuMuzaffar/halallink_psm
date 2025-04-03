@@ -87,7 +87,10 @@
               <i class="bi bi-geo-alt me-1"></i>{{ product.location }}
             </p>
             <div class="mt-auto">
-              <button class="btn btn-primary w-100">View Details</button>
+              <button class="btn btn-primary w-100 mb-2">View Details</button>
+              <button class="btn btn-outline-primary w-100" @click="addToCart(product)">
+                <i class="bi bi-cart-plus me-1"></i> Add to Cart
+              </button>
             </div>
           </div>
         </div>

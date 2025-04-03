@@ -12,6 +12,7 @@
           bg-color="bg-primary"
         />
       </div>
+     
     </div>
     
     <!-- Poultries Table -->
@@ -23,25 +24,22 @@
         </button>
       </div>
       <div class="card-body">
+        <!-- Error State -->
+        <div v-if="error" class="alert alert-danger" role="alert">
+          {{ error }}
+        </div>
+        
+        <!-- Table (always show, with loading state inside) -->
         <ResponsiveTable
           :columns="columns"
           :items="poultries"
           :loading="loading"
           :has-actions="true"
           item-key="poultryID"
+          @search="handleSearch"
+          :show-pagination="false"
+          :server-side="true"
         >
-          <!-- Custom filters -->
-          <template #filters>
-            <div class="d-flex gap-2">
-              <select class="form-select form-select-sm" v-model="nameFilter" @change="applyFilters">
-                <option value="">All Poultries</option>
-                <option v-for="poultry in uniquePoultryNames" :key="poultry" :value="poultry">
-                  {{ poultry }}
-                </option>
-              </select>
-            </div>
-          </template>
-          
           <!-- Custom column slots -->
           <template #poultry_image="{ item }">
             <div class="d-flex align-items-center">
@@ -58,28 +56,45 @@
             </div>
           </template>
           
-          <template #created_at="{ item }">
-            {{ formatDate(item.created_at) }}
-          </template>
-          
           <!-- Actions slot -->
           <template #actions="{ item }">
             <button class="btn btn-sm btn-outline-primary me-1" @click="editPoultry(item)">
               <i class="fas fa-edit"></i>
             </button>
-            <button class="btn btn-sm btn-outline-danger" @click="deletePoultry(item)">
+            <button class="btn btn-sm btn-outline-danger" @click="confirmDelete(item)">
               <i class="fas fa-trash"></i>
             </button>
           </template>
-          
-          <!-- Empty state slot -->
-          <template #empty>
-            <div class="text-center py-4">
-              <i class="fas fa-feather text-muted mb-2" style="font-size: 2rem;"></i>
-              <p class="text-muted">No poultries found</p>
-            </div>
-          </template>
         </ResponsiveTable>
+        
+        <!-- Pagination - Updated to match MarketplacePage style -->
+        <div v-if="!loading && poultries.length > 0" class="d-flex justify-content-between align-items-center mt-4">
+          <div>
+            <span class="text-muted">Showing {{ pagination.from || 1 }}-{{ pagination.to || poultries.length }} of {{ pagination.total || poultries.length }}</span>
+          </div>
+          <nav aria-label="Poultry pagination">
+            <ul class="pagination mb-0">
+              <li class="page-item" :class="{ disabled: currentPage <= 1 || loading }">
+                <a class="page-link" href="#" @click.prevent="!loading && changePage(currentPage - 1)">
+                  <i class="fas fa-chevron-left"></i>
+                </a>
+              </li>
+              <li 
+                v-for="page in paginationRange" 
+                :key="page" 
+                class="page-item"
+                :class="{ active: page === currentPage, disabled: loading }"
+              >
+                <a class="page-link" href="#" @click.prevent="!loading && changePage(page)">{{ page }}</a>
+              </li>
+              <li class="page-item" :class="{ disabled: currentPage >= pagination.last_page || loading }">
+                <a class="page-link" href="#" @click.prevent="!loading && changePage(currentPage + 1)">
+                  <i class="fas fa-chevron-right"></i>
+                </a>
+              </li>
+            </ul>
+          </nav>
+        </div>
       </div>
     </div>
   </div>
@@ -99,102 +114,128 @@ export default {
     ResponsiveTable
   },
   setup() {
-    const loading = ref(true);
+    const loading = ref(false);
     const error = ref(null);
     const poultries = ref([]);
-    const nameFilter = ref('');
+    const searchQuery = ref('');
     
-    const poultryStats = reactive({
-      total: 0
+    // Add pagination state
+    const currentPage = ref(1);
+    const perPage = ref(10); // Default to 10 items per page
+    const pagination = ref({
+      current_page: 1,
+      last_page: 1,
+      per_page: 10,
+      total: 0,
+      from: 0,
+      to: 0
     });
     
+    // Computed property for pagination range
+    const paginationRange = computed(() => {
+      const range = [];
+      const maxVisiblePages = 5;
+      const totalPages = pagination.value.last_page;
+      
+      if (totalPages <= maxVisiblePages) {
+        // Show all pages if total is less than max visible
+        for (let i = 1; i <= totalPages; i++) {
+          range.push(i);
+        }
+      } else {
+        // Show limited pages with current page in the middle
+        let startPage = Math.max(1, currentPage.value - Math.floor(maxVisiblePages / 2));
+        let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+        
+        // Adjust if we're near the end
+        if (endPage === totalPages) {
+          startPage = Math.max(1, endPage - maxVisiblePages + 1);
+        }
+        
+        for (let i = startPage; i <= endPage; i++) {
+          range.push(i);
+        }
+      }
+      
+      return range;
+    });
+    
+    // Poultry stats
+    const poultryStats = ref({
+      total: 0,
+    });
+    
+    // Table columns
     const columns = [
       { key: 'poultry_image', label: 'Image', sortable: false },
       { key: 'poultry_name', label: 'Name', sortable: true },
       { key: 'created_at', label: 'Created', sortable: true }
     ];
     
-    // Computed property for unique poultry names for filter
-    const uniquePoultryNames = computed(() => {
-      const names = poultries.value.map(p => p.poultry_name);
-      return [...new Set(names)];
-    });
-    
-    // Fetch poultries
+    // Fetch poultries with pagination and search
     const fetchPoultries = async () => {
-      loading.value = true;
-      error.value = null;
-      
-      // Clear existing data before loading new data
-      poultries.value = [];
-      
       try {
-        const response = await api.get('/api/poultries', {
-          onError: (err) => {
-            console.error('Error fetching poultries:', err);
-            error.value = 'Failed to load poultries. Please try again.';
-            
-            // Show error message with modal
-            modal.danger(
-              'Error Loading Poultries',
-              'Failed to load poultry data. Please try again.',
-              {
-                buttons: [
-                  {
-                    label: 'Retry',
-                    type: 'primary',
-                    onClick: () => {
-                      fetchPoultries();
-                    }
-                  },
-                  {
-                    label: 'Dismiss',
-                    type: 'secondary',
-                    dismiss: true
-                  }
-                ]
-              }
-            );
-          }
-        });
+        loading.value = true;
+        error.value = null;
         
-        poultries.value = response;
+        const params = {
+          page: currentPage.value,
+          per_page: perPage.value,
+          search: searchQuery.value || null
+        };
         
-        // Update stats
-        poultryStats.total = poultries.value.length;
+        const response = await api.get('/api/poultries', { params });
+        
+        if (response.data && response.success) {
+          poultries.value = response.data;
+          pagination.value = response.pagination;
+        } else {
+          poultries.value = [];
+          console.error('Unexpected response format:', response);
+        }
       } catch (err) {
-        // Error is already handled by onError callback
+        console.error('Error fetching poultries:', err);
+        error.value = err.message || 'Failed to load poultries. Please try again later.';
+        poultries.value = [];
       } finally {
         loading.value = false;
       }
     };
     
-    // Apply filters
-    const applyFilters = async () => {
-      loading.value = true;
-      
+    // Fetch poultry stats separately
+    const fetchPoultryStats = async () => {
       try {
-        // Build query parameters
-        const params = {};
-        if (nameFilter.value) params.poultry_name = nameFilter.value;
+        const params = {
+          search: searchQuery.value || null
+        };
         
-        const response = await api.get('/api/poultries', {
-          params,
-          onError: (err) => {
-            console.error('Error applying filters:', err);
-            error.value = 'Failed to filter poultries. Please try again.';
-          }
-        });
+        const statsData = await api.get('/api/poultries/all/stats', { params });
         
-        poultries.value = response;
-        
-        // Update stats based on filtered results
-        poultryStats.total = poultries.value.length;
+        if (statsData) {
+          poultryStats.value = statsData;
+        }
       } catch (err) {
-        // Error is already handled by onError callback
-      } finally {
-        loading.value = false;
+        console.error('Error fetching poultry stats:', err);
       }
+    };
+    
+    // Handle search from ResponsiveTable
+    const handleSearch = (query) => {
+      searchQuery.value = query;
+      currentPage.value = 1; // Reset to first page when searching
+      fetchPoultries();
+      fetchPoultryStats(); // Also update stats when search changes
+    };
+    
+    // Change page
+    const changePage = (page) => {
+      if (page < 1 || page > pagination.value.last_page || loading.value) return;
+      
+      // Update the current page immediately for UI feedback
+      currentPage.value = page;
+      
+      // Then fetch the data for the new page
+      fetchPoultries();
     };
     
     // Format date
@@ -204,90 +245,7 @@ export default {
       return date.toLocaleDateString();
     };
     
-    // Modal actions
-    const openAddModal = () => {
-      modal.show({
-        type: 'info',
-        title: 'Add New Poultry',
-        message: `
-          <form id="add-poultry-form">
-            <div class="mb-3">
-              <label for="poultry-name" class="form-label">Poultry Name</label>
-              <input type="text" class="form-control" id="poultry-name" required>
-            </div>
-            <div class="mb-3">
-              <label for="poultry-image-file" class="form-label">Upload Image</label>
-              <input type="file" class="form-control" id="poultry-image-file" accept="image/*">
-            </div>
-          </form>
-        `,
-        buttons: [
-          {
-            label: 'Cancel',
-            type: 'secondary',
-            dismiss: true
-          },
-          {
-            label: 'Save',
-            type: 'primary',
-            onClick: async (_, modalInstance) => {
-              const nameInput = document.getElementById('poultry-name');
-              const imageFileInput = document.getElementById('poultry-image-file');
-              
-              if (!nameInput.value.trim()) {
-                nameInput.classList.add('is-invalid');
-                return;
-              }
-              
-              loading.value = true;
-              // Clear existing data to show loading state
-              poultries.value = [];
-              
-              try {
-                // Create form data for file upload
-                const formData = new FormData();
-                formData.append('poultry_name', nameInput.value.trim());
-                
-                // If file is selected, add it to form data
-                if (imageFileInput.files[0]) {
-                  formData.append('poultry_image_file', imageFileInput.files[0]);
-                }
-                
-                await api.post('/api/poultries', formData, {
-                  headers: {
-                    'Content-Type': 'multipart/form-data'
-                  },
-                  onSuccess: (newPoultry) => {
-                    // Refresh the entire list instead of just adding to local array
-                    fetchPoultries();
-                    
-                    // Show success message
-                    modal.success('Success', 'Poultry added successfully');
-                  },
-                  onError: (err) => {
-                    console.error('Error adding poultry:', err);
-                    error.value = 'Failed to add poultry. Please try again.';
-                    
-                    // Show error message
-                    modal.danger('Error', 'Failed to add poultry. Please try again.');
-                    
-                    // Reload the data even on error to ensure consistent state
-                    fetchPoultries();
-                  }
-                });
-                
-                modalInstance.hide();
-              } catch (err) {
-                // Error is already handled by onError callback
-                // Reload the data even on error to ensure consistent state
-                fetchPoultries();
-              }
-            }
-          }
-        ]
-      });
-    };
-    
+    // Edit poultry
     const editPoultry = (poultry) => {
       modal.show({
         type: 'info',
@@ -380,7 +338,8 @@ export default {
       });
     };
     
-    const deletePoultry = (poultry) => {
+    // Confirm delete
+    const confirmDelete = (poultry) => {
       modal.confirm(
         'Delete Poultry',
         `Are you sure you want to delete "${poultry.poultry_name}"?`,
@@ -423,8 +382,94 @@ export default {
       );
     };
     
+    // Open add modal
+    const openAddModal = () => {
+      modal.show({
+        type: 'info',
+        title: 'Add New Poultry',
+        message: `
+          <form id="add-poultry-form">
+            <div class="mb-3">
+              <label for="poultry-name" class="form-label">Poultry Name</label>
+              <input type="text" class="form-control" id="poultry-name" required>
+            </div>
+            <div class="mb-3">
+              <label for="poultry-image-file" class="form-label">Upload Image</label>
+              <input type="file" class="form-control" id="poultry-image-file" accept="image/*">
+            </div>
+          </form>
+        `,
+        buttons: [
+          {
+            label: 'Cancel',
+            type: 'secondary',
+            dismiss: true
+          },
+          {
+            label: 'Save',
+            type: 'primary',
+            onClick: async (_, modalInstance) => {
+              const nameInput = document.getElementById('poultry-name');
+              const imageFileInput = document.getElementById('poultry-image-file');
+              
+              if (!nameInput.value.trim()) {
+                nameInput.classList.add('is-invalid');
+                return;
+              }
+              
+              loading.value = true;
+              // Clear existing data to show loading state
+              poultries.value = [];
+              
+              try {
+                // Create form data for file upload
+                const formData = new FormData();
+                formData.append('poultry_name', nameInput.value.trim());
+                
+                // If file is selected, add it to form data
+                if (imageFileInput.files[0]) {
+                  formData.append('poultry_image_file', imageFileInput.files[0]);
+                }
+                
+                await api.post('/api/poultries', formData, {
+                  headers: {
+                    'Content-Type': 'multipart/form-data'
+                  },
+                  onSuccess: (newPoultry) => {
+                    // Refresh the entire list instead of just adding to local array
+                    fetchPoultries();
+                    
+                    // Show success message
+                    modal.success('Success', 'Poultry added successfully');
+                  },
+                  onError: (err) => {
+                    console.error('Error adding poultry:', err);
+                    error.value = 'Failed to add poultry. Please try again.';
+                    
+                    // Show error message
+                    modal.danger('Error', 'Failed to add poultry. Please try again.');
+                    
+                    // Reload the data even on error to ensure consistent state
+                    fetchPoultries();
+                  }
+                });
+                
+                modalInstance.hide();
+              } catch (err) {
+                // Error is already handled by onError callback
+                // Reload the data even on error to ensure consistent state
+                fetchPoultries();
+              }
+            }
+          }
+        ]
+      });
+    };
+    
+    // Initialize data
     onMounted(() => {
       fetchPoultries();
+      fetchPoultryStats();
     });
     
     return {
@@ -433,26 +478,33 @@ export default {
       poultries,
       poultryStats,
       columns,
-      nameFilter,
-      uniquePoultryNames,
+      searchQuery,
+      currentPage,
+      pagination,
+      paginationRange,
+      handleSearch,
+      changePage,
       formatDate,
-      openAddModal,
       editPoultry,
-      deletePoultry,
-      applyFilters
+      confirmDelete,
+      openAddModal
     };
   }
-}
+};
 </script>
 
 <style scoped>
-.poultry-management h1 {
+.pagination {
+  margin-bottom: 0;
+}
+
+.page-link {
   color: #123524;
 }
 
-@media (max-width: 768px) {
-  .poultry-management h1 {
-    font-size: 1.75rem;
-  }
+.page-item.active .page-link {
+  background-color: #123524;
+  border-color: #123524;
+  color: #fff;
 }
 </style>

@@ -59,15 +59,36 @@ class CompanyController extends Controller
                 });
             }
             
-            // Get companies with their admin information in a single query
-            $companies = $query->with(['admin' => function($query) {
-                $query->select('id', 'companyID', 'email', 'tel_number', 'status', 'created_at');
-            }])->get();
+            // Get companies with their admin information with pagination
+            $perPage = $request->input('per_page', 3); // Default to 3 items per page
+            $page = $request->input('page', 1);
             
-            return response()->json($companies);
+            $paginatedCompanies = $query->with(['admin' => function($query) {
+                $query->select('id', 'companyID', 'email', 'tel_number', 'status', 'created_at');
+            }])
+            ->orderBy('created_at', 'desc')
+            ->paginate($perPage);
+            
+            // Format the response to match what the frontend expects
+            return response()->json([
+                'success' => true,
+                'data' => $paginatedCompanies->items(),
+                'pagination' => [
+                    'current_page' => $paginatedCompanies->currentPage(),
+                    'last_page' => $paginatedCompanies->lastPage(),
+                    'per_page' => $paginatedCompanies->perPage(),
+                    'total' => $paginatedCompanies->total(),
+                    'from' => $paginatedCompanies->firstItem(),
+                    'to' => $paginatedCompanies->lastItem()
+                ]
+            ]);
         } catch (\Exception $e) {
             Log::error('Error fetching companies: ' . $e->getMessage());
-            return response()->json(['message' => 'Failed to fetch companies', 'error' => $e->getMessage()], 500);
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch companies',
+                'error' => $e->getMessage()
+            ], 500);
         }
     }
 
@@ -76,14 +97,43 @@ class CompanyController extends Controller
      *
      * @return \Illuminate\Http\Response
      */
-    public function getStats()
+    public function getStats(Request $request)
     {
         try {
+            // Start with a base query that excludes admin companies
+            $baseQuery = Company::where('company_type', '!=', 'admin');
+            
+            // Apply search filter if provided
+            if ($request->has('search') && !empty($request->search)) {
+                $searchTerm = '%' . $request->search . '%';
+                $baseQuery->where(function($q) use ($searchTerm) {
+                    $q->where('company_name', 'LIKE', $searchTerm)
+                      ->orWhere('company_type', 'LIKE', $searchTerm)
+                      ->orWhereHas('admin', function($adminQuery) use ($searchTerm) {
+                          $adminQuery->where('email', 'LIKE', $searchTerm)
+                                    ->orWhere('tel_number', 'LIKE', $searchTerm);
+                      });
+                });
+            }
+            
+            // Apply status filter if provided
+            if ($request->has('status') && !empty($request->status)) {
+                $baseQuery->whereHas('admin', function($adminQuery) use ($request) {
+                    $adminQuery->where('status', $request->status);
+                });
+            }
+            
+            // Clone the base query for each company type
+            $broilerQuery = clone $baseQuery;
+            $slaughterhouseQuery = clone $baseQuery;
+            $smeQuery = clone $baseQuery;
+            $logisticQuery = clone $baseQuery;
+            
             $stats = [
-                'broiler' => Company::where('company_type', 'broiler')->count(),
-                'slaughterhouse' => Company::where('company_type', 'slaughterhouse')->count(),
-                'sme' => Company::where('company_type', 'SME')->count(),
-                'logistic' => Company::where('company_type', 'logistic')->count(),
+                'broiler' => $broilerQuery->where('company_type', 'broiler')->count(),
+                'slaughterhouse' => $slaughterhouseQuery->where('company_type', 'slaughterhouse')->count(),
+                'sme' => $smeQuery->where('company_type', 'sme')->count(),
+                'logistic' => $logisticQuery->where('company_type', 'logistic')->count(),
             ];
 
             return response()->json($stats);

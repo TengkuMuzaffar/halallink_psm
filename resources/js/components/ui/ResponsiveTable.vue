@@ -46,19 +46,22 @@
         <tbody>
           <tr v-if="loading">
             <td :colspan="hasActions ? columns.length + 1 : columns.length" class="text-center py-4">
-              <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Loading...</span>
+              <div class="d-flex justify-content-center align-items-center">
+                <div class="spinner-border text-primary me-2" role="status">
+                  <span class="visually-hidden">Loading...</span>
+                </div>
+                <span class="text-muted">Loading data...</span>
               </div>
             </td>
           </tr>
-          <tr v-else-if="filteredItems.length === 0">
+          <tr v-else-if="paginatedItems.length === 0">
             <td :colspan="hasActions ? columns.length + 1 : columns.length" class="text-center py-4">
               <slot name="empty">
                 <div class="text-muted">No data available</div>
               </slot>
             </td>
           </tr>
-          <tr v-for="(item, index) in paginatedItems" :key="getItemKey(item, index)">
+          <tr v-for="(item, index) in paginatedItems" :key="getItemKey(item, index)" v-else>
             <td v-for="column in columns" :key="column.key" :class="column.class">
               <slot :name="column.key" :item="item" :index="index">
                 {{ getItemValue(item, column.key) }}
@@ -74,8 +77,8 @@
     
     <!-- Pagination -->
     <div class="d-flex justify-content-between align-items-center mt-3" v-if="showPagination && filteredItems.length > 0">
-      <div class="pagination-info">
-        Showing {{ paginationStart + 1 }} to {{ Math.min(paginationStart + perPage, filteredItems.length) }} of {{ filteredItems.length }} entries
+      <div>
+        <span class="text-muted">Showing {{ paginationStart + 1 }} to {{ Math.min(paginationStart + perPage, filteredItems.length) }} of {{ filteredItems.length }} entries</span>
       </div>
       <nav aria-label="Table pagination">
         <ul class="pagination mb-0">
@@ -141,6 +144,11 @@ export default {
     perPage: {
       type: Number,
       default: 10
+    },
+    // Add new prop for server-side sorting
+    serverSide: {
+      type: Boolean,
+      default: false
     }
   },
   setup(props, { emit }) {
@@ -168,8 +176,11 @@ export default {
       currentPage.value = 1;
     });
     
-    // Filter items based on search query
+    // Modified to handle server-side filtering
     const filteredItems = computed(() => {
+      // If server-side is enabled, don't filter locally
+      if (props.serverSide) return props.items;
+      
       let result = [...props.items];
       
       // Apply search filter if query exists
@@ -205,6 +216,32 @@ export default {
       return result;
     });
     
+    // Add the missing helper functions
+    // Helper function to get value from an item using a key (supports nested properties)
+    const getItemValue = (item, key) => {
+      // Handle nested properties with dot notation (e.g., 'company.name')
+      if (key.includes('.')) {
+        return key.split('.').reduce((obj, prop) => obj && obj[prop], item);
+      }
+      return item[key];
+    };
+    
+    // Helper function to get a unique key for each item
+    const getItemKey = (item, index) => {
+      return item[props.itemKey] || index;
+    };
+    
+    // Modified to handle server-side pagination
+    const paginatedItems = computed(() => {
+      // If server-side or pagination is disabled, return all filtered items
+      if (props.serverSide || !props.showPagination) return filteredItems.value;
+      
+      return filteredItems.value.slice(
+        paginationStart.value,
+        paginationStart.value + props.perPage
+      );
+    });
+    
     // Pagination calculations
     const totalPages = computed(() => {
       return Math.ceil(filteredItems.value.length / props.perPage);
@@ -214,15 +251,7 @@ export default {
       return (currentPage.value - 1) * props.perPage;
     });
     
-    const paginatedItems = computed(() => {
-      if (!props.showPagination) return filteredItems.value;
-      
-      return filteredItems.value.slice(
-        paginationStart.value,
-        paginationStart.value + props.perPage
-      );
-    });
-    
+    // Add the missing pageNumbers computed property
     const pageNumbers = computed(() => {
       const pages = [];
       const maxVisiblePages = 5;
@@ -250,19 +279,7 @@ export default {
       return pages;
     });
     
-    // Helper functions
-    const getItemValue = (item, key) => {
-      // Handle nested properties with dot notation (e.g., 'company.name')
-      if (key.includes('.')) {
-        return key.split('.').reduce((obj, prop) => obj && obj[prop], item);
-      }
-      return item[key];
-    };
-    
-    const getItemKey = (item, index) => {
-      return item[props.itemKey] || index;
-    };
-    
+    // Modified sortBy to emit event for server-side sorting
     const sortBy = (key) => {
       if (sortKey.value === key) {
         // Toggle direction if already sorting by this key
@@ -276,6 +293,7 @@ export default {
       emit('sort', { key, direction: sortDirection.value });
     };
     
+    // Fix the getSortIconClass function
     const getSortIconClass = (key) => {
       if (sortKey.value !== key) return 'fa-sort';
       return sortDirection.value === 'asc' ? 'fa-sort-up' : 'fa-sort-down';
@@ -302,7 +320,7 @@ export default {
       sortBy,
       getSortIconClass,
       changePage,
-      onSearchInput // Add this to the return statement
+      onSearchInput
     };
   }
 };
@@ -310,21 +328,23 @@ export default {
 
 <style scoped>
 .responsive-table {
-  width: 100%;
+  margin-bottom: 1.5rem;
 }
 
-.table-responsive {
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
+.table-filters {
+  margin-bottom: 1rem;
+}
+
+.search-wrapper {
+  max-width: 300px;
 }
 
 .sortable {
   cursor: pointer;
-  user-select: none;
 }
 
 .sort-icon {
-  margin-left: 5px;
+  margin-left: 0.25rem;
 }
 
 .actions-column {
@@ -332,12 +352,14 @@ export default {
   text-align: right;
 }
 
+/* Pagination styling to match MarketplacePage */
 .pagination {
   margin-bottom: 0;
 }
 
 .page-link {
   color: #123524;
+  border-color: #dee2e6;
 }
 
 .page-item.active .page-link {
@@ -346,17 +368,36 @@ export default {
   color: #fff;
 }
 
-.page-link {
-  padding: 0.375rem 0.75rem;
+.page-item.disabled .page-link {
+  color: #6c757d;
+  pointer-events: none;
+  background-color: #fff;
+  border-color: #dee2e6;
 }
 
+.page-link:hover {
+  color: #0a1f15;
+  background-color: #e9ecef;
+  border-color: #dee2e6;
+}
+
+.page-link:focus {
+  box-shadow: 0 0 0 0.25rem rgba(18, 53, 36, 0.25);
+}
+
+/* Responsive adjustments */
 @media (max-width: 768px) {
-  .table th, .table td {
-    white-space: nowrap;
+  .table-filters {
+    flex-direction: column;
   }
   
-  .pagination-info {
-    font-size: 0.875rem;
+  .search-wrapper {
+    max-width: 100%;
+    margin-bottom: 1rem;
+  }
+  
+  .custom-filters {
+    width: 100%;
   }
 }
 </style>
