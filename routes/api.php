@@ -81,7 +81,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/items/{id}', [ItemController::class, 'destroy']);
     });
 
-    Route::middleware('role.company:both,SME')->group(function () {
+    Route::middleware('role.company:both,sme')->group(function () {
+        // Add these routes if they don't exist
         Route::get('/marketplace/items', [MarketplaceController::class, 'getItems']);
         Route::get('/marketplace/poultry-types', [MarketplaceController::class, 'getPoultryTypes']);
     });

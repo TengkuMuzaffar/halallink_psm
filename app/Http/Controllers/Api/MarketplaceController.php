@@ -19,8 +19,8 @@ class MarketplaceController extends Controller
                     $q->where('company_type', 'broiler');
                 });
 
-            // Search by poultry name, location, or company name
-            if ($request->has('search')) {
+            // Search functionality
+            if ($request->filled('search')) {
                 $search = $request->search;
                 $query->where(function($q) use ($search) {
                     $q->whereHas('poultry', function($q) use ($search) {
@@ -48,19 +48,45 @@ class MarketplaceController extends Controller
                 $query->where('poultryID', $request->poultry_type);
             }
 
-            // Sort items
-            switch ($request->sort) {
+            // Sort items with improved logic
+            switch ($request->input('sort', 'newest')) {
                 case 'price_low':
-                    $query->orderBy('price', 'asc');
+                    $query->orderBy('price', 'asc')
+                          ->orderBy('created_at', 'desc'); // Secondary sort by date
                     break;
                 case 'price_high':
-                    $query->orderBy('price', 'desc');
+                    $query->orderBy('price', 'desc')
+                          ->orderBy('created_at', 'desc'); // Secondary sort by date
                     break;
+                case 'newest':
                 default:
                     $query->orderBy('created_at', 'desc');
+                    break;
             }
 
-            $items = $query->get();
+            // Paginate with 5 items per page (changed from 12)
+            // Remove explicit page parameter and use simplePaginate
+            // Inside getItems method, add this debug line near the top
+            Log::debug('Request parameters', [
+                'page' => $request->input('page'),
+                'search' => $request->input('search'),
+                'poultry_type' => $request->input('poultry_type'),
+                'sort' => $request->input('sort')
+            ]);
+            
+            // Make sure to use the page parameter explicitly
+            $perPage = 5;
+            $page = $request->input('page', 1);
+            $items = $query->paginate($perPage, ['*'], 'page', $page);
+
+            // Add debug logging
+            Log::debug('Pagination metadata', [
+                'total' => $items->total(),
+                'last_page' => $items->lastPage(),
+                'per_page' => $items->perPage(),
+                'current_page' => $items->currentPage(),
+                'query' => $query->toSql()
+            ]);
 
             $formattedItems = $items->map(function($item) {
                 return [
@@ -78,10 +104,21 @@ class MarketplaceController extends Controller
                 ];
             });
 
-            return response()->json($formattedItems);
+            // Format pagination data similar to CompanyController and EmployeeController
+            return response()->json([
+                'data' => $formattedItems,
+                'pagination' => [
+                    'current_page' => $items->currentPage(),
+                    'last_page' => $items->lastPage(),
+                    'per_page' => $items->perPage(),
+                    'total' => $items->total(),
+                    'from' => $items->firstItem(),
+                    'to' => $items->lastItem()
+                ]
+            ]);
         } catch (\Exception $e) {
             Log::error('Error in marketplace items: ' . $e->getMessage());
-            return response()->json(['message' => 'Failed to fetch items'], 500);
+            return response()->json(['message' => 'Failed to fetch items', 'error' => $e->getMessage()], 500);
         }
     }
 

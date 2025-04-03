@@ -337,6 +337,16 @@ export default {
 }
 
 .page-link {
+  color: #123524;
+}
+
+.page-item.active .page-link {
+  background-color: #123524;
+  border-color: #123524;
+  color: #fff;
+}
+
+.page-link {
   padding: 0.375rem 0.75rem;
 }
 
