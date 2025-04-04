@@ -89,6 +89,13 @@ Route::middleware('auth:sanctum')->group(function () {
         // Add these routes if they don't exist
         Route::get('/marketplace/items', [MarketplaceController::class, 'getItems']);
         Route::get('/marketplace/items/poultry-types', [MarketplaceController::class, 'getPoultryTypes']);
+        
+        // Cart routes
+        Route::get('/cart/items', [App\Http\Controllers\Api\CartController::class, 'getCartItems']);
+        Route::post('/cart/add', [App\Http\Controllers\Api\CartController::class, 'addToCart']);
+        Route::put('/cart/update', [App\Http\Controllers\Api\CartController::class, 'updateCartItem']);
+        Route::delete('/cart/remove/{cartID}', [App\Http\Controllers\Api\CartController::class, 'removeCartItem']);
+        Route::delete('/cart/clear', [App\Http\Controllers\Api\CartController::class, 'clearCart']);
     });
     
     // Admin role only routes - regardless of company type
