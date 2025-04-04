@@ -344,10 +344,8 @@ export default {
           originalCartItems.value = JSON.parse(JSON.stringify(response.cart_items));
         }
         
-        // Update cart badge
-        if (response && response.cart_count !== undefined) {
-          marketplaceService.updateCartBadge(response.cart_count);
-        }
+        // Use notifyCartUpdate instead of updateCartBadge
+        marketplaceService.notifyCartUpdate(response);
         
         // Exit edit mode
         isEditing.value = false;
@@ -411,15 +409,11 @@ export default {
         
         addToCartModal.value.hide();
         
-        // Show success message
-        // modal.success('Success', 'Item added to cart successfully.');
-        
         // Refresh cart count - safely handle potential undefined values
         try {
           const cartData = await marketplaceService.getCartItems();
-          if (cartData && cartData.cart_count !== undefined) {
-            marketplaceService.updateCartBadge(cartData.cart_count);
-          }
+          // Use notifyCartUpdate instead of updateCartBadge
+          marketplaceService.notifyCartUpdate(cartData);
         } catch (err) {
           console.warn('Error refreshing cart count:', err);
         }
@@ -465,15 +459,14 @@ export default {
         cartItems.value = response.cart_items || [];
         originalCartItems.value = JSON.parse(JSON.stringify(cartItems.value));
         
-        // Update cart badge with the refreshed cart count
-        if (response && response.cart_count !== undefined) {
-          marketplaceService.updateCartBadge(response.cart_count);
-        }
+        // Use notifyCartUpdate instead of updateCartBadge
+        marketplaceService.notifyCartUpdate(response);
         
-        // Close modal if cart is empty
-        // if (cartItems.value.length === 0) {
-        //   viewCartModal.value.hide();
-        // }
+        // Exit edit mode
+        isEditing.value = false;
+        
+        // Hide loading spinner
+        isLoading.value = false;
         
         // Show success message
         // modal.success('Success', 'Item removed from cart');

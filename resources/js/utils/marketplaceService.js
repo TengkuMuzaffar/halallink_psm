@@ -140,7 +140,7 @@ export default {
       const response = await api.get('/api/cart/items');
       
       // Log the raw response for debugging
-      console.log('Raw cart items response:', response);
+      // console.log('Raw cart items response:', response);
       
       // Check if response exists
       if (response) {
@@ -173,7 +173,7 @@ export default {
         } else {
           // If response is the data itself (no data property)
           // This handles cases where the API might return the data directly
-          console.log('Response without data property:', response);
+          // console.log('Response without data property:', response);
           
           if (response.success) {
             return {
@@ -189,7 +189,7 @@ export default {
               cart_total: 0
             };
           } else {
-            console.warn('Cart API response has unexpected format:', response);
+            // console.warn('Cart API response has unexpected format:', response);
             return {
               cart_items: [],
               cart_count: 0,
@@ -230,11 +230,8 @@ export default {
         quantity: quantity
       });
       
-      // Update cart badge count if cart_count exists in the response
-      if (response && response.data && response.data.cart_count !== undefined) {
-        this.updateCartBadge(response.data.cart_count);
-        
-        // Notify listeners about cart update
+      // Notify listeners about cart update instead of directly updating badge
+      if (response && response.data) {
         this.notifyCartUpdate(response.data);
       }
       
@@ -255,22 +252,14 @@ export default {
     try {
       const response = await api.delete(`/api/cart/remove/${cartID}`);
       
-      // Update cart badge count if cart_count exists in the response
-      if (response && response.data && response.data.cart_count !== undefined) {
-        this.updateCartBadge(response.data.cart_count);
-        
-        // Notify listeners about cart update
+      // Notify listeners about cart update instead of directly updating badge
+      if (response && response.data) {
         this.notifyCartUpdate(response.data);
       } else {
-        // If cart_count is not available, refresh cart data to get the count
+        // If cart data is not available in response, refresh cart data
         try {
           const cartData = await this.getCartItems();
-          if (cartData && cartData.cart_count !== undefined) {
-            this.updateCartBadge(cartData.cart_count);
-            
-            // Notify listeners about cart update
-            this.notifyCartUpdate(cartData);
-          }
+          // getCartItems already calls notifyCartUpdate
         } catch (err) {
           console.warn('Error refreshing cart count after removal:', err);
         }

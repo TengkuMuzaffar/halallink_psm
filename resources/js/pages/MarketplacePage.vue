@@ -198,7 +198,7 @@ export default {
         if (cartData && cartData.cart_items && Array.isArray(cartData.cart_items)) {
           // Set cart item count to the number of unique items in cart
           cartItemCount.value = cartData.cart_items.length;
-          console.log('Cart badge initialized with item count:', cartItemCount.value);
+          console.log('Cart badge initialized with unique item count:', cartItemCount.value);
         } else {
           // Default to 0 if cart_items is not available or not an array
           cartItemCount.value = 0;
@@ -212,21 +212,23 @@ export default {
 
     // Update the onCartUpdate callback to always use cart_items.length
     marketplaceService.onCartUpdate((data) => {
+      console.log('Cart update received:', data);
       // Set a default value of 0
       let count = 0;
       
       if (data && data.cart_items && Array.isArray(data.cart_items)) {
         // Always use the length of cart_items array (number of unique items)
         count = data.cart_items.length;
-        console.log('Cart badge updated with item count:', count);
-      } else if (data && typeof data.cart_count === 'number') {
-        // Only use cart_count as fallback if cart_items is not available
-        count = data.cart_count;
-        console.log('Cart badge updated with cart_count fallback:', count);
+        console.log('Cart badge updated with unique item count:', count);
       } else if (data && data.cart_item) {
         // Handle case when only a single item is added to an empty cart
         count = 1;
         console.log('Cart badge updated for first item added:', count);
+      } else if (data && typeof data.cart_count === 'number') {
+        // Only use cart_count as fallback if cart_items is not available
+        // But be cautious as this might be total quantity, not unique items
+        count = data.cart_count;
+        console.log('Cart badge updated with cart_count fallback (may be total quantity):', count);
       }
       
       // Force update to ensure reactivity
@@ -235,6 +237,7 @@ export default {
       }, 0);
     });
     
+
     // Initialize data on component mount
     onMounted(() => {
       fetchItems();
