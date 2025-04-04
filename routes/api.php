@@ -88,7 +88,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('role.company:both,sme')->group(function () {
         // Add these routes if they don't exist
         Route::get('/marketplace/items', [MarketplaceController::class, 'getItems']);
-        Route::get('/marketplace/poultry-types', [MarketplaceController::class, 'getPoultryTypes']);
+        Route::get('/marketplace/items/poultry-types', [MarketplaceController::class, 'getPoultryTypes']);
     });
     
     // Admin role only routes - regardless of company type

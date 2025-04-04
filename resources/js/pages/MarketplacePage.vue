@@ -15,7 +15,8 @@
                 v-model="searchQuery"
                 @input="handleSearch"
               >
-              <button class="btn btn-primary" type="button" @click="fetchItems">
+              <!-- Fix the search button click handler -->
+              <button class="btn btn-primary" type="button" @click.prevent="handleSearchClick">
                 <i class="bi bi-search"></i> Search
               </button>
             </div>
@@ -193,7 +194,7 @@ export default {
 
     const fetchPoultryTypes = async () => {
       try {
-        const response = await api.get('/api/poultries');
+        const response = await api.get('/api/marketplace/items/poultry-types');
         console.log('Poultry types response:', response);
         // Directly assign the response array since it's already in the correct format
         if (Array.isArray(response)) {
@@ -223,13 +224,21 @@ export default {
     };
 
     // In script setup section
+    const handleSearchClick = () => {
+      fetchItems(1); // Always start from page 1 when searching
+    };
+
+    // Modify the fetchItems function to properly handle parameters
     const fetchItems = async (page = 1) => {
       try {
         loading.value = true;
         error.value = null;
         
+        // Ensure page is a number
+        const pageNumber = parseInt(page) || 1;
+        
         const params = {
-          page,
+          page: pageNumber,
           search: searchQuery.value || null,
           poultry_type: selectedPoultryType.value || null,
           sort: sortBy.value || 'newest'
@@ -301,6 +310,7 @@ export default {
       changePage,
       fetchItems,
       handleSearch,
+      handleSearchClick, // Add the new method to the return object
       handleFilters // Make sure this is included in the return statement
     };
   }

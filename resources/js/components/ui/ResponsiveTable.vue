@@ -22,7 +22,15 @@
       </div>
     </div>
     
-    <div class="table-responsive">
+    <div class="table-responsive position-relative">
+      <!-- Custom LoadingSpinner component -->
+      <LoadingSpinner 
+        v-if="loading" 
+        overlay 
+        size="md" 
+        message="Loading data..." 
+      />
+      
       <table class="table table-hover">
         <thead>
           <tr>
@@ -44,17 +52,8 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-if="loading">
-            <td :colspan="hasActions ? columns.length + 1 : columns.length" class="text-center py-4">
-              <div class="d-flex justify-content-center align-items-center">
-                <div class="spinner-border text-primary me-2" role="status">
-                  <span class="visually-hidden">Loading...</span>
-                </div>
-                <span class="text-muted">Loading data...</span>
-              </div>
-            </td>
-          </tr>
-          <tr v-else-if="paginatedItems.length === 0">
+          <!-- Removed the inline loading row and replaced with LoadingSpinner above -->
+          <tr v-if="paginatedItems.length === 0 && !loading">
             <td :colspan="hasActions ? columns.length + 1 : columns.length" class="text-center py-4">
               <slot name="empty">
                 <div class="text-muted">No data available</div>
@@ -108,9 +107,13 @@
 
 <script>
 import { ref, computed, watch } from 'vue';
+import LoadingSpinner from './LoadingSpinner.vue';
 
 export default {
   name: 'ResponsiveTable',
+  components: {
+    LoadingSpinner
+  },
   props: {
     columns: {
       type: Array,
@@ -350,6 +353,11 @@ export default {
 .actions-column {
   width: 120px;
   text-align: right;
+}
+
+/* Added to ensure proper positioning of the loading spinner */
+.table-responsive {
+  min-height: 200px;
 }
 
 /* Pagination styling to match MarketplacePage */

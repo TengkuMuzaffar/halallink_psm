@@ -22,12 +22,21 @@ class Order extends Model
      * @var array<int, string>
      */
     protected $fillable = [
-        'locationID',
         'userID',
+        'locationID',
         'paymentID',
         'order_timestamp',
         'deliver_timestamp',
-        'order_status',
+        'order_status'
+    ];
+
+    // Add this property to specify which fields can be null
+    protected $nullable = [
+        'locationID',
+        'paymentID',
+        'order_timestamp',
+        'deliver_timestamp',
+        'order_status'
     ];
 
     /**

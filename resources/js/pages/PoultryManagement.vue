@@ -23,17 +23,20 @@
           <i class="fas fa-plus me-1"></i> Add Poultry
         </button>
       </div>
-      <div class="card-body">
+      <div class="card-body position-relative">
         <!-- Error State -->
         <div v-if="error" class="alert alert-danger" role="alert">
           {{ error }}
         </div>
         
+        <!-- Loading Spinner -->
+        <LoadingSpinner v-if="loading" overlay size="md" message="Loading poultries..." />
+        
         <!-- Table (always show, with loading state inside) -->
         <ResponsiveTable
           :columns="columns"
           :items="poultries"
-          :loading="loading"
+          :loading="false"
           :has-actions="true"
           item-key="poultryID"
           @search="handleSearch"
@@ -104,6 +107,7 @@
 import { ref, reactive, onMounted, computed } from 'vue';
 import StatsCard from '../components/ui/StatsCard.vue';
 import ResponsiveTable from '../components/ui/ResponsiveTable.vue';
+import LoadingSpinner from '../components/ui/LoadingSpinner.vue';
 import api from '../utils/api';
 import modal from '../utils/modal';
 
@@ -111,7 +115,8 @@ export default {
   name: 'PoultryManagement',
   components: {
     StatsCard,
-    ResponsiveTable
+    ResponsiveTable,
+    LoadingSpinner
   },
   setup() {
     const loading = ref(false);

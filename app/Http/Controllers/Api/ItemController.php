@@ -18,24 +18,70 @@ class ItemController extends Controller
 {
 
     /**
-     * Display a listing of the items.
+     * Display a listing of the items with pagination, search, filter and sort.
      *
+     * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\Response
      */
-    public function index()
+    public function index(Request $request)
     {
         try {
             $user = Auth::user();
             
-            // Get all items for the user's company
-            $items = Item::with(['poultry', 'location', 'user'])
+            // Start with a base query
+            $query = Item::with(['poultry', 'location', 'user'])
                 ->whereHas('user', function($q) use ($user) {
                     $q->where('companyID', $user->companyID);
-                })
-                ->get();
+                });
             
-            // Format the response (remaining code remains the same)
-            $formattedItems = $items->map(function($item) {
+            // Apply poultry filter if provided
+            if ($request->has('poultryID') && !empty($request->poultryID)) {
+                $query->where('poultryID', $request->poultryID);
+            }
+            
+            // Apply location filter if provided
+            if ($request->has('locationID') && !empty($request->locationID)) {
+                $query->where('locationID', $request->locationID);
+            }
+            
+            // Apply measurement type filter if provided
+            if ($request->has('measurement_type') && !empty($request->measurement_type)) {
+                $query->where('measurement_type', $request->measurement_type);
+            }
+            
+            // Apply search if provided
+            if ($request->has('search') && !empty($request->search)) {
+                $searchTerm = '%' . $request->search . '%';
+                $query->where(function($q) use ($searchTerm) {
+                    $q->whereHas('poultry', function($q) use ($searchTerm) {
+                        $q->where('poultry_name', 'LIKE', $searchTerm);
+                    })
+                    ->orWhereHas('location', function($q) use ($searchTerm) {
+                        $q->where('company_address', 'LIKE', $searchTerm);
+                    });
+                });
+            }
+            
+            // Apply sorting
+            $sortField = $request->input('sort_field', 'created_at');
+            $sortDirection = $request->input('sort_direction', 'desc');
+            
+            // Validate sort field to prevent SQL injection
+            $allowedSortFields = ['created_at', 'price', 'measurement_value'];
+            if (!in_array($sortField, $allowedSortFields)) {
+                $sortField = 'created_at';
+            }
+            
+            $query->orderBy($sortField, $sortDirection);
+            
+            // Get items with pagination
+            $perPage = $request->input('per_page', 10); // Default to 10 items per page
+            $page = $request->input('page', 1);
+            
+            $paginatedItems = $query->paginate($perPage);
+            
+            // Format the response
+            $formattedItems = $paginatedItems->getCollection()->map(function($item) {
                 return [
                     'itemID' => $item->itemID,
                     'poultryID' => $item->poultryID,
@@ -53,10 +99,96 @@ class ItemController extends Controller
                 ];
             });
             
-            return response()->json($formattedItems);
+            // Replace the items in the paginator with our formatted items
+            $paginatedItems->setCollection($formattedItems);
+            
+            // Format the response to match what the frontend expects
+            return response()->json([
+                'success' => true,
+                'data' => $paginatedItems->items(),
+                'pagination' => [
+                    'current_page' => $paginatedItems->currentPage(),
+                    'last_page' => $paginatedItems->lastPage(),
+                    'per_page' => $paginatedItems->perPage(),
+                    'total' => $paginatedItems->total(),
+                    'from' => $paginatedItems->firstItem(),
+                    'to' => $paginatedItems->lastItem()
+                ]
+            ]);
         } catch (\Exception $e) {
             Log::error('Error fetching items: ' . $e->getMessage());
-            return response()->json(['message' => 'Failed to fetch items', 'error' => $e->getMessage()], 500);
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch items',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+    
+    /**
+     * Get item statistics with filters
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+     */
+    public function getItemStats(Request $request)
+    {
+        try {
+            $user = Auth::user();
+            
+            // Start with a base query
+            $query = Item::whereHas('user', function($q) use ($user) {
+                $q->where('companyID', $user->companyID);
+            });
+            
+            // Apply poultry filter if provided
+            if ($request->has('poultryID') && !empty($request->poultryID)) {
+                $query->where('poultryID', $request->poultryID);
+            }
+            
+            // Apply location filter if provided
+            if ($request->has('locationID') && !empty($request->locationID)) {
+                $query->where('locationID', $request->locationID);
+            }
+            
+            // Apply measurement type filter if provided
+            if ($request->has('measurement_type') && !empty($request->measurement_type)) {
+                $query->where('measurement_type', $request->measurement_type);
+            }
+            
+            // Apply search if provided
+            if ($request->has('search') && !empty($request->search)) {
+                $searchTerm = '%' . $request->search . '%';
+                $query->where(function($q) use ($searchTerm) {
+                    $q->whereHas('poultry', function($q) use ($searchTerm) {
+                        $q->where('poultry_name', 'LIKE', $searchTerm);
+                    })
+                    ->orWhereHas('location', function($q) use ($searchTerm) {
+                        $q->where('company_address', 'LIKE', $searchTerm);
+                    });
+                });
+            }
+            
+            // Get filtered items
+            $items = $query->get();
+            
+            // Calculate statistics
+            $totalItems = $items->count();
+            $totalKg = $items->where('measurement_type', 'kg')->sum('measurement_value');
+            $totalUnits = $items->where('measurement_type', 'unit')->sum('measurement_value');
+            $totalValue = $items->sum(function($item) {
+                return $item->price * $item->measurement_value;
+            });
+            
+            return response()->json([
+                'total_items' => $totalItems,
+                'total_kg' => round($totalKg, 2),
+                'total_units' => round($totalUnits, 0),
+                'total_value' => round($totalValue, 2)
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error fetching item stats: ' . $e->getMessage());
+            return response()->json(['message' => 'Failed to fetch item statistics', 'error' => $e->getMessage()], 500);
         }
     }
     
@@ -320,41 +452,6 @@ class ItemController extends Controller
         } catch (\Exception $e) {
             Log::error('Error deleting item: ' . $e->getMessage());
             return response()->json(['message' => 'Failed to delete item', 'error' => $e->getMessage()], 500);
-        }
-    }
-    
-    /**
-     * Get item statistics
-     *
-     * @return \Illuminate\Http\Response
-     */
-    public function getItemStats()
-    {
-        try {
-            $user = Auth::user();
-            
-            // Get all items for the company
-            $items = Item::whereHas('user', function($query) use ($user) {
-                $query->where('companyID', $user->companyID);
-            })->get();
-            
-            // Calculate statistics
-            $totalItems = $items->count();
-            $totalKg = $items->where('measurement_type', 'kg')->sum('measurement_value');
-            $totalUnits = $items->where('measurement_type', 'unit')->sum('measurement_value');
-            $totalValue = $items->sum(function($item) {
-                return $item->price * $item->measurement_value;
-            });
-            
-            return response()->json([
-                'total_items' => $totalItems,
-                'total_kg' => round($totalKg, 2),
-                'total_units' => round($totalUnits, 0),
-                'total_value' => round($totalValue, 2)
-            ]);
-        } catch (\Exception $e) {
-            Log::error('Error fetching item stats: ' . $e->getMessage());
-            return response()->json(['message' => 'Failed to fetch item statistics', 'error' => $e->getMessage()], 500);
         }
     }
     

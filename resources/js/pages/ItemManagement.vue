@@ -7,7 +7,7 @@
       <div class="col-md-4 col-sm-6 mb-3">
         <StatsCard 
           title="Total Items" 
-          :count="itemStats.total_items" 
+          :count="formatLargeNumber(itemStats.total_items)" 
           icon="fas fa-boxes" 
           bg-color="bg-primary"
         />
@@ -23,6 +23,12 @@
         </button>
       </div>
       <div class="card-body">
+        <!-- Error State -->
+        <div v-if="error" class="alert alert-danger" role="alert">
+          {{ error }}
+        </div>
+        
+        <!-- Table (always show, with loading state inside) -->
         <ResponsiveTable
           :columns="columns"
           :items="items"
@@ -30,21 +36,18 @@
           :has-actions="true"
           item-key="itemID"
           @search="handleSearch"
+          :show-pagination="false"
+          :server-side="true"
+          @sort="handleSort"
         >
           <!-- Custom filters -->
           <template #filters>
             <div class="d-flex gap-2">
               <select class="form-select form-select-sm" v-model="poultryFilter" @change="applyFilters">
-                <option value="">All Poultry Types</option>
+                <option value="">All Poultries</option>
                 <option v-for="poultry in poultryTypes" :key="poultry.poultryID" :value="poultry.poultryID">
                   {{ poultry.poultry_name }}
                 </option>
-              </select>
-              
-              <select class="form-select form-select-sm" v-model="measurementFilter" @change="applyFilters">
-                <option value="">All Measurements</option>
-                <option value="kg">KG</option>
-                <option value="unit">Unit</option>
               </select>
               
               <select class="form-select form-select-sm" v-model="locationFilter" @change="applyFilters">
@@ -53,62 +56,83 @@
                   {{ location.company_address }}
                 </option>
               </select>
+              
+              <select class="form-select form-select-sm" v-model="measurementTypeFilter" @change="applyFilters">
+                <option value="">All Types</option>
+                <option value="kg">KG</option>
+                <option value="unit">Unit</option>
+              </select>
             </div>
           </template>
           
           <!-- Custom column slots -->
-          <template #poultry_name="{ item }">
+          <template #poultry="{ item }">
             <div class="d-flex align-items-center">
-              <div class="item-image me-2" v-if="item.poultry_image">
-                <img :src="item.poultry_image" alt="Poultry" class="rounded" width="40" height="40">
+              <img 
+                v-if="item.poultry_image" 
+                :src="item.poultry_image" 
+                alt="Poultry Image" 
+                class="img-thumbnail me-2" 
+                style="width: 40px; height: 40px; object-fit: cover;"
+              >
+              <div v-else class="bg-light d-flex align-items-center justify-content-center me-2" style="width: 40px; height: 40px;">
+                <i class="fas fa-feather text-muted"></i>
               </div>
               <span>{{ item.poultry_name }}</span>
             </div>
           </template>
           
-          <template #price="{ item }">
-            <span>RM {{ formatPrice(item.price) }}</span>
-          </template>
-          
-          <template #measurement_value="{ item }">
+          <template #measurement="{ item }">
             <span>{{ item.measurement_value }} {{ item.measurement_type === 'kg' ? 'KG' : 'Units' }}</span>
           </template>
           
-          <template #total_value="{ item }">
-            <span>RM {{ formatPrice(item.price * item.measurement_value) }}</span>
+          <template #price="{ item }">
+            <span>{{ formatCurrency(item.price) }}</span>
           </template>
           
-          <!-- Actions column -->
+          <template #total="{ item }">
+            <span>{{ formatCurrency(item.price * item.measurement_value) }}</span>
+          </template>
+          
+          <!-- Actions slot -->
           <template #actions="{ item }">
-            <div class="d-flex gap-2">
-              <button class="btn btn-sm btn-info" @click="viewItem(item)">
-                <i class="fas fa-eye"></i>
-              </button>
-              <button class="btn btn-sm btn-primary" @click="editItem(item)">
-                <i class="fas fa-edit"></i>
-              </button>
-              <button class="btn btn-sm btn-danger" @click="deleteItem(item)">
-                <i class="fas fa-trash"></i>
-              </button>
-            </div>
-          </template>
-          
-          <!-- Empty state -->
-          <template #empty>
-            <div class="text-center py-4">
-              <template v-if="loading">
-                <div class="spinner-border text-primary" role="status">
-                  <span class="visually-hidden">Loading...</span>
-                </div>
-                <p class="mt-2 text-muted">Loading items...</p>
-              </template>
-              <template v-else>
-                <i class="fas fa-box-open fa-3x text-muted mb-3"></i>
-                <p class="mb-0">No items found. Add your first item to get started.</p>
-              </template>
-            </div>
+            <button class="btn btn-sm btn-outline-primary me-1" @click="editItem(item)">
+              <i class="fas fa-edit"></i>
+            </button>
+            <button class="btn btn-sm btn-outline-danger" @click="confirmDelete(item)">
+              <i class="fas fa-trash"></i>
+            </button>
           </template>
         </ResponsiveTable>
+        
+        <!-- Pagination -->
+        <div class="d-flex justify-content-between align-items-center mt-4">
+          <div>
+            <span class="text-muted">Showing {{ pagination.from || 1 }}-{{ pagination.to || items.length }} of {{ pagination.total || items.length }}</span>
+          </div>
+          <nav aria-label="Item pagination">
+            <ul class="pagination mb-0">
+              <li class="page-item" :class="{ disabled: currentPage <= 1 || loading }">
+                <a class="page-link" href="#" @click.prevent="!loading && changePage(currentPage - 1)">
+                  <i class="fas fa-chevron-left"></i>
+                </a>
+              </li>
+              <li 
+                v-for="page in paginationRange" 
+                :key="page" 
+                class="page-item"
+                :class="{ active: page === currentPage, disabled: loading }"
+              >
+                <a class="page-link" href="#" @click.prevent="!loading && changePage(page)">{{ page }}</a>
+              </li>
+              <li class="page-item" :class="{ disabled: currentPage >= pagination.last_page || loading }">
+                <a class="page-link" href="#" @click.prevent="!loading && changePage(currentPage + 1)">
+                  <i class="fas fa-chevron-right"></i>
+                </a>
+              </li>
+            </ul>
+          </nav>
+        </div>
       </div>
     </div>
     
@@ -261,8 +285,10 @@ import { useRouter } from 'vue-router';
 import { useStore } from 'vuex';
 import api from '../utils/api';
 import modal from '../utils/modal';
+import formatter from '../utils/formatter'; // Import the formatter utility
 import StatsCard from '../components/ui/StatsCard.vue';
 import ResponsiveTable from '../components/ui/ResponsiveTable.vue';
+import * as bootstrap from 'bootstrap';
 
 export default {
   name: 'ItemManagement',
@@ -276,6 +302,7 @@ export default {
     
     // State variables
     const loading = ref(true);
+    const error = ref(null); // Add error ref
     const formLoading = ref(false);
     const items = ref([]);
     const allItems = ref([]);
@@ -286,14 +313,69 @@ export default {
     const imagePreview = ref(null);
     const itemModal = ref(null);
     const viewItemModal = ref(null);
+    const measurementTypeFilter = ref(''); // Add missing filter
     
     // Filter state
     const searchQuery = ref('');
     const poultryFilter = ref('');
     const measurementFilter = ref('');
     const locationFilter = ref('');
+    const itemForm = reactive({
+      itemID: null,
+      poultryID: '',
+      locationID: '',
+      measurement_type: 'kg',
+      measurement_value: 0,
+      price: 0,
+      item_image: null
+    });
     
-    // Item stats
+    // Sorting
+    const sortField = ref('created_at');
+    const sortDirection = ref('desc');
+    
+    // Pagination
+    const currentPage = ref(1);
+    const perPage = ref(10);
+    const pagination = ref({
+      current_page: 1,
+      last_page: 1,
+      per_page: 10,
+      total: 0,
+      from: 0,
+      to: 0
+    });
+    
+    // Computed property for pagination range
+    const paginationRange = computed(() => {
+      const range = [];
+      const maxVisiblePages = 5;
+      const totalPages = pagination.value.last_page;
+      
+      if (totalPages <= maxVisiblePages) {
+        // Show all pages if total is less than max visible
+        for (let i = 1; i <= totalPages; i++) {
+          range.push(i);
+        }
+      } else {
+        // Show limited pages with current page in the middle
+        let startPage = Math.max(1, currentPage.value - Math.floor(maxVisiblePages / 2));
+        let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+        
+        // Adjust if we're near the end
+        if (endPage === totalPages) {
+          startPage = Math.max(1, endPage - maxVisiblePages + 1);
+        }
+        
+        for (let i = startPage; i <= endPage; i++) {
+          range.push(i);
+        }
+      }
+      
+      return range;
+    });
+    
+    // Item stats - Initialize with default values to prevent undefined errors
     const itemStats = ref({
       total_items: 0,
       total_kg: 0,
@@ -301,42 +383,91 @@ export default {
       total_value: 0
     });
     
-    // Form state
-    const itemForm = reactive({
-      itemID: null,
-      poultryID: '',
-      locationID: '',
-      measurement_type: 'kg',
-      measurement_value: '',
-      price: '',
-      item_image: null
-    });
-    
     // Table columns
     const columns = [
-      { key: 'poultry_name', label: 'Poultry Type', sortable: true },
-      { key: 'price', label: 'Price (RM)', sortable: true },
-      { key: 'measurement_value', label: 'Quantity', sortable: true }
+      { key: 'poultry', label: 'Poultry', sortable: false },
+      { key: 'location_name', label: 'Location', sortable: false },
+      { key: 'measurement', label: 'Quantity', sortable: true, sortKey: 'measurement_value' },
+      { key: 'price', label: 'Price', sortable: true },
+      // Removed created_at column
     ];
     
-    // Fetch items
+    // Fetch items with pagination, search, and filters
     const fetchItems = async () => {
       try {
         loading.value = true;
-        items.value = []; // Clear the current list while loading
+        error.value = null;
         
-        const response = await api.get('/api/items');
-        allItems.value = response;
-        applyFilters(); // Apply filters to the fetched data
+        const params = {
+          page: currentPage.value,
+          per_page: perPage.value,
+          search: searchQuery.value || null,
+          poultryID: poultryFilter.value || null,
+          locationID: locationFilter.value || null,
+          measurement_type: measurementTypeFilter.value || null,
+          sort_field: sortField.value,
+          sort_direction: sortDirection.value
+        };
         
-        // Update stats
-        await fetchItemStats();
+        const response = await api.get('/api/items', { params });
         
+        if (response && response.data && response.success) {
+          items.value = response.data;
+          pagination.value = response.pagination;
+        } else {
+          items.value = [];
+          console.error('Unexpected response format:', response);
+        }
+      } catch (err) {
+        console.error('Error fetching items:', err);
+        error.value = err.message || 'Failed to load items. Please try again later.';
+        items.value = [];
+      } finally {
         loading.value = false;
-      } catch (error) {
-        console.error('Error fetching items:', error);
-        loading.value = false;
-        modal.danger('Error', 'Failed to load items');
+      }
+    };
+    
+    // Fetch item stats separately
+    const fetchItemStats = async () => {
+      try {
+        const params = {
+          search: searchQuery.value || null,
+          poultryID: poultryFilter.value || null,
+          locationID: locationFilter.value || null,
+          measurement_type: measurementTypeFilter.value || null
+        };
+        
+        const statsData = await api.get('/api/items/stats', { params });
+        
+        if (statsData) {
+          itemStats.value = statsData;
+        }
+      } catch (err) {
+        console.error('Error fetching item stats:', err);
+      }
+    };
+    
+    // Fetch poultry types for filter dropdown
+    const fetchPoultryTypes = async () => {
+      try {
+        const response = await api.get('/api/poultries');
+        if (response && response.data) {
+          poultryTypes.value = response.data;
+        }
+      } catch (err) {
+        console.error('Error fetching poultry types:', err);
+      }
+    };
+    
+    // Fetch locations for filter dropdown
+    const fetchLocations = async () => {
+      try {
+        const response = await api.get('/api/items/locations');
+        if (response) {
+          locations.value = response;
+        }
+      } catch (err) {
+        console.error('Error fetching locations:', err);
       }
     };
     
@@ -362,16 +493,9 @@ export default {
       if (locationFilter.value) {
         filteredData = filteredData.filter(item => item.locationID === locationFilter.value);
       }
-      
-      // Apply search query if it exists
-      if (searchQuery.value) {
-        const query = searchQuery.value.toLowerCase();
-        filteredData = filteredData.filter(item => 
-          item.poultry_name?.toLowerCase().includes(query) || 
-          item.location_name?.toLowerCase().includes(query)
-        );
-      }
-      
+      currentPage.value = 1; // Reset to first page when applying filters
+      fetchItems();
+      fetchItemStats(); // Also update stats when filters change
       // Short delay to ensure loading state is visible
       setTimeout(() => {
         items.value = filteredData;
@@ -379,13 +503,166 @@ export default {
       }, 300);
     };
     
-    // Handle search
+    // Handle search from ResponsiveTable
     const handleSearch = (query) => {
       searchQuery.value = query;
-      // Clear items and show loading
-      loading.value = true;
-      items.value = [];
-      applyFilters();
+      currentPage.value = 1; // Reset to first page when searching
+      fetchItems();
+      fetchItemStats(); // Also update stats when search changes
+    };
+    
+    // Handle sorting
+    const handleSort = ({ field, direction }) => {
+      // Map the display field to the actual database field if needed
+      if (field === 'measurement') {
+        sortField.value = 'measurement_value';
+      } else if (field === 'price') {
+        sortField.value = field;
+      } else {
+        sortField.value = 'price'; // Changed default from created_at to price
+      }
+      
+      sortDirection.value = direction;
+      fetchItems();
+    };
+    
+    // Change page
+    const changePage = (page) => {
+      if (page < 1 || page > pagination.value.last_page || loading.value) return;
+      
+      // Update the current page immediately for UI feedback
+      currentPage.value = page;
+      
+      // Then fetch the data for the new page
+      fetchItems();
+    };
+    
+    // Format currency
+    const formatCurrency = (value, shorten = false) => {
+      if (typeof value !== 'number') {
+        // Try to convert to number if it's not already
+        value = Number(value);
+        if (isNaN(value)) return 'RM 0';
+      }
+      
+      // If shorten is true, format large numbers with suffixes
+      if (shorten) {
+        let formattedValue;
+        if (value >= 1000000000) {
+          formattedValue = (value / 1000000000).toFixed(1).replace(/\.0$/, '') + 'B';
+        } else if (value >= 1000000) {
+          formattedValue = (value / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+        } else if (value >= 1000) {
+          formattedValue = (value / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+        } else {
+          formattedValue = value.toFixed(2);
+        }
+        return 'RM ' + formattedValue;
+      }
+      
+      // Otherwise use standard formatting with MYR currency
+      return new Intl.NumberFormat('en-MY', {
+        style: 'currency',
+        currency: 'MYR',
+        currencyDisplay: 'narrowSymbol'
+      }).format(value);
+    };
+    
+    // Format date - simplified to use formatter utility
+    const formatDate = (dateString) => {
+      return formatter.formatDate(dateString, 'medium');
+    };
+    
+    // Handle image change
+    const handleImageChange = (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        imagePreview.value = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    };
+    
+    // Edit item
+    const editItem = (item) => {
+      isEditing.value = true;
+      selectedItem.value = item;
+      
+      // Reset form with item data
+      itemForm.itemID = item.itemID;
+      itemForm.poultryID = item.poultryID;
+      itemForm.locationID = item.locationID;
+      itemForm.measurement_type = item.measurement_type;
+      itemForm.measurement_value = item.measurement_value;
+      itemForm.price = item.price;
+      itemForm.item_image = item.item_image;
+      
+      // Reset image preview
+      imagePreview.value = null;
+      
+      // Open modal - Use try/catch to handle potential bootstrap errors
+      try {
+        const modal = new bootstrap.Modal(document.getElementById('itemModal'));
+        modal.show();
+      } catch (err) {
+        console.error('Error showing modal:', err);
+      }
+    };
+    
+    // Confirm delete
+    const confirmDelete = (item) => {
+      modal.confirm(
+        'Delete Item',
+        `Are you sure you want to delete this item (${item.poultry_name})?`,
+        async () => {
+          try {
+            loading.value = true;
+            await api.del(`/api/items/${item.itemID}`);
+            
+            // Refresh data after successful deletion
+            fetchItems();
+            fetchItemStats();
+            
+            modal.toast('Success', 'Item deleted successfully', 'success');
+          } catch (err) {
+            console.error('Error deleting item:', err);
+            modal.toast('Error', 'Failed to delete item', 'danger');
+          } finally {
+            loading.value = false;
+          }
+        }
+      );
+    };
+    
+    // Open add modal
+    const openAddModal = () => {
+      // Reset form
+      Object.assign(itemForm, {
+        itemID: null,
+        poultryID: '',
+        locationID: '',
+        measurement_type: 'kg',
+        measurement_value: '',
+        price: '',
+        item_image: null
+      });
+      
+      // Reset image preview
+      imagePreview.value = null;
+      
+      // Set editing mode
+      isEditing.value = false;
+      
+      // Open modal - Use try/catch to handle potential bootstrap errors
+      try {
+        const modal = new bootstrap.Modal(document.getElementById('itemModal'));
+        modal.show();
+      } catch (err) {
+        console.error('Error showing modal:', err);
+      }
     };
     
     // Save item (add/edit)
@@ -427,13 +704,15 @@ export default {
           });
         }
         
-        // Close modal - Use the Bootstrap modal instance directly
-        if (itemModal.value) {
-          itemModal.value.hide();
+        // Close modal - Use try/catch to handle potential bootstrap errors
+        try {
+          const modal = bootstrap.Modal.getInstance(document.getElementById('itemModal'));
+          if (modal) {
+            modal.hide();
+          }
+        } catch (err) {
+          console.error('Error hiding modal:', err);
         }
-        
-        // Reset form before showing success message
-        // resetForm();
         
         // Show success message after a short delay to ensure modal is closed
         setTimeout(() => {
@@ -444,11 +723,12 @@ export default {
           
           // Refresh items after successful save
           fetchItems();
+          fetchItemStats();
         }, 300);
         
         formLoading.value = false;
-      } catch (error) {
-        console.error('Error saving item:', error);
+      } catch (err) {
+        console.error('Error saving item:', err);
         formLoading.value = false;
         loading.value = false; // Make sure to reset loading state on error
         
@@ -461,206 +741,39 @@ export default {
       }
     };
     
-    // Delete item
-    const deleteItem = async (item) => {
-      modal.confirm(
-        'Delete Item',
-        `Are you sure you want to delete this item?`,
-        async () => {
-          try {
-            loading.value = true;
-            items.value = []; // Clear items to show loading state
-            
-            await api.delete(`/api/items/${item.itemID}`);
-            
-            // Show success message
-            modal.success('Item Deleted', 'Item has been deleted successfully.');
-            
-            // Refresh items
-            await fetchItems();
-          } catch (error) {
-            console.error('Error deleting item:', error);
-            modal.danger('Error', 'Failed to delete item. Please try again.');
-            
-            // Refresh items to ensure consistent state
-            await fetchItems();
-          }
-        }
-      );
-    };
-    
-    // Fetch item stats
-    const fetchItemStats = async () => {
-      try {
-        const response = await api.get('/api/items/stats');
-        itemStats.value = response;
-      } catch (error) {
-        console.error('Error fetching item stats:', error);
-        modal.danger('Error', 'Failed to load item statistics');
-      }
-    };
-    
-    // Fetch poultry types
-    const fetchPoultryTypes = async () => {
-      try {
-        // Changed from '/api/items/poultry-types' to '/api/poultries'
-        const response = await api.get('/api/poultries');
-        poultryTypes.value = response;
-      } catch (error) {
-        console.error('Error fetching poultry types:', error);
-        modal.danger('Error', 'Failed to load poultry types');
-      }
-    };
-    
-    // Fetch company locations
-    const fetchLocations = async () => {
-      try {
-        const response = await api.get('/api/items/locations');
-        locations.value = response;
-      } catch (error) {
-        console.error('Error fetching locations:', error);
-        modal.danger('Error', 'Failed to load company locations');
-      }
-    };
-    
-    /* REMOVE THIS DUPLICATE FUNCTION
-    // Handle search
-    const handleSearch = (query) => {
-      searchQuery.value = query;
-      applyFilters();
-    };
-    */
-    
-    // Format price
-    const formatPrice = (price) => {
-      return parseFloat(price).toFixed(2);
-    };
-    
-    // Format date
-    const formatDate = (dateString) => {
-      if (!dateString) return '';
-      const date = new Date(dateString);
-      return new Intl.DateTimeFormat('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
-      }).format(date);
-    };
-    
-    // Open add modal
-    const openAddModal = () => {
-      // Reset form
-      Object.assign(itemForm, {
-        itemID: null,
-        poultryID: '',
-        locationID: '',
-        measurement_type: 'kg',
-        measurement_value: '',
-        price: '',
-        item_image: null
-      });
-      
-      // Reset image preview
-      imagePreview.value = null;
-      
-      // Set editing mode
-      isEditing.value = false;
-      
-      // Open modal
-      if (!itemModal.value) {
-        itemModal.value = new bootstrap.Modal(document.getElementById('itemModal'));
-      }
-      itemModal.value.show();
-    };
-    
     // View item
     const viewItem = (item) => {
       selectedItem.value = item;
       
-      // Open modal
-      if (!viewItemModal.value) {
-        viewItemModal.value = new bootstrap.Modal(document.getElementById('viewItemModal'));
+      // Open modal - Use try/catch to handle potential bootstrap errors
+      try {
+        const modal = new bootstrap.Modal(document.getElementById('viewItemModal'));
+        modal.show();
+      } catch (err) {
+        console.error('Error showing modal:', err);
       }
-      viewItemModal.value.show();
     };
-    
-    // Edit item
-    const editItem = (item) => {
-      // Set form values
-      Object.assign(itemForm, {
-        itemID: item.itemID,
-        poultryID: item.poultryID,
-        locationID: item.locationID,
-        measurement_type: item.measurement_type,
-        measurement_value: item.measurement_value,
-        price: item.price,
-        item_image: item.item_image
-      });
-      
-      // Reset image preview
-      imagePreview.value = null;
-      
-      // Set editing mode
-      isEditing.value = true;
-      
-      // Open modal
-      if (!itemModal.value) {
-        itemModal.value = new bootstrap.Modal(document.getElementById('itemModal'));
-      }
-      itemModal.value.show();
-    };
-    
-    /* 
-    // This is a duplicate deleteItem function - commenting out to fix the error
-    const deleteItem = (item) => {
-      modal.confirm('Delete Item', `Are you sure you want to delete this item?`, async () => {
-        try {
-          loading.value = true;
-          items.value = []; // Clear the table while loading
-          
-          await api.delete(`/api/items/${item.itemID}`);
-          
-          // Refresh the item list
-          await fetchItems();
-          
-          modal.success('Success', 'Item deleted successfully');
-        } catch (error) {
-          console.error('Error deleting item:', error);
-          loading.value = false;
-          modal.danger('Error', 'Failed to delete item');
+    const formatLargeNumber = (value) => {
+        if (typeof value !== 'number') {
+          // Try to convert to number if it's not already
+          value = Number(value);
+          if (isNaN(value)) return '0';
         }
-      });
-    };
-    */
-    
-    // Handle image change
-    const handleImageChange = (event) => {
-      const file = event.target.files[0];
-      if (!file) return;
-      
-      // Check if file is an image
-      if (!file.type.match('image.*')) {
-        modal.danger('Invalid File', 'Please select an image file');
-        return;
-      }
-      
-      // Check file size (max 2MB)
-      if (file.size > 2 * 1024 * 1024) {
-        modal.danger('File Too Large', 'Image size should not exceed 2MB');
-        return;
-      }
-      
-      // Store the file
-      itemForm.item_image = file;
-      
-      // Preview the image
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        imagePreview.value = e.target.result;
+        
+        // Format with appropriate suffix
+        if (value >= 1000000000) {
+          return (value / 1000000000).toFixed(1).replace(/\.0$/, '') + 'B';
+        }
+        if (value >= 1000000) {
+          return (value / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+        }
+        if (value >= 1000) {
+          return (value / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+        }
+        
+        // For smaller numbers, just return as is with no decimal places
+        return value.toFixed(0);
       };
-      reader.readAsDataURL(file);
-    };
-    
     // Initialize component
     onMounted(async () => {
       // Check if user is from a broiler company
@@ -671,10 +784,6 @@ export default {
         return;
       }
       
-      // Initialize modals
-      itemModal.value = new bootstrap.Modal(document.getElementById('itemModal'));
-      viewItemModal.value = new bootstrap.Modal(document.getElementById('viewItemModal'));
-      
       // Fetch data
       await Promise.all([
         fetchPoultryTypes(),
@@ -682,59 +791,91 @@ export default {
       ]);
       
       await fetchItems();
+      await fetchItemStats();
     });
     
     return {
       loading,
-      formLoading,
+      error,
       items,
       poultryTypes,
       locations,
-      columns,
       itemStats,
-      itemForm,
-      selectedItem,
-      isEditing,
-      imagePreview,
+      columns,
       poultryFilter,
-      measurementFilter,
       locationFilter,
-      fetchItems,
+      measurementTypeFilter,
+      currentPage,
+      pagination,
+      paginationRange,
+      // Form state
+      isEditing,
+      formLoading,
+      imagePreview,
+      selectedItem,
+      itemForm,
+      // Functions
       applyFilters,
       handleSearch,
-      formatPrice,
+      handleSort,
+      changePage,
+      // Use formatter utility functions
+      formatCurrency: (value, shorten = false) => formatter.formatCurrency(value, 'MYR', 'en-MY', shorten),
       formatDate,
-      openAddModal,
-      viewItem,
+      formatLargeNumber: (value) => formatter.formatLargeNumber(value),
       editItem,
-      deleteItem,
+      confirmDelete,
+      openAddModal,
       handleImageChange,
-      saveItem
+      saveItem,
+      viewItem,
+      formatPrice: (price) => Number(price).toFixed(2)
     };
   }
 };
 </script>
 
 <style scoped>
-.item-management h1 {
+/* Pagination styling to match MarketplacePage */
+.pagination {
+  margin-bottom: 0;
+}
+
+.page-link {
   color: #123524;
 }
 
-.item-image img {
-  object-fit: cover;
+.page-item.active .page-link {
+  background-color: #123524;
+  border-color: #123524;
+  color: #fff;
 }
 
-.modal-centered-content {
-  text-align: center;
+.page-item.disabled .page-link {
+  color: #6c757d;
+  pointer-events: none;
+  background-color: #fff;
+  border-color: #dee2e6;
+}
+
+.page-link:hover {
+  color: #0a1f15;
+  background-color: #e9ecef;
+  border-color: #dee2e6;
+}
+
+.page-link:focus {
+  box-shadow: 0 0 0 0.25rem rgba(18, 53, 36, 0.25);
+}
+
+.badge {
+  font-size: 0.8rem;
+  padding: 0.35em 0.65em;
 }
 
 @media (max-width: 768px) {
-  .item-management h1 {
+  .company-management h1 {
     font-size: 1.75rem;
-  }
-  
-  .d-flex.gap-2 {
-    flex-wrap: wrap;
   }
 }
 </style>
