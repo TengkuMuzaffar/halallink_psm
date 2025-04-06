@@ -46,7 +46,7 @@ class CartController extends Controller
             // Calculate cart total
             $cartTotal = 0;
             foreach ($cartItems as $item) {
-                $cartTotal += $item->price_at_purchase * $item->quantity;
+                $cartTotal += $item->price_at_purchase * $item->stock;
             }
 
             // Get cart count
@@ -78,7 +78,7 @@ class CartController extends Controller
         // Validate request
         $validator = Validator::make($request->all(), [
             'itemID' => 'required|exists:items,itemID',
-            'quantity' => 'required|integer|min:1',
+            'order_quantity' => 'required|integer|min:1', // Changed from quantity to order_quantity
         ]);
 
         if ($validator->fails()) {
@@ -93,6 +93,18 @@ class CartController extends Controller
             // Get authenticated user
             $user = Auth::user();
 
+            // Get item details and check stock availability
+            $item = Item::findOrFail($request->itemID);
+            
+            // Check if requested quantity exceeds available stock
+            if ($request->order_quantity > $item->stock) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Insufficient stock',
+                    'error' => 'The requested quantity exceeds the available stock. Only ' . $item->stock . ' units available.'
+                ], 400);
+            }
+
             // Get or create draft order
             $order = Order::where('userID', $user->userID)
                           ->where('order_status', 'draft')
@@ -105,24 +117,32 @@ class CartController extends Controller
                 ]);
             }
 
-            // Get item details
-            $item = Item::findOrFail($request->itemID);
-            
             // Check if item already exists in cart
             $cartItem = Cart::where('orderID', $order->orderID)
                             ->where('itemID', $request->itemID)
                             ->first();
 
+            // If item exists in cart, check if the total quantity would exceed available stock
             if ($cartItem) {
+                $totalRequestedQuantity = $cartItem->quantity + $request->order_quantity;
+                
+                if ($totalRequestedQuantity > $item->stock) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Insufficient stock',
+                        'error' => 'You already have ' . $cartItem->quantity . ' units in your cart. Adding ' . $request->order_quantity . ' more would exceed the available stock of ' . $item->stock . ' units.'
+                    ], 400);
+                }
+                
                 // Update existing cart item
-                $cartItem->quantity += $request->quantity;
+                $cartItem->quantity = $totalRequestedQuantity;
                 $cartItem->save();
             } else {
                 // Create new cart item
                 $cartItem = Cart::create([
                     'orderID' => $order->orderID,
                     'itemID' => $request->itemID,
-                    'quantity' => $request->quantity,
+                    'quantity' => $request->order_quantity,
                     'price_at_purchase' => $item->price
                 ]);
             }
@@ -130,11 +150,17 @@ class CartController extends Controller
             // Get cart count for response
             $cartCount = Cart::where('orderID', $order->orderID)->sum('quantity');
 
+            // Get all cart items for response
+            $cartItems = Cart::where('orderID', $order->orderID)
+                             ->with(['item.poultry', 'item.user.company', 'item.location'])
+                             ->get();
+
             return response()->json([
                 'success' => true,
                 'message' => 'Item added to cart successfully',
                 'cart_count' => $cartCount,
-                'cart_item' => $cartItem
+                'cart_item' => $cartItem,
+                'cart_items' => $cartItems
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -182,6 +208,16 @@ class CartController extends Controller
                     'message' => 'Unauthorized access to cart item'
                 ], 403);
             }
+            
+            // Check if requested quantity exceeds available stock
+            $item = Item::findOrFail($cartItem->itemID);
+            if ($request->quantity > $item->stock) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Insufficient stock',
+                    'error' => 'The requested quantity exceeds the available stock. Only ' . $item->stock . ' units available.'
+                ], 400);
+            }
 
             // Update quantity
             $cartItem->quantity = $request->quantity;
@@ -192,15 +228,21 @@ class CartController extends Controller
             $cartTotal = Cart::where('orderID', $order->orderID)
                             ->get()
                             ->sum(function($item) {
-                                return $item->price_at_purchase * $item->quantity;
+                                return $item->price_at_purchase * $item->stock;
                             });
+                            
+            // Get all cart items for response
+            $cartItems = Cart::where('orderID', $order->orderID)
+                             ->with(['item.poultry', 'item.user.company', 'item.location'])
+                             ->get();
 
             return response()->json([
                 'success' => true,
                 'message' => 'Cart item updated successfully',
                 'cart_item' => $cartItem,
                 'cart_count' => $cartCount,
-                'cart_total' => $cartTotal
+                'cart_total' => $cartTotal,
+                'cart_items' => $cartItems
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -263,7 +305,7 @@ class CartController extends Controller
             $cartTotal = Cart::where('orderID', $orderID)
                             ->get()
                             ->sum(function($item) {
-                                return $item->price_at_purchase * $item->quantity;
+                                return $item->price_at_purchase * $item->stock;
                             });
 
             return response()->json([

@@ -385,13 +385,8 @@ export default {
         // Show success message
         // modal.success('Success', 'Cart updated successfully');
       } catch (error) {
-        console.error('Error saving cart changes:', error);
-        
         // Hide loading spinner
         isLoading.value = false;
-        
-        // Show error message
-        modal.danger('Error', 'Failed to update cart. Please try again.');
       }
     };
     
@@ -430,13 +425,16 @@ export default {
         // Log the data being sent to the API for debugging
         console.log('Sending to API:', {
           itemID: itemID,
-          order_quantity: quantity.value // Updated log to show order_quantity
+          order_quantity: quantity.value
         });
         
-        // Use marketplaceService instead of direct API call
-        const result = await marketplaceService.addToCart(product);
+        // Use marketplaceService with suppressErrorModal option to prevent duplicate modals
+        const result = await marketplaceService.addToCart(product, { suppressErrorModal: true });
         
         addToCartModal.value.hide();
+        
+        // Show success message here instead of in the service
+        // modal.success('Success', 'Item added to cart successfully');
         
         // Refresh cart count - safely handle potential undefined values
         try {
@@ -466,6 +464,10 @@ export default {
           } else {
             modal.danger('Error', 'Failed to add item to cart. Please try again.');
           }
+        } else if (error.response && error.response.data) {
+          // Show the specific error message from the server
+          const errorData = error.response.data;
+          modal.danger('Error', errorData.error || errorData.message || 'Failed to add item to cart. Please try again.');
         } else {
           modal.danger('Error', 'Failed to add item to cart. Please try again.');
         }
@@ -481,7 +483,8 @@ export default {
     // Remove cart item
     const removeCartItem = async (cartID) => {
       try {
-        await marketplaceService.removeCartItem(cartID);
+        // Use suppressErrorModal option to prevent duplicate modals
+        await marketplaceService.removeCartItem(cartID, { suppressErrorModal: true });
         
         // Refresh cart items
         const response = await marketplaceService.getCartItems();

@@ -70,9 +70,11 @@ export default {
   /**
    * Add an item to the cart
    * @param {Object} product - Product to add to cart
+   * @param {Object} options - Additional options
+   * @param {boolean} options.suppressErrorModal - Whether to suppress error modal
    * @returns {Promise} - Promise with response data
    */
-  async addToCart(product) {
+  async addToCart(product, options = {}) {
     try {
       console.log('Adding to cart:', product);
       
@@ -81,7 +83,7 @@ export default {
       
       const response = await api.post('/api/cart/add', {
         itemID: product.itemID || product.id,
-        quantity: orderQuantity // Send the order_quantity as quantity to the API
+        order_quantity: orderQuantity // Send the order_quantity parameter to the API
       });
       
       // Show success message
@@ -93,7 +95,24 @@ export default {
       return response.data;
     } catch (error) {
       console.error('Error adding to cart:', error);
-      throw error;
+      
+      // Only show error modal if not suppressed
+      if (!options.suppressErrorModal) {
+        // Show only one error message with proper details
+        let errorMessage = 'Failed to add item to cart. Please try again later.';
+        
+        if (error.response && error.response.data) {
+          const errorData = error.response.data;
+          // Use the most specific error message available
+          errorMessage = errorData.error || errorData.message || errorMessage;
+        }
+        
+        // Show a single error modal with the most relevant message
+        modal.danger('Error', errorMessage);
+      }
+      
+      // Return a rejected promise with the error
+      return Promise.reject(error);
     }
   },
   
@@ -187,9 +206,11 @@ export default {
    * Update cart item quantity
    * @param {Number} cartID - Cart item ID
    * @param {Number} quantity - New quantity
+   * @param {Object} options - Additional options
+   * @param {boolean} options.suppressErrorModal - Whether to suppress error modal
    * @returns {Promise} - Promise with updated cart data
    */
-  async updateCartItem(cartID, quantity) {
+  async updateCartItem(cartID, quantity, options = {}) {
     try {
       const response = await api.put(`/api/cart/update`, {
         cartID: cartID,
@@ -204,17 +225,34 @@ export default {
       return response.data;
     } catch (error) {
       console.error('Error updating cart item:', error);
-      modal.danger('Error', 'Failed to update cart item. Please try again.');
-      throw error;
+      
+      // Only show error modal if not suppressed
+      if (!options.suppressErrorModal) {
+        let errorMessage = 'Failed to update cart item. Please try again.';
+        
+        if (error.response && error.response.data) {
+          const errorData = error.response.data;
+          // Use the most specific error message available
+          errorMessage = errorData.error || errorData.message || errorMessage;
+        }
+        
+        // Show a single error modal with the most relevant message
+        modal.danger('Error', errorMessage);
+      }
+      
+      // Return a rejected promise with the error
+      return Promise.reject(error);
     }
   },
   
   /**
    * Remove item from cart
    * @param {Number} cartID - Cart item ID
+   * @param {Object} options - Additional options
+   * @param {boolean} options.suppressErrorModal - Whether to suppress error modal
    * @returns {Promise} - Promise with updated cart data
    */
-  async removeCartItem(cartID) {
+  async removeCartItem(cartID, options = {}) {
     try {
       const response = await api.delete(`/api/cart/remove/${cartID}`);
       
@@ -228,14 +266,30 @@ export default {
           // getCartItems already calls notifyCartUpdate
         } catch (err) {
           console.warn('Error refreshing cart count after removal:', err);
+          // Don't show an error modal here to prevent multiple modals
         }
       }
       
       return response.data;
     } catch (error) {
       console.error('Error removing cart item:', error);
-      modal.danger('Error', 'Failed to remove item from cart. Please try again.');
-      throw error;
+      
+      // Only show error modal if not suppressed
+      if (!options.suppressErrorModal) {
+        let errorMessage = 'Failed to remove item from cart. Please try again.';
+        
+        if (error.response && error.response.data) {
+          const errorData = error.response.data;
+          // Use the most specific error message available
+          errorMessage = errorData.error || errorData.message || errorMessage;
+        }
+        
+        // Show a single error modal with the most relevant message
+        modal.danger('Error', errorMessage);
+      }
+      
+      // Return a rejected promise with the error
+      return Promise.reject(error);
     }
   },
   

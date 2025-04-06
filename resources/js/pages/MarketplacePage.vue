@@ -14,6 +14,8 @@
       :initial-search-query="searchQuery"
       :initial-poultry-type="selectedPoultryType"
       :initial-sort-by="sortBy"
+      :initial-min-price="minPrice"
+      :initial-max-price="maxPrice"
       @search-input="handleSearch"
       @search-click="handleSearchClick"
       @filter-change="handleFilters"
@@ -93,6 +95,11 @@ export default {
     const cartModal = ref(null);
 
     // Fetch items with pagination, search, and filters
+    // In the setup() function, add these new state variables
+    const minPrice = ref('');
+    const maxPrice = ref('');
+    
+    // Update the fetchItems function to include price range
     const fetchItems = async (page = 1) => {
       try {
         loading.value = true;
@@ -105,7 +112,9 @@ export default {
           page: pageNumber,
           search: searchQuery.value || null,
           poultry_type: selectedPoultryType.value || null,
-          sort: sortBy.value || 'newest'
+          sort: sortBy.value || 'newest',
+          min_price: minPrice.value || null,
+          max_price: maxPrice.value || null
         };
         
         const response = await marketplaceService.fetchItems(params);
@@ -152,9 +161,11 @@ export default {
     };
 
     // Handle filters change
-    const handleFilters = ({ poultryType, sortBy: newSortBy }) => {
+    const handleFilters = ({ poultryType, sortBy: newSortBy, minPrice: newMinPrice, maxPrice: newMaxPrice }) => {
       selectedPoultryType.value = poultryType;
       sortBy.value = newSortBy;
+      minPrice.value = newMinPrice;
+      maxPrice.value = newMaxPrice;
       fetchItems(1); // Reset to first page when applying filters
     };
 
@@ -189,6 +200,7 @@ export default {
             refreshCartCount();
           })
           .catch(error => {
+            // Don't show error modal here - it's already handled in marketplaceService
             console.error('Error adding to cart:', error);
           });
       }
@@ -268,6 +280,8 @@ export default {
       searchQuery,
       selectedPoultryType,
       sortBy,
+      minPrice,
+      maxPrice,
       pagination,
       cartModal,
       cartItemCount,

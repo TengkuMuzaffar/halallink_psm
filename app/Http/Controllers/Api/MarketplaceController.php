@@ -48,6 +48,15 @@ class MarketplaceController extends Controller
             if ($request->has('poultry_type') && $request->poultry_type) {
                 $query->where('poultryID', $request->poultry_type);
             }
+            
+            // Filter by price range
+            if ($request->filled('min_price')) {
+                $query->where('price', '>=', (float)$request->min_price);
+            }
+            
+            if ($request->filled('max_price')) {
+                $query->where('price', '<=', (float)$request->max_price);
+            }
 
             // Sort items with improved logic
             switch ($request->input('sort', 'newest')) {
@@ -65,16 +74,6 @@ class MarketplaceController extends Controller
                     break;
             }
 
-            // Paginate with 5 items per page (changed from 12)
-            // Remove explicit page parameter and use simplePaginate
-            // Inside getItems method, add this debug line near the top
-            Log::debug('Request parameters', [
-                'page' => $request->input('page'),
-                'search' => $request->input('search'),
-                'poultry_type' => $request->input('poultry_type'),
-                'sort' => $request->input('sort')
-            ]);
-            
             // Make sure to use the page parameter explicitly
             $perPage = 12;
             $page = $request->input('page', 1);
@@ -86,7 +85,11 @@ class MarketplaceController extends Controller
                 'last_page' => $items->lastPage(),
                 'per_page' => $items->perPage(),
                 'current_page' => $items->currentPage(),
-                'query' => $query->toSql()
+                'query' => $query->toSql(),
+                'price_filters' => [
+                    'min_price' => $request->min_price,
+                    'max_price' => $request->max_price
+                ]
             ]);
 
             $formattedItems = $items->map(function($item) {
