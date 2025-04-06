@@ -29,6 +29,7 @@ class Item extends Model
         'item_image',
         'measurement_value',
         'price',
+        'stock',
     ];
 
     /**

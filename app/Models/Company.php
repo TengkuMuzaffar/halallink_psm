@@ -36,4 +36,9 @@ class Company extends Model
     {
         return $this->hasOne(User::class, 'companyID')->where('role', 'admin');
     }
+    
+    public function locations()
+    {
+        return $this->hasMany(Location::class, 'companyID', 'companyID');
+    }
 }

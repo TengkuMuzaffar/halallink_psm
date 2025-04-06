@@ -389,6 +389,7 @@ export default {
       { key: 'location_name', label: 'Location', sortable: false },
       { key: 'measurement', label: 'Quantity', sortable: true, sortKey: 'measurement_value' },
       { key: 'price', label: 'Price', sortable: true },
+      { key: 'stock', label: 'Stock', sortable: true }, // Add stock column
       // Removed created_at column
     ];
     
@@ -598,6 +599,7 @@ export default {
       itemForm.measurement_type = item.measurement_type;
       itemForm.measurement_value = item.measurement_value;
       itemForm.price = item.price;
+      itemForm.stock = item.stock; // Add stock field
       itemForm.item_image = item.item_image;
       
       // Reset image preview
@@ -647,6 +649,7 @@ export default {
         measurement_type: 'kg',
         measurement_value: '',
         price: '',
+        stock: '', // Add stock field
         item_image: null
       });
       

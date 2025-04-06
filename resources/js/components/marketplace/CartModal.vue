@@ -1,7 +1,7 @@
 <template>
   <div class="cart-modal-container">
     <!-- Add to Cart Modal -->
-    <div class="modal fade" id="addToCartModal" tabindex="-1" aria-hidden="true">
+    <div class="modal fade" id="addToCartModal" tabindex="-1">
       <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
           <div class="modal-header">
@@ -44,14 +44,14 @@
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-            <button type="button" class="btn btn-primary" @click="confirmAddToCart">Add to Cart</button>
+            <button type="button" class="btn btn-primary" @click="confirmAddToCart" ref="addToCartButton">Add to Cart</button>
           </div>
         </div>
       </div>
     </div>
 
     <!-- View Cart Modal -->
-    <div class="modal fade" id="viewCartModal" tabindex="-1" aria-hidden="true">
+    <div class="modal fade" id="viewCartModal" tabindex="-1">
       <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content">
           <div class="modal-header">
@@ -174,8 +174,8 @@
 import { ref, computed } from 'vue';
 import * as bootstrap from 'bootstrap';
 import marketplaceService from '../../utils/marketplaceService';
-import modal from '../../utils/modal'; // Import the modal utility
-import LoadingSpinner from '../ui/LoadingSpinner.vue'; // Import the LoadingSpinner component
+import modal from '../../utils/modal';
+import LoadingSpinner from '../ui/LoadingSpinner.vue';
 
 export default {
   name: 'CartModal',
@@ -185,11 +185,11 @@ export default {
   setup() {
     // State variables
     const selectedProduct = ref(null);
-    const quantity = ref(1);
+    const quantity = ref(1); // This will now represent order_quantity
     const cartItems = ref([]);
-    const originalCartItems = ref([]); // Store original cart items for cancel functionality
+    const originalCartItems = ref([]);
     const isEditing = ref(false);
-    const isLoading = ref(false); // Add loading state
+    const isLoading = ref(false);
     const addToCartModal = ref(null);
     const viewCartModal = ref(null);
     
@@ -207,17 +207,46 @@ export default {
       if (addToCartEl) {
         addToCartModal.value = new bootstrap.Modal(addToCartEl);
         
-        // Reset quantity when modal is hidden
+        // Reset quantity when modal is hidden and blur any focused elements
         addToCartEl.addEventListener('hidden.bs.modal', () => {
           quantity.value = 1;
           selectedProduct.value = null;
+          
+          // Ensure no element inside the modal retains focus
+          if (document.activeElement && addToCartEl.contains(document.activeElement)) {
+            document.activeElement.blur();
+          }
+        });
+        
+        // Before the modal is hidden, blur any focused elements
+        addToCartEl.addEventListener('hide.bs.modal', () => {
+          // Ensure no element inside the modal retains focus
+          if (document.activeElement && addToCartEl.contains(document.activeElement)) {
+            document.activeElement.blur();
+          }
         });
       }
       
-      // Initialize view cart modal
+      // Initialize view cart modal with similar focus management
       const viewCartEl = document.getElementById('viewCartModal');
       if (viewCartEl) {
         viewCartModal.value = new bootstrap.Modal(viewCartEl);
+        
+        // Handle focus management when modal is hidden
+        viewCartEl.addEventListener('hidden.bs.modal', () => {
+          // Ensure no element inside the modal retains focus
+          if (document.activeElement && viewCartEl.contains(document.activeElement)) {
+            document.activeElement.blur();
+          }
+        });
+        
+        // Before the modal is hidden, blur any focused elements
+        viewCartEl.addEventListener('hide.bs.modal', () => {
+          // Ensure no element inside the modal retains focus
+          if (document.activeElement && viewCartEl.contains(document.activeElement)) {
+            document.activeElement.blur();
+          }
+        });
       }
     };
     
@@ -391,17 +420,17 @@ export default {
           return;
         }
         
-        // Create a product object with the correct itemID and quantity
+        // Create a product object with the correct itemID and order_quantity
         const product = {
           ...selectedProduct.value,
           itemID: itemID,
-          quantity: quantity.value
+          order_quantity: quantity.value // Use order_quantity instead of quantity
         };
         
         // Log the data being sent to the API for debugging
         console.log('Sending to API:', {
           itemID: itemID,
-          quantity: quantity.value
+          order_quantity: quantity.value // Updated log to show order_quantity
         });
         
         // Use marketplaceService instead of direct API call

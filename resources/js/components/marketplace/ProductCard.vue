@@ -14,9 +14,20 @@
       <p class="card-text product-price mb-2">
         RM {{ formatPrice(product.price) }}
       </p>
-      <p class="card-text product-quantity mb-2">
-        {{ product.quantity }} {{ product.unit }}
+      
+      <!-- Updated to show measurement value and unit -->
+      <p class="card-text product-measurement mb-2">
+        {{ product.measurement_value }} {{ product.unit }}
       </p>
+      
+      <!-- Added stock information with visual indicator -->
+      <p class="card-text product-stock mb-2">
+        <span class="stock-label">Stock:</span>
+        <span :class="getStockClass(product.quantity)">
+          {{ product.quantity }} available
+        </span>
+      </p>
+      
       <p class="card-text product-seller mb-2" :title="product.seller">
         <i class="fas fa-store me-1"></i>{{ product.seller }}
       </p>
@@ -47,6 +58,11 @@ export default {
   methods: {
     formatPrice(price) {
       return parseFloat(price).toFixed(2);
+    },
+    getStockClass(quantity) {
+      if (quantity <= 5) return 'text-danger';
+      if (quantity <= 20) return 'text-warning';
+      return 'text-success';
     }
   }
 }
@@ -87,6 +103,28 @@ export default {
   font-size: 1.2rem;
   font-weight: 700;
   color: #123524;
+}
+
+.product-measurement, .product-stock {
+  font-size: 0.9rem;
+  color: #444;
+}
+
+.stock-label {
+  font-weight: 600;
+  margin-right: 5px;
+}
+
+.text-danger {
+  color: #dc3545 !important;
+}
+
+.text-warning {
+  color: #ffc107 !important;
+}
+
+.text-success {
+  color: #28a745 !important;
 }
 
 .product-seller, .product-location {

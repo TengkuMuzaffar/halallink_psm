@@ -200,15 +200,17 @@ class ItemController extends Controller
      */
     public function store(Request $request)
     {
-        
-        $validator = Validator::make($request->all(), [
-            'poultryID' => 'required|exists:poultries,poultryID',
-            'locationID' => 'required|exists:locations,locationID',
-            'measurement_type' => 'required|string|in:kg,unit',
-            'measurement_value' => 'required|numeric|min:0',
-            'price' => 'required|numeric|min:0',
-            'item_image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-        ]);
+        try {
+            // Validate request
+            $validator = Validator::make($request->all(), [
+                'poultryID' => 'required|exists:poultries,poultryID',
+                'locationID' => 'required|exists:locations,locationID',
+                'measurement_type' => 'required|string|in:kg,unit',
+                'measurement_value' => 'required|numeric|min:0',
+                'price' => 'required|numeric|min:0',
+                'stock' => 'required|integer|min:0', // Add stock validation
+                'item_image' => 'nullable|image|max:2048',
+            ]);
         
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
@@ -326,16 +328,21 @@ class ItemController extends Controller
      */
     public function update(Request $request, $id)
     {
-        
-        $validator = Validator::make($request->all(), [
-            'poultryID' => 'required|exists:poultries,poultryID',
-            'locationID' => 'required|exists:locations,locationID',
-            'measurement_type' => 'required|string|in:kg,unit',
-            'measurement_value' => 'required|numeric|min:0',
-            'price' => 'required|numeric|min:0',
-            'item_image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-        ]);
-        
+        try {
+            // Find the item
+            $item = Item::findOrFail($id);
+            
+            // Validate request
+            $validator = Validator::make($request->all(), [
+                'poultryID' => 'required|exists:poultries,poultryID',
+                'locationID' => 'required|exists:locations,locationID',
+                'measurement_type' => 'required|string|in:kg,unit',
+                'measurement_value' => 'required|numeric|min:0',
+                'price' => 'required|numeric|min:0',
+                'stock' => 'required|integer|min:0', // Add stock validation
+                'item_image' => 'nullable|image|max:2048',
+            ]);
+
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
         }

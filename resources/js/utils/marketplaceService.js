@@ -67,66 +67,32 @@ export default {
    * @param {Object} product - Product to add to cart
    * @returns {Promise} - Promise with cart update result
    */
+  /**
+   * Add an item to the cart
+   * @param {Object} product - Product to add to cart
+   * @returns {Promise} - Promise with response data
+   */
   async addToCart(product) {
     try {
-      // Get cart modal component
-      const cartModal = document.getElementById('cart-modal-component')?.__vue__;
+      console.log('Adding to cart:', product);
       
-      if (cartModal) {
-        // Show add to cart modal
-        cartModal.showAddToCartModal(product);
-        return { success: true }; // Return a valid response object
-      }
+      // Use order_quantity if available, otherwise fall back to quantity
+      const orderQuantity = product.order_quantity || product.quantity || 1;
       
-      // Validate product object and handle different property names
-      if (!product) {
-        console.error('Invalid product object:', product);
-        modal.danger('Error', 'Invalid product information. Please try again.');
-        return;
-      }
-      
-      // Handle different property names (id vs itemID)
-      const itemID = product.itemID || product.id;
-      
-      if (!itemID) {
-        console.error('Invalid product ID:', product);
-        modal.danger('Error', 'Invalid product information. Please try again.');
-        return;
-      }
-      
-      // Log the data being sent to the API for debugging
-      console.log('Sending to API:', {
-        itemID: itemID,
-        quantity: product.quantity || 1
-      });
-      
-      // Fallback if component not found
       const response = await api.post('/api/cart/add', {
-        itemID: itemID,
-        quantity: product.quantity || 1
+        itemID: product.itemID || product.id,
+        quantity: orderQuantity // Send the order_quantity as quantity to the API
       });
       
-      // The response format is correct, but we need to handle it properly
-      if (response && response.data) {
-        // Update cart badge count if cart_count exists
-        if (response.data.cart_count !== undefined) {
-          this.updateCartBadge(response.data.cart_count);
-        }
-        
-        // Notify listeners about cart update
-        this.notifyCartUpdate(response.data);
-        
-        // Animate cart button
-        this.animateCartButton();
-        
-        return response.data;
-      } else {
-        console.warn('Empty response received');
-        return null;
-      }
+      // Show success message
+      modal.success('Success', 'Item added to cart successfully');
+      
+      // Notify listeners about cart update
+      this.notifyCartUpdate(response.data);
+      
+      return response.data;
     } catch (error) {
       console.error('Error adding to cart:', error);
-      modal.danger('Error', 'Failed to add item to cart. Please try again.');
       throw error;
     }
   },

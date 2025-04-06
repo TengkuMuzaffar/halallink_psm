@@ -17,7 +17,8 @@ class MarketplaceController extends Controller
             $query = Item::with(['poultry', 'location', 'user.company'])
                 ->whereHas('user.company', function($q) {
                     $q->where('company_type', 'broiler');
-                });
+                })
+                ->where('stock', '>', 0); // Only show items with stock available
 
             // Search functionality
             if ($request->filled('search')) {
@@ -75,7 +76,7 @@ class MarketplaceController extends Controller
             ]);
             
             // Make sure to use the page parameter explicitly
-            $perPage = 5;
+            $perPage = 12;
             $page = $request->input('page', 1);
             $items = $query->paginate($perPage, ['*'], 'page', $page);
 
@@ -93,7 +94,8 @@ class MarketplaceController extends Controller
                     'id' => $item->itemID,
                     'name' => $item->poultry->poultry_name,
                     'price' => $item->price,
-                    'quantity' => $item->measurement_value,
+                    'quantity' => $item->stock,
+                    'measurement_value' => $item->measurement_value,
                     'unit' => $item->measurement_type,
                     'seller' => $item->user->company->company_name,
                     'location' => $item->location->company_address,

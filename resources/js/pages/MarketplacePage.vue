@@ -173,10 +173,24 @@ export default {
 
     // Add to cart
     const addToCart = (product) => {
+      // Check if product has enough stock before adding to cart
+      if (product.quantity <= 0) {
+        modal.warning('Out of Stock', 'This item is currently out of stock.');
+        return;
+      }
+      
       if (cartModal.value) {
         cartModal.value.showAddToCartModal(product);
       } else {
-        marketplaceService.addToCart(product);
+        // Direct add to cart should update the badge
+        marketplaceService.addToCart(product)
+          .then(() => {
+            // Refresh cart count after adding item
+            refreshCartCount();
+          })
+          .catch(error => {
+            console.error('Error adding to cart:', error);
+          });
       }
     };
     
@@ -184,57 +198,58 @@ export default {
     const viewCart = () => {
       if (cartModal.value) {
         cartModal.value.showViewCartModal();
+        // Refresh cart count when viewing cart
+        refreshCartCount();
       } else {
         marketplaceService.viewCart();
       }
+    };
+    
+    // Add a new function to refresh cart count
+    const refreshCartCount = async () => {
+      try {
+        const cartData = await marketplaceService.getCartItems();
+        updateCartBadge(cartData);
+      } catch (err) {
+        console.error('Error refreshing cart count:', err);
+      }
+    };
+    
+    // Extract the badge update logic to a separate function
+    const updateCartBadge = (data) => {
+      console.log('Updating cart badge with data:', data);
+      let count = 0;
+      
+      if (data && data.cart_items && Array.isArray(data.cart_items)) {
+        count = data.cart_items.length;
+        console.log('Cart badge updated with unique item count:', count);
+      } else if (data && data.cart_item) {
+        count = 1;
+        console.log('Cart badge updated for first item added:', count);
+      } else if (data && typeof data.cart_count === 'number') {
+        count = data.cart_count;
+        console.log('Cart badge updated with cart_count fallback:', count);
+      }
+      
+      // Update the badge count
+      cartItemCount.value = count || 0;
     };
     
     // Initialize cart badge on load
     const initCartBadge = async () => {
       try {
         const cartData = await marketplaceService.getCartItems();
-        
-        // Ensure we're counting unique items, not total quantity
-        if (cartData && cartData.cart_items && Array.isArray(cartData.cart_items)) {
-          // Set cart item count to the number of unique items in cart
-          cartItemCount.value = cartData.cart_items.length;
-          console.log('Cart badge initialized with unique item count:', cartItemCount.value);
-        } else {
-          // Default to 0 if cart_items is not available or not an array
-          cartItemCount.value = 0;
-        }
+        updateCartBadge(cartData);
       } catch (err) {
         console.error('Error initializing cart badge:', err);
-        // Set cart badge to 0 in case of error
         cartItemCount.value = 0;
       }
     };
 
-    // Update the onCartUpdate callback to always use cart_items.length
+    // Update the onCartUpdate callback to use our updateCartBadge function
     marketplaceService.onCartUpdate((data) => {
-      console.log('Cart update received:', data);
-      // Set a default value of 0
-      let count = 0;
-      
-      if (data && data.cart_items && Array.isArray(data.cart_items)) {
-        // Always use the length of cart_items array (number of unique items)
-        count = data.cart_items.length;
-        console.log('Cart badge updated with unique item count:', count);
-      } else if (data && data.cart_item) {
-        // Handle case when only a single item is added to an empty cart
-        count = 1;
-        console.log('Cart badge updated for first item added:', count);
-      } else if (data && typeof data.cart_count === 'number') {
-        // Only use cart_count as fallback if cart_items is not available
-        // But be cautious as this might be total quantity, not unique items
-        count = data.cart_count;
-        console.log('Cart badge updated with cart_count fallback (may be total quantity):', count);
-      }
-      
-      // Force update to ensure reactivity
-      setTimeout(() => {
-        cartItemCount.value = count || 0;
-      }, 0);
+      console.log('Cart update received in marketplace page:', data);
+      updateCartBadge(data);
     });
     
 
@@ -262,7 +277,7 @@ export default {
       changePage,
       viewProductDetails,
       addToCart,
-      viewCart
+      viewCart, // Expose the new function
     };
   }
 };

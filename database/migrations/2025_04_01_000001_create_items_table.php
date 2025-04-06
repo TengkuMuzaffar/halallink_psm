@@ -20,6 +20,7 @@ return new class extends Migration
             $table->string('item_image')->nullable();
             $table->decimal('measurement_value', 10, 2);
             $table->decimal('price', 10, 2);
+            $table->integer('stock')->unsigned();  // Add stock column
             $table->timestamps();
         });
     }
