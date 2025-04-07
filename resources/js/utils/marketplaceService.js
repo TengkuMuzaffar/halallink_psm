@@ -63,6 +63,28 @@ export default {
   },
   
   /**
+   * Fetch user's delivery locations
+   * @returns {Promise} - Promise with locations data
+   */
+  async fetchUserLocations() {
+    try {
+      const response = await api.get('/api/profile');
+      
+      // Extract locations from the profile response
+      if (response && response.locations) {
+        return response.locations;
+      }
+      
+      // Return empty array if no locations found
+      return [];
+    } catch (error) {
+      console.error('Error fetching user locations:', error);
+      modal.danger('Error', 'Failed to load delivery locations. Please try again.');
+      return [];
+    }
+  },
+  
+  /**
    * Add item to cart
    * @param {Object} product - Product to add to cart
    * @returns {Promise} - Promise with cart update result
@@ -365,31 +387,46 @@ export default {
 
   /**
    * Process checkout for cart items
+   * @param {Number} locationID - Selected delivery location ID
    * @returns {Promise} - Promise with checkout result
    */
-  async checkout() {
+  /**
+   * Process checkout with selected location
+   * @param {Number} locationID - Selected delivery location ID
+   * @returns {Promise} - Promise with checkout result
+   */
+  async checkout(locationID) {
     try {
-      // Show loading indicator
+      if (!locationID) {
+        throw new Error('Please select a delivery location');
+      }
+      
+      console.log('Processing checkout with locationID:', locationID);
+      
+      // Show loading modal
       modal.loading('Processing Payment', 'Please wait while we connect to the payment gateway...');
       
-      // Call the payment creation endpoint with special handling for 401 errors
-      const response = await api.post('/api/payment/create', {}, {
-        // Add this option to prevent the global interceptor from handling 401 errors
-        skipAuthRedirect: true
+      // Call the payment creation endpoint with location ID
+      const response = await api.post('/api/payment/create', {
+        locationID: locationID
       });
       
       // Close loading modal
       modal.close();
       
-      if (response && response.data && response.data.redirect_url) {
-        // Redirect to payment gateway
-        window.location.href = response.data.redirect_url;
-        return response.data;
+      console.log('Payment API response:', response);
+      
+      // Check if the response contains a redirect URL
+      if (response && response.redirect_url) {
+        console.log('Response data:', response.redirect_url);
+        // Redirect to the payment gateway
+        window.location.href = response.redirect_url;
+         
       } else {
         // Handle unexpected response
-        console.error('Invalid payment gateway response:', response);
+        console.error('Invalid response format:', response);
         modal.danger('Checkout Error', 'Unable to process payment. Please try again.');
-        return Promise.reject(new Error('Invalid response from payment gateway'));
+        throw new Error('Invalid payment response format');
       }
     } catch (error) {
       // Close loading modal
@@ -397,20 +434,19 @@ export default {
       
       console.error('Error processing checkout:', error);
       
-      // Show appropriate error message
-      if (error.response && error.response.status === 401) {
-        modal.danger('Authentication Error', 'Please log in to proceed with checkout.');
-        // Redirect to login page after a short delay
-        setTimeout(() => {
-          window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
-        }, 2000);
-      } else if (error.response && error.response.data && error.response.data.message) {
-        modal.danger('Checkout Error', error.response.data.message);
-      } else {
-        modal.danger('Checkout Error', 'An error occurred while processing your payment. Please try again later.');
+      // Extract error message from response if available
+      let errorMessage = 'Unable to process payment. Please try again.';
+      
+      if (error.response && error.response.data) {
+        console.error('Error response:', error.response.data);
+        
+        if (error.response.data && error.response.data.message) {
+          errorMessage = error.response.data.message;
+        }
       }
       
-      return Promise.reject(error);
+      modal.danger('Checkout Error', errorMessage);
+      throw error;
     }
   },
   
@@ -448,8 +484,8 @@ export default {
         }
       });
       
-      // Close loading modal
-      modal.close();
+      // // Close loading modal
+      // modal.close();
       
       if (response && response.data) {
         if (response.data.success) {
@@ -476,8 +512,8 @@ export default {
         return Promise.reject(new Error('Invalid response from payment verification'));
       }
     } catch (error) {
-      // Close loading modal
-      modal.close();
+      // // Close loading modal
+      // modal.close();
       
       console.error('Error verifying payment:', error);
       

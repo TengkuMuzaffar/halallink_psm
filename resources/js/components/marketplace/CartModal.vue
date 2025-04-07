@@ -72,8 +72,8 @@
               <p class="mt-3">Your cart is empty</p>
             </div>
             
-            <!-- In the template section, update the cart items display -->
             <div v-else>
+              <!-- Cart items list -->
               <div v-for="item in cartItems" :key="item.cartID" class="cart-item">
                 <div class="d-flex">
                   <img 
@@ -125,6 +125,45 @@
               <div class="cart-total">
                 Total: RM {{ formatPrice(cartTotal) }}
               </div>
+              
+              <!-- Delivery Location Selection -->
+              <div class="delivery-location mt-4 p-3 border rounded bg-light">
+                <h6 class="mb-3"><i class="bi bi-geo-alt me-2"></i>Delivery Location</h6>
+                
+                <div v-if="isLoadingLocations" class="text-center py-2">
+                  <div class="spinner-border spinner-border-sm text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                  </div>
+                  <span class="ms-2">Loading locations...</span>
+                </div>
+                
+                <div v-else-if="locations.length === 0" class="alert alert-warning">
+                  <i class="bi bi-exclamation-triangle me-2"></i>
+                  No delivery locations found. Please add a location in your profile settings.
+                </div>
+                
+                <div v-else class="form-group">
+                  <label for="deliveryLocation" class="form-label">Select delivery location:</label>
+                  <select 
+                    id="deliveryLocation" 
+                    v-model="selectedLocationID" 
+                    class="form-select"
+                    :class="{ 'is-invalid': locationError }"
+                  >
+                    <option value="" disabled selected>-- Select a delivery location --</option>
+                    <option 
+                      v-for="location in locations" 
+                      :key="location.locationID"
+                      :value="location.locationID"
+                    >
+                      {{ location.company_address }} ({{ location.location_type }})
+                    </option>
+                  </select>
+                  <div class="invalid-feedback" v-if="locationError">
+                    Please select a delivery location before checkout
+                  </div>
+                </div>
+              </div>
             </div>
             
             <!-- In the modal footer section, add a checkout button -->
@@ -152,7 +191,6 @@
                 <i class="bi bi-x-lg me-1"></i> Cancel
               </button>
               
-              <!-- Add checkout button -->
               <button 
                 v-if="!isEditing && cartItems.length > 0" 
                 type="button" 
@@ -160,12 +198,8 @@
                 @click="proceedToCheckout"
                 :disabled="isProcessingCheckout"
               >
-                <span v-if="isProcessingCheckout">
-                  <i class="bi bi-arrow-repeat spinner me-1"></i> Processing...
-                </span>
-                <span v-else>
-                  <i class="bi bi-credit-card me-1"></i> Checkout
-                </span>
+                <i class="bi bi-credit-card me-1"></i> 
+                {{ isProcessingCheckout ? 'Processing...' : 'Proceed to Checkout' }}
               </button>
             </div>
           </div>
@@ -202,6 +236,12 @@ export default {
     const isLoading = ref(false);
     const addToCartModal = ref(null);
     const viewCartModal = ref(null);
+    
+    // Add new state for location selection
+    const locations = ref([]);
+    const selectedLocationID = ref('');
+    const isLoadingLocations = ref(false);
+    const locationError = ref(false);
     
     // Computed properties
     const cartTotal = computed(() => {
@@ -293,6 +333,12 @@ export default {
         // Reset editing mode
         isEditing.value = false;
         
+        // Load delivery locations
+        loadLocations();
+        
+        // Reset location error
+        locationError.value = false;
+        
         if (!viewCartModal.value) {
           initModals();
         }
@@ -308,6 +354,33 @@ export default {
           initModals();
         }
         viewCartModal.value.show();
+      }
+    };
+    
+    // Load user's delivery locations
+    const loadLocations = async () => {
+      isLoadingLocations.value = true;
+      try {
+        const locationsData = await marketplaceService.fetchUserLocations();
+        console.log('Loaded locations:', locationsData);
+        
+        // Filter locations to only include kitchen type
+        const kitchenLocations = Array.isArray(locationsData) 
+          ? locationsData.filter(location => location.location_type === 'kitchen')
+          : [];
+        
+        // Set the filtered locations
+        locations.value = kitchenLocations;
+        
+        // If there's only one kitchen location, select it automatically
+        if (locations.value.length === 1) {
+          selectedLocationID.value = locations.value[0].locationID;
+        }
+      } catch (error) {
+        console.error('Error loading locations:', error);
+        locations.value = [];
+      } finally {
+        isLoadingLocations.value = false;
       }
     };
     
@@ -521,40 +594,22 @@ export default {
     // Proceed to checkout
     const proceedToCheckout = async () => {
       try {
+        // Validate location selection
+        if (!selectedLocationID.value) {
+          locationError.value = true;
+          return;
+        }
+        
+        // Reset location error
+        locationError.value = false;
         isProcessingCheckout.value = true;
         
-        // Call the payment creation endpoint
-        const response = await api.post('/api/payment/create', {});
-        
-        console.log('Payment API response:', response);
-        
-        // Check if the response contains a redirect URL
-        if (response && response.redirect_url) {
-          // Redirect to the payment gateway
-          window.location.href = response.redirect_url;
-        } else {
-          // Handle unexpected response
-          console.error('Invalid response format:', response.data);
-          modal.danger('Checkout Error', 'Unable to process payment. Please try again.');
-          isProcessingCheckout.value = false;
-        }
+        // Use the marketplaceService checkout method
+        await marketplaceService.checkout(selectedLocationID.value);
       } catch (error) {
         console.error('Checkout error:', error);
-        
-        // Extract error message from response if available
-        let errorMessage = 'Unable to process payment. Please try again.';
-        
-        if (error.response) {
-          console.error('Error response:', error.response.data);
-          
-          if (error.response.data && error.response.message) {
-            errorMessage = error.response.message;
-          } else if (error.response.data && error.response.error) {
-            errorMessage = error.response.error;
-          }
-        }
-        
-        modal.danger('Checkout Error', errorMessage);
+        // Error handling is done in the marketplaceService.checkout method
+      } finally {
         isProcessingCheckout.value = false;
       }
     };
@@ -570,8 +625,14 @@ export default {
       cartItems,
       cartTotal,
       isEditing,
-      isLoading, // Expose loading state to template
+      isLoading,
       isProcessingCheckout,
+      // Add new location-related properties
+      locations,
+      selectedLocationID,
+      isLoadingLocations,
+      locationError,
+      // Methods
       showAddToCartModal,
       showViewCartModal,
       decreaseQuantity,
@@ -585,7 +646,8 @@ export default {
       updateCartItem,
       removeCartItem,
       proceedToCheckout,
-      formatPrice
+      formatPrice,
+      loadLocations
     };
   }
 }
@@ -738,5 +800,9 @@ export default {
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+.delivery-location {
+  background-color: #f8f9fa;
 }
 </style>

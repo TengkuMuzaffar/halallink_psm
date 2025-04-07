@@ -30,6 +30,18 @@ class ToyyibPayController extends Controller
                 ], 401);
             }
             
+            // Validate delivery location
+            $locationID = $request->input('locationID');
+            \Log::info('Checking delivery location', ['locationID' => $locationID]);
+            
+            if (!$locationID) {
+                \Log::warning('Payment failed: No delivery location selected');
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Please select a delivery location'
+                ], 400);
+            }
+            
             // Get draft order
             \Log::info('Fetching draft order for user', ['userID' => $user->userID]);
             $order = Order::where('userID', $user->userID)
@@ -44,6 +56,11 @@ class ToyyibPayController extends Controller
                     'message' => 'No items in cart'
                 ], 400);
             }
+            
+            // Update order with delivery location
+            $order->locationID = $locationID;
+            $order->save();
+            \Log::info('Updated order with delivery location', ['orderID' => $order->orderID, 'locationID' => $locationID]);
             
             // Get cart items
             \Log::info('Fetching cart items for order', ['orderID' => $order->orderID]);
@@ -335,7 +352,33 @@ class ToyyibPayController extends Controller
                     $payment->payment_status = 'completed';
                     $payment->transaction_id = $transactionId;
                     $order->order_status = 'paid';
-                    \Log::info('Payment successful', ['orderID' => $order->orderID, 'transactionId' => $transactionId]);
+                    
+                    // Get cart items to update stock
+                    $cartItems = Cart::where('orderID', $order->orderID)->with('item')->get();
+                    
+                    // Update stock for each item
+                    foreach ($cartItems as $cartItem) {
+                        if ($cartItem->item) {
+                            \Log::info('Updating stock for item', [
+                                'itemID' => $cartItem->itemID,
+                                'currentStock' => $cartItem->item->stock,
+                                'decreaseBy' => $cartItem->quantity
+                            ]);
+                            
+                            if (!$cartItem->item->decreaseStock($cartItem->quantity)) {
+                                \Log::warning('Failed to update stock for item', [
+                                    'itemID' => $cartItem->itemID,
+                                    'requestedQuantity' => $cartItem->quantity,
+                                    'availableStock' => $cartItem->item->stock
+                                ]);
+                            }
+                        }
+                    }
+                    
+                    \Log::info('Payment successful', [
+                        'orderID' => $order->orderID, 
+                        'transactionId' => $transactionId
+                    ]);
                     break;
                 case '2': // Pending
                     $payment->payment_status = 'pending';
@@ -362,7 +405,7 @@ class ToyyibPayController extends Controller
             \Log::info('Payment and order updated successfully');
             
             // Format amount for display
-            $formattedAmount = 'RM ' . number_format($payment->payment_amount / 100, 2);
+            $formattedAmount = 'RM ' . number_format($payment->payment_amount, 2);
             
             // Redirect to frontend payment status page with all necessary parameters
             $redirectUrl = '/payment-status?' . http_build_query([
@@ -438,6 +481,29 @@ class ToyyibPayController extends Controller
                 case '1': // Success
                     $payment->payment_status = 'completed';
                     $order->order_status = 'paid';
+                    
+                    // Get cart items to update stock
+                    $cartItems = Cart::where('orderID', $order->orderID)->with('item')->get();
+                    
+                    // Update stock for each item
+                    foreach ($cartItems as $cartItem) {
+                        if ($cartItem->item) {
+                            \Log::info('Callback: Updating stock for item', [
+                                'itemID' => $cartItem->itemID,
+                                'currentStock' => $cartItem->item->stock,
+                                'decreaseBy' => $cartItem->quantity
+                            ]);
+                            
+                            if (!$cartItem->item->decreaseStock($cartItem->quantity)) {
+                                \Log::warning('Callback: Failed to update stock for item', [
+                                    'itemID' => $cartItem->itemID,
+                                    'requestedQuantity' => $cartItem->quantity,
+                                    'availableStock' => $cartItem->item->stock
+                                ]);
+                            }
+                        }
+                    }
+                    
                     \Log::info('Callback payment successful', ['orderID' => $order->orderID]);
                     break;
                 case '2': // Pending

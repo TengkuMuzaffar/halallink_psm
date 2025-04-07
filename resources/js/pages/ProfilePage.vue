@@ -204,7 +204,7 @@ export default {
         loading.value = true;
         const response = await api.get('/api/profile');
         profileData.value = response;
-        
+        console.log('Fetched profile data:', response);
         // Check email verification status - make sure we're checking the right property
         emailVerified.value = !!response.email_verified_at;
         

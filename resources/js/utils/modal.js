@@ -27,11 +27,19 @@ const MODAL_TYPES = {
     headerClass: 'bg-danger text-white',
     icon: 'bi bi-x-circle-fill',
     color: '#dc3545'
+  },
+  loading: {
+    headerClass: 'bg-primary text-white',
+    icon: 'bi bi-arrow-repeat',
+    color: '#0d6efd'
   }
 };
 
 // Counter to generate unique IDs for modals
 let modalCounter = 0;
+
+// Reference to the current loading modal
+let currentLoadingModal = null;
 
 // Add the animated modal styles to the document
 const addAnimatedModalStyles = () => {
@@ -51,6 +59,10 @@ const addAnimatedModalStyles = () => {
       animation: iconBounce 0.6s ease-out;
     }
     
+    .modal-icon.loading-icon {
+      animation: iconSpin 1.5s linear infinite;
+    }
+    
     .modal-centered-content {
       text-align: center;
     }
@@ -64,6 +76,11 @@ const addAnimatedModalStyles = () => {
       0% { transform: scale(0); opacity: 0; }
       50% { transform: scale(1.2); }
       100% { transform: scale(1); opacity: 1; }
+    }
+    
+    @keyframes iconSpin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
     }
   `;
 
@@ -102,7 +119,8 @@ export const showModal = (options) => {
     showClose = true,
     buttons = [{ label: 'Close', type: 'secondary', dismiss: true }],
     onShown = null,
-    onHidden = null
+    onHidden = null,
+    customModalBody = null
   } = options;
 
   // Generate unique ID for this modal
@@ -110,6 +128,20 @@ export const showModal = (options) => {
   
   // Get modal type configuration
   const modalType = MODAL_TYPES[type] || MODAL_TYPES.info;
+  
+  // Create modal body content
+  const modalBody = customModalBody 
+    ? customModalBody(modalType, message)
+    : `
+      <div class="modal-body modal-centered-content">
+        <div class="modal-icon-container">
+          <i class="${modalType.icon} modal-icon${type === 'loading' ? ' loading-icon' : ''}" style="color: ${modalType.color};"></i>
+        </div>
+        <div class="modal-message">
+          ${message}
+        </div>
+      </div>
+    `;
   
   // Create modal HTML with centered content and animated icon
   const modalHTML = `
@@ -122,14 +154,7 @@ export const showModal = (options) => {
             </h5>
             ${showClose ? '<button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 mt-2 me-2" data-bs-dismiss="modal" aria-label="Close"></button>' : ''}
           </div>
-          <div class="modal-body modal-centered-content">
-            <div class="modal-icon-container">
-              <i class="${modalType.icon} modal-icon" style="color: ${modalType.color};"></i>
-            </div>
-            <div class="modal-message">
-              ${message}
-            </div>
-          </div>
+          ${modalBody}
           ${buttons.length > 0 ? `
             <div class="modal-footer justify-content-center">
               ${buttons.map(btn => `
@@ -341,6 +366,42 @@ export const showConfirm = (title, message, onConfirm, onCancel = null, options 
   });
 };
 
+/**
+ * Shows a loading modal
+ * @param {string} title - Modal title
+ * @param {string} message - Modal message
+ * @param {Object} options - Additional modal options
+ * @returns {Object} - Modal instance
+ */
+export const showLoading = (title, message, options = {}) => {
+  // Close any existing loading modal
+  if (currentLoadingModal) {
+    currentLoadingModal.hide();
+  }
+  
+  // Create new loading modal with no close button and no footer buttons
+  currentLoadingModal = showModal({
+    type: 'loading',
+    title,
+    message,
+    showClose: false,
+    buttons: [],
+    ...options
+  });
+  
+  return currentLoadingModal;
+};
+
+/**
+ * Closes the current loading modal if it exists
+ */
+export const closeLoading = () => {
+  if (currentLoadingModal) {
+    currentLoadingModal.hide();
+    currentLoadingModal = null;
+  }
+};
+
 // Export default object with all methods
 export default {
   show: showModal,
@@ -348,5 +409,7 @@ export default {
   success: showSuccess,
   warning: showWarning,
   danger: showDanger,
-  confirm: showConfirm
+  confirm: showConfirm,
+  loading: showLoading,
+  close: closeLoading
 };

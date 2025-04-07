@@ -63,4 +63,19 @@ class Item extends Model
     {
         return $this->hasMany(Order::class, 'itemID', 'itemID');
     }
+
+    /**
+     * Decrease the item stock
+     *
+     * @param int $quantity
+     * @return bool
+     */
+    public function decreaseStock($quantity)
+    {
+        if ($this->stock >= $quantity) {
+            $this->stock -= $quantity;
+            return $this->save();
+        }
+        return false;
+    }
 }
