@@ -32,8 +32,11 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   response => response,
   async error => {
+    // Check if we should skip auth redirect for this request
+    const skipAuthRedirect = error.config?.skipAuthRedirect;
+    
     // Handle 401 Unauthorized errors (session timeout, etc.)
-    if (error.response && error.response.status === 401) {
+    if (error.response && error.response.status === 401 && !skipAuthRedirect) {
       // Clear any auth data from localStorage
       localStorage.removeItem('token');
       localStorage.removeItem('user');

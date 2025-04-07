@@ -125,42 +125,47 @@
               <div class="cart-total">
                 Total: RM {{ formatPrice(cartTotal) }}
               </div>
-              
-              <!-- Add edit mode controls -->
-              <div class="d-flex justify-content-end mt-3" v-if="cartItems.length > 0">
-                <button 
-                  v-if="!isEditing" 
-                  class="btn btn-outline-primary me-2"
-                  @click="startEditing"
-                >
-                  <i class="bi bi-pencil me-1"></i> Edit Quantities
-                </button>
-                <button 
-                  v-if="isEditing" 
-                  class="btn btn-success me-2"
-                  @click="saveChanges"
-                >
-                  <i class="bi bi-check-lg me-1"></i> Save Changes
-                </button>
-                <button 
-                  v-if="isEditing" 
-                  class="btn btn-outline-secondary"
-                  @click="cancelEditing"
-                >
-                  Cancel
-                </button>
-              </div>
             </div>
             
-            <!-- Update the modal footer -->
+            <!-- In the modal footer section, add a checkout button -->
             <div class="modal-footer">
               <button 
-                v-if="cartItems.length > 0 && !isEditing" 
+                v-if="!isEditing && cartItems.length > 0" 
+                type="button" 
+                class="btn btn-outline-secondary me-2"
+                @click="startEditing"
+              >
+                <i class="bi bi-pencil me-1"></i> Edit Quantities
+              </button>
+              <button 
+                v-if="isEditing" 
+                class="btn btn-success me-2"
+                @click="saveChanges"
+              >
+                <i class="bi bi-check-lg me-1"></i> Save Changes
+              </button>
+              <button 
+                v-if="isEditing" 
+                class="btn btn-outline-secondary"
+                @click="cancelEditing"
+              >
+                <i class="bi bi-x-lg me-1"></i> Cancel
+              </button>
+              
+              <!-- Add checkout button -->
+              <button 
+                v-if="!isEditing && cartItems.length > 0" 
                 type="button" 
                 class="btn btn-primary"
                 @click="proceedToCheckout"
+                :disabled="isProcessingCheckout"
               >
-                Proceed to Checkout
+                <span v-if="isProcessingCheckout">
+                  <i class="bi bi-arrow-repeat spinner me-1"></i> Processing...
+                </span>
+                <span v-else>
+                  <i class="bi bi-credit-card me-1"></i> Checkout
+                </span>
               </button>
             </div>
           </div>
@@ -175,7 +180,9 @@ import { ref, computed } from 'vue';
 import * as bootstrap from 'bootstrap';
 import marketplaceService from '../../utils/marketplaceService';
 import modal from '../../utils/modal';
+import api from '../../utils/api';
 import LoadingSpinner from '../ui/LoadingSpinner.vue';
+import axios from 'axios'; // Make sure axios is imported
 
 export default {
   name: 'CartModal',
@@ -183,6 +190,9 @@ export default {
     LoadingSpinner
   },
   setup() {
+    // Add new state for checkout processing
+    const isProcessingCheckout = ref(false);
+    
     // State variables
     const selectedProduct = ref(null);
     const quantity = ref(1); // This will now represent order_quantity
@@ -509,9 +519,44 @@ export default {
     };
     
     // Proceed to checkout
-    const proceedToCheckout = () => {
-      viewCartModal.value.hide();
-      window.location.href = '/checkout';
+    const proceedToCheckout = async () => {
+      try {
+        isProcessingCheckout.value = true;
+        
+        // Call the payment creation endpoint
+        const response = await api.post('/api/payment/create', {});
+        
+        console.log('Payment API response:', response);
+        
+        // Check if the response contains a redirect URL
+        if (response && response.redirect_url) {
+          // Redirect to the payment gateway
+          window.location.href = response.redirect_url;
+        } else {
+          // Handle unexpected response
+          console.error('Invalid response format:', response.data);
+          modal.danger('Checkout Error', 'Unable to process payment. Please try again.');
+          isProcessingCheckout.value = false;
+        }
+      } catch (error) {
+        console.error('Checkout error:', error);
+        
+        // Extract error message from response if available
+        let errorMessage = 'Unable to process payment. Please try again.';
+        
+        if (error.response) {
+          console.error('Error response:', error.response.data);
+          
+          if (error.response.data && error.response.message) {
+            errorMessage = error.response.message;
+          } else if (error.response.data && error.response.error) {
+            errorMessage = error.response.error;
+          }
+        }
+        
+        modal.danger('Checkout Error', errorMessage);
+        isProcessingCheckout.value = false;
+      }
     };
     
     // Format price
@@ -526,6 +571,7 @@ export default {
       cartTotal,
       isEditing,
       isLoading, // Expose loading state to template
+      isProcessingCheckout,
       showAddToCartModal,
       showViewCartModal,
       decreaseQuantity,
@@ -661,6 +707,7 @@ export default {
   color: #123524;
   text-align: right;
   margin-top: 15px;
+  margin-bottom: 15px;
 }
 
 .modal-header {
@@ -680,5 +727,16 @@ export default {
 .btn-primary:hover, .btn-primary:focus {
   background-color: #0d2a1c;
   border-color: #0d2a1c;
+}
+
+/* Add spinner animation for the loading state */
+.spinner {
+  animation: spin 1s linear infinite;
+  display: inline-block;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 </style>

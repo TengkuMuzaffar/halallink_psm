@@ -212,11 +212,10 @@ class ItemController extends Controller
                 'item_image' => 'nullable|image|max:2048',
             ]);
         
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
-        }
-        
-        try {
+            if ($validator->fails()) {
+                return response()->json(['errors' => $validator->errors()], 422);
+            }
+            
             $user = Auth::user();
             
             // Verify the location belongs to the user's company
@@ -232,6 +231,7 @@ class ItemController extends Controller
             $item->measurement_type = $request->measurement_type;
             $item->measurement_value = $request->measurement_value;
             $item->price = $request->price;
+            $item->stock = $request->stock; // Add stock field
             
             // Handle image upload
             if ($request->hasFile('item_image')) {
@@ -256,6 +256,7 @@ class ItemController extends Controller
                 'measurement_type' => $item->measurement_type,
                 'measurement_value' => $item->measurement_value,
                 'price' => $item->price,
+                'stock' => $item->stock, // Include stock in response
                 'item_image' => $item->item_image ? asset('storage/' . $item->item_image) : null,
                 'created_at' => $item->created_at,
                 'updated_at' => $item->updated_at
@@ -265,12 +266,12 @@ class ItemController extends Controller
                 'message' => 'Item created successfully',
                 'item' => $formattedItem
             ], 201);
+            
         } catch (\Exception $e) {
             Log::error('Error creating item: ' . $e->getMessage());
             return response()->json(['message' => 'Failed to create item', 'error' => $e->getMessage()], 500);
         }
     }
-
     /**
      * Display the specified item.
      *
@@ -329,9 +330,6 @@ class ItemController extends Controller
     public function update(Request $request, $id)
     {
         try {
-            // Find the item
-            $item = Item::findOrFail($id);
-            
             // Validate request
             $validator = Validator::make($request->all(), [
                 'poultryID' => 'required|exists:poultries,poultryID',
@@ -343,11 +341,10 @@ class ItemController extends Controller
                 'item_image' => 'nullable|image|max:2048',
             ]);
 
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
-        }
-        
-        try {
+            if ($validator->fails()) {
+                return response()->json(['errors' => $validator->errors()], 422);
+            }
+            
             $user = Auth::user();
             $item = Item::find($id);
             
@@ -374,6 +371,7 @@ class ItemController extends Controller
             $item->measurement_type = $request->measurement_type;
             $item->measurement_value = $request->measurement_value;
             $item->price = $request->price;
+            $item->stock = $request->stock; // Add stock field
             
             // Handle image upload
             if ($request->hasFile('item_image')) {
@@ -403,6 +401,7 @@ class ItemController extends Controller
                 'measurement_type' => $item->measurement_type,
                 'measurement_value' => $item->measurement_value,
                 'price' => $item->price,
+                'stock' => $item->stock, // Include stock in response
                 'item_image' => $item->item_image ? asset('storage/' . $item->item_image) : null,
                 'created_at' => $item->created_at,
                 'updated_at' => $item->updated_at
@@ -412,6 +411,7 @@ class ItemController extends Controller
                 'message' => 'Item updated successfully',
                 'item' => $formattedItem
             ]);
+            
         } catch (\Exception $e) {
             Log::error('Error updating item: ' . $e->getMessage());
             return response()->json(['message' => 'Failed to update item', 'error' => $e->getMessage()], 500);

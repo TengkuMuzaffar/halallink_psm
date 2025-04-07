@@ -19,6 +19,8 @@ const Profile = () => import('../pages/ProfilePage.vue');
 const VerifyEmail = () => import('../pages/VerifyEmailPage.vue');
 const ItemManagement = () =>  import('../pages/ItemManagement.vue');
 const Marketplace = () => import('../pages/MarketplacePage.vue');
+// Add payment status page
+const PaymentStatus = () => import('../pages/PaymentStatusPage.vue');
 
 const routes = [
   {
@@ -137,29 +139,27 @@ const routes = [
           title: 'Marketplace'
         }
       },
-      // Remove duplicate companies route
-      // {
-      // path: 'companies',
-      // name: 'CompanyManagement',
-      // component: CompanyManagement,
-      // meta: {
-      //   requiresAuth: true,
-      //   requiresRole: 'admin',
-      //   requiresCompanyType: 'admin'
-      // }
-      // }
     ]
   },
+  
+  // Move payment-status route outside of the MainLayout and remove requiresAuth
   {
-    path: '/unauthorized',
-    name: 'Unauthorized',
-    component: Unauthorized
+    path: '/payment-status',
+    name: 'PaymentStatus',
+    component: PaymentStatus,
+    meta: { requiresAuth: false, title: 'Payment Status' }
   },
-  {
-    path: '/:pathMatch(.*)*',
-    name: 'NotFound',
-    component: NotFound
-  }
+  // Remove duplicate companies route
+  // {
+  // path: 'companies',
+  // name: 'CompanyManagement',
+  // component: CompanyManagement,
+  // meta: {
+  //   requiresAuth: true,
+  //   requiresRole: 'admin',
+  //   requiresCompanyType: 'admin'
+  // }
+  // }
 ];
 
 const router = createRouter({

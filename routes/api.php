@@ -11,6 +11,8 @@ use App\Http\Controllers\Api\EmailVerificationController;
 use App\Http\Controllers\Api\ItemController;
 use App\Http\Controllers\Api\PoultryController;
 use App\Http\Controllers\Api\MarketplaceController;
+use App\Http\Controllers\Api\ToyyibPayController;
+use App\Http\Controllers\Api\PaymentController;
 
 // Public routes
 Route::post('/login', [AuthController::class, 'login']);
@@ -23,6 +25,11 @@ Route::get('/poultries', [PoultryController::class, 'index']);
 Route::get('/poultries/{poultry}', [PoultryController::class, 'show']);
 
 
+
+Route::get('/payment/status', [ToyyibPayController::class, 'paymentStatus'])->name('payment.status');
+Route::post('/payment/callback', [ToyyibPayController::class, 'callBack'])->name('payment.callback');
+// Payment routes
+Route::get('/payment/verify', [PaymentController::class, 'verifyPayment']);
 
 // Password routes
 Route::post('/password/forgot', [PasswordController::class, 'sendResetLinkEmail']);
@@ -38,6 +45,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [AuthController::class, 'user']);
     Route::post('/password/change', [PasswordController::class, 'changePassword']);
     Route::post('/logout', [AuthController::class, 'logout']);
+    
+    // ToyyibPay routes
+    Route::post('/payment/create', [\App\Http\Controllers\Api\ToyyibPayController::class, 'createBill'])->name('payment.create');
+   
+   
     
     // Email verification routes
     Route::get('/email/verification-status', [EmailVerificationController::class, 'checkVerificationStatus']);

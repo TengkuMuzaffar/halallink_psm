@@ -361,5 +361,177 @@ export default {
       // Add animation class
       cartBtn.classList.add('cart-shake');
     }
+  },
+
+  /**
+   * Process checkout for cart items
+   * @returns {Promise} - Promise with checkout result
+   */
+  async checkout() {
+    try {
+      // Show loading indicator
+      modal.loading('Processing Payment', 'Please wait while we connect to the payment gateway...');
+      
+      // Call the payment creation endpoint with special handling for 401 errors
+      const response = await api.post('/api/payment/create', {}, {
+        // Add this option to prevent the global interceptor from handling 401 errors
+        skipAuthRedirect: true
+      });
+      
+      // Close loading modal
+      modal.close();
+      
+      if (response && response.data && response.data.redirect_url) {
+        // Redirect to payment gateway
+        window.location.href = response.data.redirect_url;
+        return response.data;
+      } else {
+        // Handle unexpected response
+        console.error('Invalid payment gateway response:', response);
+        modal.danger('Checkout Error', 'Unable to process payment. Please try again.');
+        return Promise.reject(new Error('Invalid response from payment gateway'));
+      }
+    } catch (error) {
+      // Close loading modal
+      modal.close();
+      
+      console.error('Error processing checkout:', error);
+      
+      // Show appropriate error message
+      if (error.response && error.response.status === 401) {
+        modal.danger('Authentication Error', 'Please log in to proceed with checkout.');
+        // Redirect to login page after a short delay
+        setTimeout(() => {
+          window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
+        }, 2000);
+      } else if (error.response && error.response.data && error.response.data.message) {
+        modal.danger('Checkout Error', error.response.data.message);
+      } else {
+        modal.danger('Checkout Error', 'An error occurred while processing your payment. Please try again later.');
+      }
+      
+      return Promise.reject(error);
+    }
+  },
+  
+  /**
+   * Verify payment status
+   * @param {Object} params - Payment parameters from ToyyibPay callback
+   * @param {string} params.billcode - Bill code from ToyyibPay
+   * @param {string} params.order_id - Order reference number
+   * @param {string} params.status_id - Payment status ID (1=success, 2=pending, 3=failed)
+   * @param {string} params.transaction_id - Transaction ID from ToyyibPay
+   * @returns {Promise} - Promise with payment verification result
+   */
+  async verifyPayment(params = {}) {
+    try {
+      // Show loading indicator
+      modal.loading('Verifying Payment', 'Please wait while we verify your payment...');
+      
+      const { billcode, order_id, status_id, transaction_id } = params;
+      
+      // Log the parameters for debugging
+      console.log('Verifying payment with params:', params);
+      
+      if (!billcode || !order_id) {
+        modal.close();
+        modal.danger('Verification Error', 'Missing required payment information');
+        return Promise.reject(new Error('Missing required payment parameters'));
+      }
+      
+      // Call the payment verification endpoint
+      const response = await api.get('/api/payment/verify', {
+        params: {
+          billcode,
+          order_id,
+          transaction_id
+        }
+      });
+      
+      // Close loading modal
+      modal.close();
+      
+      if (response && response.data) {
+        if (response.data.success) {
+          // Payment verified successfully
+          modal.success('Payment Successful', `Your payment of ${response.data.amount} has been processed successfully.`);
+          
+          // Refresh cart data after successful payment
+          try {
+            await this.getCartItems();
+          } catch (err) {
+            console.warn('Error refreshing cart after payment:', err);
+          }
+          
+          return response.data;
+        } else {
+          // Payment verification failed
+          modal.warning('Payment Verification', response.data.message || 'Payment verification failed. Please contact support.');
+          return Promise.reject(new Error(response.data.message || 'Payment verification failed'));
+        }
+      } else {
+        // Handle unexpected response
+        console.error('Invalid payment verification response:', response);
+        modal.danger('Verification Error', 'Unable to verify payment. Please contact support.');
+        return Promise.reject(new Error('Invalid response from payment verification'));
+      }
+    } catch (error) {
+      // Close loading modal
+      modal.close();
+      
+      console.error('Error verifying payment:', error);
+      
+      // Show appropriate error message
+      if (error.response && error.response.data && error.response.data.message) {
+        modal.danger('Verification Error', error.response.data.message);
+      } else {
+        modal.danger('Verification Error', 'An error occurred while verifying your payment. Please contact support.');
+      }
+      
+      return Promise.reject(error);
+    }
+  },
+  
+  /**
+   * Handle payment status from ToyyibPay callback
+   * @param {Object} urlParams - URL parameters from payment callback
+   * @returns {Promise} - Promise with payment status result
+   */
+  async handlePaymentStatus(urlParams) {
+    try {
+      const statusId = urlParams.status_id;
+      const billCode = urlParams.billcode;
+      const orderId = urlParams.order_id;
+      const message = urlParams.msg;
+      const transactionId = urlParams.transaction_id;
+      
+      console.log('Payment status callback received:', {
+        statusId,
+        billCode,
+        orderId,
+        message,
+        transactionId
+      });
+      
+      // Check if payment was successful (status_id=1 means success)
+      if (statusId === '1' && message === 'ok') {
+        // Verify the payment with backend
+        return await this.verifyPayment({
+          billcode: billCode,
+          order_id: orderId,
+          status_id: statusId,
+          transaction_id: transactionId
+        });
+      } else {
+        // Payment failed or is pending
+        const statusMessage = statusId === '2' ? 'Payment is pending.' : 'Payment was not successful.';
+        modal.warning('Payment Status', statusMessage);
+        return Promise.reject(new Error(statusMessage));
+      }
+    } catch (error) {
+      console.error('Error handling payment status:', error);
+      modal.danger('Payment Error', 'An error occurred while processing your payment status.');
+      return Promise.reject(error);
+    }
   }
 };
