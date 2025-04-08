@@ -31,30 +31,37 @@ class ItemSeeder extends Seeder
                 ->where('location_type', 'supplier')
                 ->get();
                 
-            // Get admin user for this company
-            $adminUser = User::where('companyID', $company->companyID)
+            // Get admin and employees for this company
+            $admin = User::where('companyID', $company->companyID)
                 ->where('role', 'admin')
                 ->first();
                 
-            if (!$adminUser || $supplierLocations->isEmpty()) {
-                continue; // Skip if no admin or supplier locations
+            $employees = User::where('companyID', $company->companyID)
+                ->where('role', 'employee')
+                ->get();
+                
+            if (!$admin || $supplierLocations->isEmpty() || $employees->isEmpty()) {
+                continue; // Skip if no admin, employees, or supplier locations
             }
             
             // Create items for each supplier location and poultry type
             foreach ($supplierLocations as $location) {
                 foreach ($poultryTypes as $poultry) {
-                    // Create 2-4 items per poultry type per location
-                    $itemCount = rand(2, 4);
+                    // Create 3-6 items per poultry type per location
+                    $itemCount = rand(3, 6);
                     
                     for ($i = 0; $i < $itemCount; $i++) {
                         $measurementType = $this->getRandomMeasurementType();
                         $measurementValue = $this->getRandomMeasurementValue($measurementType);
                         $price = $this->getRandomPrice($poultry->poultry_name, $measurementType, $measurementValue);
-                        $stock = rand(10, 100);
+                        $stock = rand(20, 200);
+                        
+                        // Randomly select either admin or one of the employees as the creator
+                        $creator = rand(0, 10) < 3 ? $admin : $employees->random();
                         
                         Item::create([
                             'poultryID' => $poultry->poultryID,
-                            'userID' => $adminUser->userID,
+                            'userID' => $creator->userID,
                             'locationID' => $location->locationID,
                             'measurement_type' => $measurementType,
                             'item_image' => "items/{$poultry->poultry_name}-{$measurementType}.png",
@@ -73,7 +80,7 @@ class ItemSeeder extends Seeder
      */
     private function getRandomMeasurementType(): string
     {
-        $types = ['kg', 'g', 'pound'];
+        $types = ['kg', 'g', 'pound', 'oz', 'unit'];
         return $types[array_rand($types)];
     }
     
@@ -89,6 +96,10 @@ class ItemSeeder extends Seeder
                 return rand(100, 900);
             case 'pound':
                 return rand(1, 20) + (rand(0, 9) / 10);
+            case 'oz':
+                return rand(4, 32) + (rand(0, 9) / 10);
+            case 'unit':
+                return rand(1, 10);
             default:
                 return 1.0;
         }
@@ -112,6 +123,15 @@ class ItemSeeder extends Seeder
             case 'Cow':
                 $basePrice = 50;
                 break;
+            case 'Goat':
+                $basePrice = 40;
+                break;
+            case 'Lamb':
+                $basePrice = 45;
+                break;
+            case 'Turkey':
+                $basePrice = 30;
+                break;
             default:
                 $basePrice = 10;
         }
@@ -123,10 +143,13 @@ class ItemSeeder extends Seeder
             case 'g':
                 return round($basePrice * ($measurementValue / 1000) * (1 + (rand(-10, 10) / 100)), 2);
             case 'pound':
-                // 1 pound ≈ 0.45359237 kg
                 return round($basePrice * ($measurementValue * 0.45359237) * (1 + (rand(-10, 10) / 100)), 2);
+            case 'oz':
+                return round($basePrice * ($measurementValue * 0.0283495) * (1 + (rand(-10, 10) / 100)), 2);
+            case 'unit':
+                return round($basePrice * $measurementValue * (1 + (rand(-10, 10) / 100)), 2);
             default:
-                return $basePrice;
+                return round($basePrice * (1 + (rand(-10, 10) / 100)), 2);
         }
     }
 }

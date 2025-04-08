@@ -15,7 +15,7 @@ class PoultrySeeder extends Seeder
         // Clear existing poultry types
         Poultry::query()->delete();
         
-        // Create poultry types
+        // Create poultry types (expanded list)
         $poultryTypes = [
             [
                 'poultry_name' => 'Chicken',
@@ -28,6 +28,18 @@ class PoultrySeeder extends Seeder
             [
                 'poultry_name' => 'Cow',
                 'poultry_image' => 'poultry/cow.png'
+            ],
+            [
+                'poultry_name' => 'Goat',
+                'poultry_image' => 'poultry/goat.png'
+            ],
+            [
+                'poultry_name' => 'Lamb',
+                'poultry_image' => 'poultry/lamb.png'
+            ],
+            [
+                'poultry_name' => 'Turkey',
+                'poultry_image' => 'poultry/turkey.png'
             ]
         ];
         

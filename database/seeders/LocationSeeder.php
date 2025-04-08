@@ -30,8 +30,8 @@ class LocationSeeder extends Seeder
             // Add type-specific locations
             switch ($company->company_type) {
                 case 'broiler':
-                    // Add 2 supplier locations for broiler companies
-                    for ($i = 1; $i <= 2; $i++) {
+                    // Add 5 supplier locations for broiler companies (increased from 2)
+                    for ($i = 1; $i <= 5; $i++) {
                         Location::create([
                             'companyID' => $company->companyID,
                             'company_address' => $this->getRandomAddress(),
@@ -41,21 +41,25 @@ class LocationSeeder extends Seeder
                     break;
                     
                 case 'slaughterhouse':
-                    // Add 1 slaughterhouse location
-                    Location::create([
-                        'companyID' => $company->companyID,
-                        'company_address' => $this->getRandomAddress(),
-                        'location_type' => 'slaughterhouse'
-                    ]);
+                    // Add 3 slaughterhouse locations (increased from 1)
+                    for ($i = 1; $i <= 3; $i++) {
+                        Location::create([
+                            'companyID' => $company->companyID,
+                            'company_address' => $this->getRandomAddress(),
+                            'location_type' => 'slaughterhouse'
+                        ]);
+                    }
                     break;
                     
                 case 'sme':
-                    // Add 1 kitchen location for SME companies
-                    Location::create([
-                        'companyID' => $company->companyID,
-                        'company_address' => $this->getRandomAddress(),
-                        'location_type' => 'kitchen'
-                    ]);
+                    // Add 3 kitchen locations for SME companies (increased from 1)
+                    for ($i = 1; $i <= 3; $i++) {
+                        Location::create([
+                            'companyID' => $company->companyID,
+                            'company_address' => $this->getRandomAddress(),
+                            'location_type' => 'kitchen'
+                        ]);
+                    }
                     break;
             }
         }
@@ -69,17 +73,22 @@ class LocationSeeder extends Seeder
         $streets = [
             'Jalan Bukit Bintang', 'Jalan Sultan Ismail', 'Jalan Ampang', 
             'Jalan Tun Razak', 'Jalan Imbi', 'Jalan Pudu', 'Jalan Masjid India',
-            'Jalan Petaling', 'Jalan Raja Chulan', 'Jalan P. Ramlee'
+            'Jalan Petaling', 'Jalan Raja Chulan', 'Jalan P. Ramlee',
+            'Jalan Alor', 'Jalan Hang Tuah', 'Jalan Bukit Aman', 'Jalan Travers',
+            'Jalan Damansara', 'Jalan Kuching', 'Jalan Ipoh', 'Jalan Klang Lama',
+            'Jalan Cheras', 'Jalan Genting Klang'
         ];
         
         $cities = [
             'Kuala Lumpur', 'Petaling Jaya', 'Shah Alam', 'Subang Jaya', 
-            'Johor Bahru', 'Penang', 'Ipoh', 'Melaka', 'Kota Kinabalu', 'Kuching'
+            'Johor Bahru', 'Penang', 'Ipoh', 'Melaka', 'Kota Kinabalu', 'Kuching',
+            'Seremban', 'Alor Setar', 'Kuantan', 'Kota Bharu', 'Kuala Terengganu'
         ];
         
         $states = [
             'Selangor', 'Kuala Lumpur', 'Johor', 'Penang', 
-            'Perak', 'Melaka', 'Sabah', 'Sarawak'
+            'Perak', 'Melaka', 'Sabah', 'Sarawak', 'Negeri Sembilan',
+            'Kedah', 'Pahang', 'Kelantan', 'Terengganu'
         ];
         
         $street = $streets[array_rand($streets)];

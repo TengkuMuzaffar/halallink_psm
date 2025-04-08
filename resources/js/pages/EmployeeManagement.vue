@@ -128,7 +128,7 @@ export default {
       
       // Add pagination state
       const currentPage = ref(1);
-      const perPage = ref(10); // Default to 10 items per page
+      const perPage = ref(5); // Default to 10 items per page
       const pagination = ref({
         current_page: 1,
         last_page: 1,
