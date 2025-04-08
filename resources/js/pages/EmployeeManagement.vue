@@ -286,7 +286,8 @@ export default {
       
       // Copy registration link
       const copyRegistrationLink = () => {
-        const registrationLink = `${window.location.origin}/register?company=${store.state.user.companyID}`;
+        console.log('Copying registration link:', store.state);
+        const registrationLink = `${window.location.origin}/register-employee?formID=${store.state.user.company.formID}`;
         
         // Use the modal utility for the copy operation
         modal.show({
