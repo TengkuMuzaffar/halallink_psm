@@ -110,6 +110,14 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/cart/clear', [App\Http\Controllers\Api\CartController::class, 'clearCart']);
     });
     
+    Route::middleware('role.company:both,logistic')->group(function () {
+        // Vehicle routes
+        Route::get('/vehicles/companies', [App\Http\Controllers\Api\VehicleController::class, 'getCompanies']);
+        Route::apiResource('vehicles', App\Http\Controllers\Api\VehicleController::class);
+    });
+
+
+
     // Admin role only routes - regardless of company type
     Route::middleware('role:admin')->group(function () {
         // Employee management routes

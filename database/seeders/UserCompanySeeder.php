@@ -26,7 +26,7 @@ class UserCompanySeeder extends Seeder
             'company_image' => 'companies/admin-logo.png',
         ]);
 
-        // Admin user with no fullname
+        // Admin user with no fullname (already correct)
         User::create([
             'email' => 'admin@halallink.com',
             'password' => Hash::make('password123'),
@@ -38,7 +38,7 @@ class UserCompanySeeder extends Seeder
             'image' => 'users/default.png',
         ]);
 
-        // Create 10 employees for admin company
+        // Create 10 employees for each company type
         for ($i = 1; $i <= 10; $i++) {
             User::create([
                 'fullname' => "Admin Employee $i",
@@ -53,6 +53,43 @@ class UserCompanySeeder extends Seeder
             ]);
         }
 
+        // Admin | logistics - 2 accounts
+        for ($i = 1; $i <= 2; $i++) {
+            $logisticsCompany = Company::create([
+                'company_name' => "Logistics Company $i",
+                'company_type' => 'logistic',
+                'company_image' => "companies/logistics-$i.png",
+            ]);
+
+            // Admin user with no fullname
+            User::create([
+                'email' => "logistics.admin$i@halallink.com",
+                'password' => Hash::make('password123'),
+                'companyID' => $logisticsCompany->companyID,
+                'role' => 'admin',
+                'status' => 'active',
+                'tel_number' => "601234567" . (80 + $i),
+                'email_verified_at' => Carbon::now(),
+                'image' => 'users/default.png',
+            ]);
+
+            // Create 10 employees for logistics company
+            for ($j = 1; $j <= 10; $j++) {
+                User::create([
+                    'fullname' => "Logistics $i Employee $j",
+                    'email' => "logistics$i.employee$j@halallink.com",
+                    'password' => Hash::make('password123'),
+                    'companyID' => $logisticsCompany->companyID,
+                    'role' => 'employee',
+                    'status' => 'active',
+                    'tel_number' => "6012348" . $i . str_pad($j, 2, '0', STR_PAD_LEFT),
+                    'email_verified_at' => Carbon::now(),
+                    'image' => 'users/default.png',
+                ]);
+            }
+        }
+
+        // Apply the same pattern for broiler, SME, and slaughterhouse companies
         // 3. Admin | broiler - 3 accounts
         for ($i = 1; $i <= 3; $i++) {
             $broilerCompany = Company::create([

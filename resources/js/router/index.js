@@ -21,6 +21,7 @@ const ItemManagement = () =>  import('../pages/ItemManagement.vue');
 const Marketplace = () => import('../pages/MarketplacePage.vue');
 // Add payment status page
 const PaymentStatus = () => import('../pages/PaymentStatusPage.vue');
+const VehicleManagement = () => import('../pages/VehicleManagement.vue');
 
 const routes = [
   {
@@ -139,6 +140,16 @@ const routes = [
           title: 'Marketplace'
         }
       },
+      {
+        path: '/vehicles',
+        name: 'Vehicles',
+        component: VehicleManagement,
+        meta: {
+            requiresAuth: true,
+            requiresCompanyType: 'logistic',
+            title: 'Vehicle Management'
+          }
+      },
     ]
   },
   
@@ -149,6 +160,7 @@ const routes = [
     component: PaymentStatus,
     meta: { requiresAuth: false, title: 'Payment Status' }
   },
+
   // Remove duplicate companies route
   // {
   // path: 'companies',

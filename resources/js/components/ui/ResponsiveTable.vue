@@ -9,9 +9,33 @@
           <input 
             type="text" 
             class="form-control" 
-            placeholder="Search..." 
+            :placeholder="searchPlaceholder" 
             v-model="searchQuery"
             @input="onSearchInput"
+          >
+        </div>
+      </div>
+      
+      <!-- Min-Max filters -->
+      <div class="min-max-filters d-flex" v-if="showMinMaxFilters">
+        <div class="input-group me-2">
+          <span class="input-group-text">{{ minLabel }}</span>
+          <input 
+            type="number" 
+            class="form-control" 
+            :placeholder="minPlaceholder" 
+            v-model.number="minValue"
+            @change="onMinMaxChange"
+          >
+        </div>
+        <div class="input-group">
+          <span class="input-group-text">{{ maxLabel }}</span>
+          <input 
+            type="number" 
+            class="form-control" 
+            :placeholder="maxPlaceholder" 
+            v-model.number="maxValue"
+            @change="onMinMaxChange"
           >
         </div>
       </div>
@@ -152,11 +176,44 @@ export default {
     serverSide: {
       type: Boolean,
       default: false
+    },
+    // New props for min-max filtering
+    showMinMaxFilters: {
+      type: Boolean,
+      default: false
+    },
+    minLabel: {
+      type: String,
+      default: 'Min'
+    },
+    maxLabel: {
+      type: String,
+      default: 'Max'
+    },
+    minPlaceholder: {
+      type: String,
+      default: 'Min'
+    },
+    maxPlaceholder: {
+      type: String,
+      default: 'Max'
+    },
+    searchPlaceholder: {
+      type: String,
+      default: 'Search...'
+    },
+    minMaxField: {
+      type: String,
+      default: ''
     }
   },
   setup(props, { emit }) {
     // Search and filtering
     const searchQuery = ref('');
+    
+    // Min-Max filtering
+    const minValue = ref('');
+    const maxValue = ref('');
     
     // Add debounce functionality for search
     let searchTimeout = null;
@@ -165,6 +222,15 @@ export default {
       searchTimeout = setTimeout(() => {
         emit('search', searchQuery.value);
       }, 500); // 500ms debounce
+    };
+    
+    // Handle min-max filter changes
+    const onMinMaxChange = () => {
+      emit('min-max-change', {
+        min: minValue.value === '' ? null : minValue.value,
+        max: maxValue.value === '' ? null : maxValue.value,
+        field: props.minMaxField
+      });
     };
     
     // Sorting
@@ -310,6 +376,8 @@ export default {
     
     return {
       searchQuery,
+      minValue,
+      maxValue,
       sortKey,
       sortDirection,
       currentPage,
@@ -323,7 +391,8 @@ export default {
       sortBy,
       getSortIconClass,
       changePage,
-      onSearchInput
+      onSearchInput,
+      onMinMaxChange // Add the new method
     };
   }
 };
@@ -340,6 +409,12 @@ export default {
 
 .search-wrapper {
   max-width: 300px;
+}
+
+.min-max-filters {
+  flex-grow: 1;
+  justify-content: flex-end;
+  max-width: 500px;
 }
 
 .sortable {

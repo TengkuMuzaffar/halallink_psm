@@ -1,8 +1,7 @@
 <?php
 
-namespace App\Http\Controllers\Api;
+namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
 use App\Models\Vehicle;
 use App\Models\Company;
 use Illuminate\Http\Request;
@@ -23,9 +22,9 @@ class VehicleController extends Controller
         
         // Filter by company if user is not admin
         $user = Auth::user();
-     
-        $query->where('companyID', $user->companyID);
-        
+        if ($user && $user->role !== 'admin') {
+            $query->where('companyID', $user->companyID);
+        }
         
         // Search by vehicle plate
         if ($request->has('search') && !empty($request->search)) {
@@ -50,15 +49,11 @@ class VehicleController extends Controller
         $perPage = $request->input('per_page', 10);
         $vehicles = $query->paginate($perPage);
         
-        // Get stats based on company
-        $statsQuery = Vehicle::query();
-        $statsQuery->where('companyID', $user->companyID);
-        
         return response()->json([
             'vehicles' => $vehicles,
             'stats' => [
-                'total' => $statsQuery->count(),
-                'average_weight' => $statsQuery->avg('vehicle_load_weight') ?? 0
+                'total' => Vehicle::count(),
+                'average_weight' => Vehicle::avg('vehicle_load_weight') ?? 0
             ]
         ]);
     }

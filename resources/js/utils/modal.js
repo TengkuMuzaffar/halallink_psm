@@ -401,7 +401,118 @@ export const closeLoading = () => {
     currentLoadingModal = null;
   }
 };
+/**
+ * Shows a toast notification
+ * @param {string} message - Toast message
+ * @param {string} type - Toast type: 'info', 'success', 'warning', 'danger'
+ * @param {Object} options - Additional toast options
+ * @returns {Object} - Toast instance
+ */
+export const showToast = (message, type = 'info', options = {}) => {
+  // Check if bootstrap is available
+  if (typeof bootstrap === 'undefined' || !bootstrap.Toast) {
+    console.error('Bootstrap Toast is not available. Make sure it is properly imported.');
+    return null;
+  }
 
+  // Default options
+  const {
+    position = 'top-right',
+    autoHide = true,
+    delay = 5000,
+    title = '',
+    showClose = true,
+    onShown = null,
+    onHidden = null
+  } = options;
+
+  // Generate unique ID for this toast
+  const toastId = `toast-${++modalCounter}`;
+  
+  // Get toast type configuration
+  const toastType = MODAL_TYPES[type] || MODAL_TYPES.info;
+  
+  // Position classes
+  const positionClasses = {
+    'top-right': 'top-0 end-0',
+    'top-left': 'top-0 start-0',
+    'bottom-right': 'bottom-0 end-0',
+    'bottom-left': 'bottom-0 start-0',
+    'top-center': 'top-0 start-50 translate-middle-x',
+    'bottom-center': 'bottom-0 start-50 translate-middle-x'
+  };
+  
+  const positionClass = positionClasses[position] || positionClasses['top-right'];
+  
+  // Create toast HTML
+  const toastHTML = `
+    <div class="toast ${toastType.headerClass}" id="${toastId}" role="alert" aria-live="assertive" aria-atomic="true">
+      <div class="toast-header">
+        <i class="${toastType.icon} me-2" style="color: ${toastType.color};"></i>
+        <strong class="me-auto">${title || type.charAt(0).toUpperCase() + type.slice(1)}</strong>
+        <small>Just now</small>
+        ${showClose ? '<button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>' : ''}
+      </div>
+      <div class="toast-body">
+        ${message}
+      </div>
+    </div>
+  `;
+  
+  // Create toast container if it doesn't exist
+  let toastContainer = document.querySelector(`.toast-container.${positionClass}`);
+  
+  if (!toastContainer) {
+    toastContainer = document.createElement('div');
+    toastContainer.className = `toast-container position-fixed p-3 ${positionClass}`;
+    toastContainer.style.zIndex = '1090';
+    document.body.appendChild(toastContainer);
+  }
+  
+  // Add toast to container
+  toastContainer.insertAdjacentHTML('beforeend', toastHTML);
+  
+  // Get the toast element
+  const toastElement = document.getElementById(toastId);
+  
+  // Initialize Bootstrap toast
+  const toastOptions = {
+    animation: true,
+    autohide: autoHide,
+    delay: delay
+  };
+  
+  const toastInstance = new bootstrap.Toast(toastElement, toastOptions);
+  
+  // Add event listeners
+  if (onShown) {
+    toastElement.addEventListener('shown.bs.toast', onShown);
+  }
+  
+  if (onHidden) {
+    toastElement.addEventListener('hidden.bs.toast', onHidden);
+  }
+  
+  // Remove toast from DOM after it's hidden
+  toastElement.addEventListener('hidden.bs.toast', () => {
+    toastElement.remove();
+    
+    // Remove container if empty
+    if (toastContainer.children.length === 0) {
+      toastContainer.remove();
+    }
+  });
+  
+  // Show the toast
+  toastInstance.show();
+  
+  // Return toast control object
+  return {
+    hide: () => toastInstance.hide(),
+    element: toastElement,
+    instance: toastInstance
+  };
+};
 // Export default object with all methods
 export default {
   show: showModal,
@@ -411,5 +522,7 @@ export default {
   danger: showDanger,
   confirm: showConfirm,
   loading: showLoading,
-  close: closeLoading
+  close: closeLoading,
+  toast: showToast
 };
+

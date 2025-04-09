@@ -59,7 +59,7 @@ export default {
       }
       
       const companyType = userCompany.value?.company_type;
-
+  
       if (companyType === 'admin') {
         items.push({ label: 'Company Management', path: '/companies', icon: 'fas fa-building' });
         items.push({ label: 'Poultry Management', path: '/poultries', icon: 'fas fa-feather' });
@@ -67,6 +67,11 @@ export default {
       
       if (companyType === 'broiler') {
         items.push({ label: 'Items Management', path: '/items', icon: 'fas fa-boxes' });
+      }
+      
+      // Add Vehicle Management for logistics companies
+      if (companyType === 'logistic') {
+        items.push({ label: 'Vehicle Management', path: '/vehicles', icon: 'fas fa-truck' });
       }
       
       // Add Marketplace for SME users
