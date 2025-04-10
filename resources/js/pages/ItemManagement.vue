@@ -90,10 +90,10 @@
             <span>{{ formatCurrency(item.price) }}</span>
           </template>
           
-          <template #total="{ item }">
-            <span>{{ formatCurrency(item.price * item.measurement_value) }}</span>
+          <template #stock="{ item }">
+            <span>{{ item.stock }}</span>
           </template>
-          
+
           <!-- Actions slot -->
           <template #actions="{ item }">
             <button class="btn btn-sm btn-outline-primary me-1" @click="editItem(item)">
@@ -157,7 +157,7 @@
                   </select>
                 </div>
                 <div class="col-md-6">
-                  <label class="form-label">Location</label>
+                  <label class="form-label">Slaughterhuuse Location</label>
                   <select class="form-select" v-model="itemForm.locationID" required>
                     <option value="">Select Location</option>
                     <option v-for="location in locations" :key="location.locationID" :value="location.locationID">
@@ -386,11 +386,9 @@ export default {
     // Table columns
     const columns = [
       { key: 'poultry', label: 'Poultry', sortable: false },
-      { key: 'location_name', label: 'Location', sortable: false },
       { key: 'measurement', label: 'Quantity', sortable: true, sortKey: 'measurement_value' },
       { key: 'price', label: 'Price', sortable: true },
-      { key: 'stock', label: 'Stock', sortable: true }, // Add stock column
-      // Removed created_at column
+      { key: 'stock', label: 'Stock', sortable: true }  // Stock column is defined correctly
     ];
     
     // Fetch items with pagination, search, and filters
@@ -413,6 +411,7 @@ export default {
         const response = await api.get('/api/items', { params });
         
         if (response && response.data && response.success) {
+          console.log('Items response:', response.data); // Add this line to debug
           items.value = response.data;
           pagination.value = response.pagination;
         } else {

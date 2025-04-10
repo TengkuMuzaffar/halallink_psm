@@ -92,6 +92,7 @@ class ItemController extends Controller
                     'location_name' => $item->location ? $item->location->company_address : null,
                     'measurement_type' => $item->measurement_type,
                     'measurement_value' => $item->measurement_value,
+                    'stock' => $item->stock, // Include stock in response
                     'price' => $item->price,
                     'item_image' => $item->item_image ? asset('storage/' . $item->item_image) : null,
                     'created_at' => $item->created_at,
@@ -470,11 +471,8 @@ class ItemController extends Controller
     public function getCompanyLocations()
     {
         try {
-            $user = Auth::user();
-            
-            // Get only supplier locations for the user's company
-            $locations = Location::where('companyID', $user->companyID)
-                ->where('location_type', 'supplier')
+            // Get all slaughterhouse locations regardless of company
+            $locations = Location::where('location_type', 'slaughterhouse')
                 ->select('locationID', 'company_address', 'location_type')
                 ->get();
             

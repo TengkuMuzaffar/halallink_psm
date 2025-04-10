@@ -22,15 +22,19 @@ class ItemSeeder extends Seeder
         // Get all poultry types
         $poultryTypes = Poultry::all();
         
+        // Get all slaughterhouse locations from slaughterhouse companies
+        $slaughterhouseLocations = Location::whereHas('company', function($query) {
+            $query->where('company_type', 'slaughterhouse');
+        })->where('location_type', 'slaughterhouse')->get();
+        
+        if ($slaughterhouseLocations->isEmpty()) {
+            return; // Exit if no slaughterhouse locations available
+        }
+        
         // Get all broiler companies
         $broilerCompanies = Company::where('company_type', 'broiler')->get();
         
         foreach ($broilerCompanies as $company) {
-            // Get supplier locations for this company
-            $supplierLocations = Location::where('companyID', $company->companyID)
-                ->where('location_type', 'supplier')
-                ->get();
-                
             // Get admin and employees for this company
             $admin = User::where('companyID', $company->companyID)
                 ->where('role', 'admin')
@@ -40,18 +44,20 @@ class ItemSeeder extends Seeder
                 ->where('role', 'employee')
                 ->get();
                 
-            if (!$admin || $supplierLocations->isEmpty() || $employees->isEmpty()) {
-                continue; // Skip if no admin, employees, or supplier locations
+            if (!$admin || $employees->isEmpty()) {
+                continue; // Skip if no admin or employees
             }
             
-            // Create items for each supplier location and poultry type
-            foreach ($supplierLocations as $location) {
+            // Randomly select 2-3 slaughterhouse locations
+            $selectedLocations = $slaughterhouseLocations->random(min(rand(2, 3), $slaughterhouseLocations->count()));
+            
+            foreach ($selectedLocations as $location) {
                 foreach ($poultryTypes as $poultry) {
-                    // Create 3-6 items per poultry type per location
-                    $itemCount = rand(3, 6);
+                    // Create 2-4 items per poultry type per location
+                    $itemCount = rand(2, 4);
                     
                     for ($i = 0; $i < $itemCount; $i++) {
-                        $measurementType = $this->getRandomMeasurementType();
+                        $measurementType = 'kg'; // Fixed to kg only
                         $measurementValue = $this->getRandomMeasurementValue($measurementType);
                         $price = $this->getRandomPrice($poultry->poultry_name, $measurementType, $measurementValue);
                         $stock = rand(20, 200);
