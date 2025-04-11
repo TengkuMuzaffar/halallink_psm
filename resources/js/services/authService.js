@@ -1,4 +1,5 @@
 import api from '../utils/api';
+import marketplaceService from './marketplaceService';
 
 // Handle CSRF token
 const getCsrfToken = async () => {
@@ -50,6 +51,7 @@ export const register = async (userData) => {
 };
 
 export const logout = async () => {
+  marketplaceService.clearLocationsCache();
   return await api.post('/api/logout');
 };
 

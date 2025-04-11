@@ -6,7 +6,9 @@ import modal from '../utils/modal';
 export default {
   // Add event listeners for cart updates
   cartUpdateListeners: [],
-  
+  cachedLocations: null,
+  lastLocationsFetch: null,
+  locationCacheTimeout: 5 * 60 * 1000, // 5 minutes cache timeout
   /**
    * Register a callback for cart updates
    * @param {Function} callback - Function to call when cart is updated
@@ -61,20 +63,29 @@ export default {
     }
   },
   
-  /**
-   * Fetch user's delivery locations
+ /**
+   * Fetch user's delivery locations with caching
    * @returns {Promise} - Promise with locations data
    */
-  async fetchUserLocations() {
+ async fetchUserLocations() {
     try {
+      // Check if we have valid cached data
+      const now = Date.now();
+      if (this.cachedLocations && this.lastLocationsFetch && 
+          (now - this.lastLocationsFetch) < this.locationCacheTimeout) {
+        console.log('Using cached locations');
+        return this.cachedLocations;
+      }
+
       const response = await api.get('/api/profile');
       
-      // Extract locations from the profile response
+      // Extract and cache locations
       if (response && response.locations) {
-        return response.locations;
+        this.cachedLocations = response.locations;
+        this.lastLocationsFetch = now;
+        return this.cachedLocations;
       }
       
-      // Return empty array if no locations found
       return [];
     } catch (error) {
       console.error('Error fetching user locations:', error);
@@ -82,7 +93,15 @@ export default {
       return [];
     }
   },
-  
+
+  /**
+   * Clear the locations cache
+   */
+  clearLocationsCache() {
+    this.cachedLocations = null;
+    this.lastLocationsFetch = null;
+  },
+
   /**
    * Add item to cart
    * @param {Object} product - Product to add to cart

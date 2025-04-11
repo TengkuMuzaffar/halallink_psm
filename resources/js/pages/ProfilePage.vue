@@ -47,6 +47,7 @@
             :editMode="editLocationsMode"
             @loading="locationsLoading = $event"
             @toggle-edit="editLocationsMode = !editLocationsMode"
+            @location-updated="handleLocationUpdate" 
           />
         </div>
       </div>
@@ -142,6 +143,7 @@ import api from '../utils/api';
 import modal from '../utils/modal';  // This is correct - importing the modal utility
 import ProfileInfo from '../components/profile/ProfileInfo.vue';
 import CompanyLocations from '../components/profile/CompanyLocations.vue';
+import marketplaceService from '../services/marketplaceService';  // Add this import
 
 export default {
   name: 'ProfilePage',
@@ -153,6 +155,13 @@ export default {
     const route = useRoute();
     const router = useRouter();
     const store = useStore();
+
+    const handleLocationUpdate = () => {
+      // Clear the marketplace service locations cache
+      marketplaceService.clearLocationsCache();
+    };
+
+
     // Remove this line - modal is already imported correctly above
     // const modal = useModal();
     
@@ -433,7 +442,8 @@ export default {
       passwordMismatch,
       updatePassword,
       sendPasswordResetEmail,
-      openLanguageSettings
+      openLanguageSettings,
+      handleLocationUpdate
     };
   }
 };
