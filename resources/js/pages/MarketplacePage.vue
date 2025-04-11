@@ -65,7 +65,7 @@ import SearchFilterBar from '../components/marketplace/SearchFilterBar.vue';
 import ProductGrid from '../components/marketplace/ProductGrid.vue';
 import MarketplacePagination from '../components/marketplace/MarketplacePagination.vue';
 import CartModal from '../components/marketplace/CartModal.vue';
-import marketplaceService from '../utils/marketplaceService';
+import marketplaceService from '../services/marketplaceService';
 
 export default {
   name: 'MarketplacePage',

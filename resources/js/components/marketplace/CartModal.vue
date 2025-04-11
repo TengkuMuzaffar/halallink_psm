@@ -212,7 +212,7 @@
 <script>
 import { ref, computed } from 'vue';
 import * as bootstrap from 'bootstrap';
-import marketplaceService from '../../utils/marketplaceService';
+import marketplaceService from '../../services/marketplaceService';
 import modal from '../../utils/modal';
 import api from '../../utils/api';
 import LoadingSpinner from '../ui/LoadingSpinner.vue';

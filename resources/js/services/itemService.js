@@ -97,11 +97,11 @@ export const itemService = {
         try {
             // Fetch company locations
             const companyResponse = await api.get('/api/items/company/locations');
-            console.log('Company Locations Response:', JSON.stringify(companyResponse, null, 2));
+            // console.log('Company Locations Response:', JSON.stringify(companyResponse, null, 2));
             
             // Fetch slaughterhouse locations
             const slaughterhouseResponse = await api.get('/api/items/slaughterhouse/locations');
-            console.log('Slaughterhouse Locations Response:', JSON.stringify(slaughterhouseResponse, null, 2));
+            // console.log('Slaughterhouse Locations Response:', JSON.stringify(slaughterhouseResponse, null, 2));
             
             return {
                 companyLocations: companyResponse?.data || [],
@@ -146,9 +146,22 @@ export const itemService = {
             // Notify listeners about the update
             this.notifyItemUpdate(response.data);
             
+            // Show success toast
+            modal.toast(
+                isEditing ? 'Item updated successfully' : 'Item created successfully',
+                'success',
+                { position: 'top-right', delay: 3000 }
+            );
+            
             return response;
         } catch (error) {
             console.error('Error saving item:', error);
+            // Show error toast
+            modal.toast(
+                `Failed to ${isEditing ? 'update' : 'create'} item: ${error.response?.data?.message || error.message}`,
+                'danger',
+                { position: 'top-right', delay: 5000 }
+            );
             throw error;
         }
     },
@@ -165,9 +178,22 @@ export const itemService = {
             // Notify listeners about the deletion
             this.notifyItemUpdate({ deleted: itemID });
             
+            // Show success toast
+            modal.toast(
+                'Item deleted successfully',
+                'success',
+                { position: 'top-right', delay: 3000 }
+            );
+            
             return response;
         } catch (error) {
             console.error('Error deleting item:', error);
+            // Show error toast
+            modal.toast(
+                `Failed to delete item: ${error.response?.data?.message || error.message}`,
+                'danger',
+                { position: 'top-right', delay: 5000 }
+            );
             throw error;
         }
     },

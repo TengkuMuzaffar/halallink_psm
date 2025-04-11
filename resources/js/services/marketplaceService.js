@@ -1,6 +1,5 @@
-import api from './api';
-import modal from './modal';
-
+import api from '../utils/api';
+import modal from '../utils/modal';
 /**
  * Service for marketplace-related API calls
  */

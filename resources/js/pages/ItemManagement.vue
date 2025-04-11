@@ -148,193 +148,18 @@
       </div>
     </div>
     
-    <!-- Add/Edit Item Modal -->
     <!-- Item Form Modal -->
-    <div class="modal fade" id="itemModal" tabindex="-1">
-      <div class="modal-dialog">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title">{{ isEditing ? 'Edit Item' : 'Add New Item' }}</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-          </div>
-          <div class="modal-body">
-            <form @submit.prevent="saveItem">
-              <!-- Poultry Selection -->
-              <div class="mb-3">
-                <label class="form-label">Poultry Type</label>
-                <select class="form-select" v-model="itemForm.poultryID" required>
-                  <option value="">Select Poultry</option>
-                  <option v-for="poultry in poultryTypes" :key="poultry.poultryID" :value="poultry.poultryID">
-                    {{ poultry.poultry_name }}
-                  </option>
-                </select>
-              </div>
-
-              <!-- Company Location -->
-              <div class="mb-3">
-                <label class="form-label">Storage Location</label>
-                <select class="form-select" v-model="itemForm.locationID" required>
-                  <option value="">Select Storage Location</option>
-                  <option v-for="location in companyLocations" :key="location.locationID" :value="location.locationID">
-                    {{ location.company_address }}
-                  </option>
-                </select>
-                <div class="form-text">Select where the item will be stored</div>
-              </div>
-
-              <!-- Slaughterhouse Location -->
-              <div class="mb-3">
-                <label class="form-label">Slaughterhouse Location</label>
-                <select class="form-select" v-model="itemForm.slaughterhouse_locationID">
-                  <option value="">Select Slaughterhouse</option>
-                  <option v-for="location in slaughterhouseLocations" :key="location.locationID" :value="location.locationID">
-                    {{ location.company_address }}
-                  </option>
-                </select>
-                <div class="form-text">Select where the item will be slaughtered</div>
-              </div>
-
-              <!-- Measurement -->
-              <div class="row mb-3">
-                <div class="col">
-                  <label class="form-label">Measurement Type</label>
-                  <select class="form-select" v-model="itemForm.measurement_type" required>
-                    <option value="kg">Kilogram (KG)</option>
-                    <option value="unit">Unit</option>
-                  </select>
-                </div>
-                <div class="col">
-                  <label class="form-label">
-                    {{ itemForm.measurement_type === 'kg' ? 'Weight per Item (KG)' : 'Size per Item' }}
-                  </label>
-                  <input 
-                    type="number" 
-                    class="form-control" 
-                    v-model="itemForm.measurement_value" 
-                    required 
-                    min="0" 
-                    step="0.01"
-                    :placeholder="itemForm.measurement_type === 'kg' ? 'Enter weight in KG' : 'Enter size'"
-                  >
-                  <div class="form-text">
-                    {{ itemForm.measurement_type === 'kg' ? 'Weight of each item in kilograms' : 'Size/volume of each item' }}
-                  </div>
-                </div>
-              </div>
-
-              <!-- Price and Stock -->
-              <div class="row mb-3">
-                <div class="col">
-                  <label class="form-label">Price per Item (RM)</label>
-                  <input 
-                    type="number" 
-                    class="form-control" 
-                    v-model="itemForm.price" 
-                    required 
-                    min="0" 
-                    step="0.01"
-                    placeholder="Enter price"
-                  >
-                </div>
-                <div class="col">
-                  <label class="form-label">Quantity in Stock</label>
-                  <input 
-                    type="number" 
-                    class="form-control" 
-                    v-model="itemForm.stock" 
-                    required 
-                    min="0"
-                    placeholder="Enter quantity"
-                  >
-                  <div class="form-text">Number of items available</div>
-                </div>
-              </div>
-
-              <!-- Image Upload -->
-              <div class="mb-3">
-                <label class="form-label">Item Image</label>
-                <input type="file" class="form-control" @change="handleImageChange" accept="image/*">
-                <div v-if="imagePreview" class="mt-2">
-                  <img :src="imagePreview" class="img-thumbnail" style="max-height: 200px">
-                </div>
-              </div>
-            </form>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-            <button type="button" class="btn btn-primary" @click="saveItem" :disabled="formLoading">
-              {{ formLoading ? 'Saving...' : (isEditing ? 'Update' : 'Save') }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-    
-    <!-- View Item Modal -->
-    <div class="modal fade" id="viewItemModal" tabindex="-1" aria-hidden="true">
-      <div class="modal-dialog">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title">Item Details</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-          </div>
-          <div class="modal-body" v-if="selectedItem">
-            <div class="text-center mb-4" v-if="selectedItem.item_image">
-              <img :src="selectedItem.item_image" alt="Item" class="img-fluid rounded" style="max-height: 200px;">
-            </div>
-            
-            <div class="row mb-3">
-              <div class="col-md-6">
-                <div class="d-flex align-items-center mb-3">
-                  <div class="me-2" v-if="selectedItem.poultry_image">
-                    <img :src="selectedItem.poultry_image" alt="Poultry" class="rounded" width="40" height="40">
-                  </div>
-                  <div>
-                    <div class="text-muted small">Poultry Type</div>
-                    <div class="fw-bold">{{ selectedItem.poultry_name }}</div>
-                  </div>
-                </div>
-              </div>
-              <div class="col-md-6">
-                <div class="mb-3">
-                  <div class="text-muted small">Location</div>
-                  <div class="fw-bold">{{ selectedItem.location_name }}</div>
-                </div>
-              </div>
-            </div>
-            
-            <div class="row mb-3">
-              <div class="col-md-6">
-                <div class="mb-3">
-                  <div class="text-muted small">Measurement</div>
-                  <div class="fw-bold">{{ selectedItem.measurement_value }} {{ selectedItem.measurement_type === 'kg' ? 'KG' : 'Units' }}</div>
-                </div>
-              </div>
-              <div class="col-md-6">
-                <div class="mb-3">
-                  <div class="text-muted small">Price</div>
-                  <div class="fw-bold">RM {{ formatPrice(selectedItem.price) }}</div>
-                </div>
-              </div>
-            </div>
-            
-            <div class="mb-3">
-              <div class="text-muted small">Total Value</div>
-              <div class="fw-bold">RM {{ formatPrice(selectedItem.price * selectedItem.measurement_value) }}</div>
-            </div>
-            
-            <div class="mb-3">
-              <div class="text-muted small">Added On</div>
-              <div class="fw-bold">{{ formatDate(selectedItem.created_at) }}</div>
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-            <button type="button" class="btn btn-primary" @click="editItem(selectedItem)" data-bs-dismiss="modal">Edit</button>
-          </div>
-        </div>
-      </div>
-    </div>
+    <CustomModal
+      :modal-id="'itemModal'"
+      :is-editing="isEditing"
+      :loading="formLoading"
+      :poultry-types="poultryTypes"
+      :company-locations="companyLocations"
+      :slaughterhouse-locations="slaughterhouseLocations"
+      :initial-data="itemForm"
+      @submit="saveItem"
+      @image-change="handleImageChange"
+    />
   </div>
 </template>
 
@@ -342,19 +167,18 @@
 import { ref, reactive, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useStore } from 'vuex';
-import api from '../utils/api';
 import modal from '../utils/modal';
 import formatter from '../utils/formatter'; // Import the formatter utility
 import { itemService } from '../services/itemService'; // Add this import
 import StatsCard from '../components/ui/StatsCard.vue';
 import ResponsiveTable from '../components/ui/ResponsiveTable.vue';
-import * as bootstrap from 'bootstrap';
-
+import CustomModal from '../components/item/custom_modal.vue';
 export default {
   name: 'ItemManagement',
   components: {
     StatsCard,
-    ResponsiveTable
+    ResponsiveTable,
+    CustomModal
   },
   setup() {
     const router = useRouter();
@@ -365,23 +189,19 @@ export default {
     const error = ref(null); // Add error ref
     const formLoading = ref(false);
     const items = ref([]);
-    const allItems = ref([]);
     const poultryTypes = ref([]);
     const locations = ref([]);
     const selectedItem = ref(null);
     const isEditing = ref(false);
     const imagePreview = ref(null);
-    const itemModal = ref(null);
-    const viewItemModal = ref(null);
     const measurementTypeFilter = ref(''); // Add missing filter
     
     // Filter state
     const searchQuery = ref('');
     const poultryFilter = ref('');
-    const measurementFilter = ref('');
     const locationFilter = ref('');
     const slaughterhouseLocations = ref([]);
-    
+    const companyLocations = ref([]);
     // Update itemForm initialization
     const itemForm = reactive({
       itemID: null,
@@ -394,7 +214,7 @@ export default {
       stock: '',
       item_image: null
     });
-    
+    const closeButton = ref(null);
     // Sorting
     const sortField = ref('created_at');
     const sortDirection = ref('desc');
@@ -448,7 +268,7 @@ export default {
       total_value: 0
     });
 
-    const companyLocations = ref([]);
+   
  
 
     // Update fetchItems params
@@ -532,17 +352,11 @@ export default {
         const modalInstance = bootstrap.Modal.getInstance(document.getElementById('itemModal'));
         if (modalInstance) modalInstance.hide();
 
-        // Show success message
+        // Refresh data after a short delay to allow modal to close
         setTimeout(() => {
-          modal.success(
-            isEditing.value ? 'Item Updated' : 'Item Added',
-            isEditing.value ? 'Item has been updated successfully.' : 'New item has been added successfully.'
-          );
           fetchItems();
           fetchItemStats();
         }, 300);
-      } catch (err) {
-        modal.danger('Error', 'Failed to save item. Please try again.');
       } finally {
         formLoading.value = false;
         loading.value = false;
@@ -557,30 +371,18 @@ export default {
         async () => {
           try {
             loading.value = true;
-            const response = await itemService.deleteItem(itemID);
+            await itemService.deleteItem(itemID);
             
-            if (response?.success) {
-              modal.toast(
-                'Item has been successfully deleted.',
-                'success',
-                {
-                  position: 'top-right',
-                  delay: 3000,
-                  title: 'Success'
-                }
-              );
-              await fetchItems();
-              await fetchItemStats();
-            }
-          } catch (err) {
-            modal.danger('Error', err.response?.data?.message || 'Failed to delete item');
+            // Only refresh the data after successful deletion
+            await fetchItems();
+            await fetchItemStats();
           } finally {
             loading.value = false;
           }
         },
         null,
         {
-          type: 'danger',
+          type: 'warning',
           confirmLabel: 'Delete',
           confirmType: 'danger',
           cancelLabel: 'Cancel'
@@ -742,18 +544,7 @@ export default {
         };
         
         
-        // View item
-        const viewItem = (item) => {
-          selectedItem.value = item;
-          
-          // Open modal - Use try/catch to handle potential bootstrap errors
-          try {
-            const modal = new bootstrap.Modal(document.getElementById('viewItemModal'));
-            modal.show();
-          } catch (err) {
-            console.error('Error showing modal:', err);
-          }
-        };
+     
         const formatLargeNumber = (value) => {
             if (typeof value !== 'number') {
               // Try to convert to number if it's not already
@@ -819,9 +610,9 @@ export default {
       editItem,
       confirmDelete,
       openAddModal,
+      closeButton,
       handleImageChange,
       saveItem,
-      viewItem,
       formatPrice: (price) => Number(price).toFixed(2),
       companyLocations
     };
