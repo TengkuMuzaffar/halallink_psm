@@ -51,8 +51,8 @@
               </select>
               
               <select class="form-select form-select-sm" v-model="locationFilter" @change="applyFilters">
-                <option value="">All Locations</option>
-                <option v-for="location in locations" :key="location.locationID" :value="location.locationID">
+                <option value="">All Company Locations</option>
+                <option v-for="location in companyLocations" :key="location.locationID" :value="location.locationID">
                   {{ location.company_address }}
                 </option>
               </select>
@@ -62,6 +62,16 @@
                 <option value="kg">KG</option>
                 <option value="unit">Unit</option>
               </select>
+            </div>
+          </template>
+
+          <!-- Location column template -->
+          <template #location="{ item }">
+            <div>
+              <div>{{ item.location ? item.location.company_address : '-' }}</div>
+              <small class="text-muted" v-if="item.slaughterhouse">
+                Slaughterhouse: {{ item.slaughterhouse.company_address }}
+              </small>
             </div>
           </template>
           
@@ -94,14 +104,16 @@
             <span>{{ item.stock }}</span>
           </template>
 
-          <!-- Actions slot -->
+          // Make sure you have the actions template in your ResponsiveTable
           <template #actions="{ item }">
-            <button class="btn btn-sm btn-outline-primary me-1" @click="editItem(item)">
-              <i class="fas fa-edit"></i>
-            </button>
-            <button class="btn btn-sm btn-outline-danger" @click="confirmDelete(item)">
-              <i class="fas fa-trash"></i>
-            </button>
+            <div class="btn-group">
+              <button class="btn btn-sm btn-outline-primary" @click="editItem(item)">
+                <i class="fas fa-edit"></i>
+              </button>
+              <button class="btn btn-sm btn-outline-danger" @click="confirmDelete(item.itemID)">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
           </template>
         </ResponsiveTable>
         
@@ -137,75 +149,122 @@
     </div>
     
     <!-- Add/Edit Item Modal -->
-    <div class="modal fade" id="itemModal" tabindex="-1" aria-hidden="true">
-      <div class="modal-dialog modal-lg">
+    <!-- Item Form Modal -->
+    <div class="modal fade" id="itemModal" tabindex="-1">
+      <div class="modal-dialog">
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title">{{ isEditing ? 'Edit Item' : 'Add New Item' }}</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
           <div class="modal-body">
             <form @submit.prevent="saveItem">
-              <div class="row mb-3">
-                <div class="col-md-6">
-                  <label class="form-label">Poultry Type</label>
-                  <select class="form-select" v-model="itemForm.poultryID" required>
-                    <option value="">Select Poultry Type</option>
-                    <option v-for="poultry in poultryTypes" :key="poultry.poultryID" :value="poultry.poultryID">
-                      {{ poultry.poultry_name }}
-                    </option>
-                  </select>
-                </div>
-                <div class="col-md-6">
-                  <label class="form-label">Slaughterhuuse Location</label>
-                  <select class="form-select" v-model="itemForm.locationID" required>
-                    <option value="">Select Location</option>
-                    <option v-for="location in locations" :key="location.locationID" :value="location.locationID">
-                      {{ location.company_address }}
-                    </option>
-                  </select>
-                </div>
+              <!-- Poultry Selection -->
+              <div class="mb-3">
+                <label class="form-label">Poultry Type</label>
+                <select class="form-select" v-model="itemForm.poultryID" required>
+                  <option value="">Select Poultry</option>
+                  <option v-for="poultry in poultryTypes" :key="poultry.poultryID" :value="poultry.poultryID">
+                    {{ poultry.poultry_name }}
+                  </option>
+                </select>
               </div>
-              
+
+              <!-- Company Location -->
+              <div class="mb-3">
+                <label class="form-label">Storage Location</label>
+                <select class="form-select" v-model="itemForm.locationID" required>
+                  <option value="">Select Storage Location</option>
+                  <option v-for="location in companyLocations" :key="location.locationID" :value="location.locationID">
+                    {{ location.company_address }}
+                  </option>
+                </select>
+                <div class="form-text">Select where the item will be stored</div>
+              </div>
+
+              <!-- Slaughterhouse Location -->
+              <div class="mb-3">
+                <label class="form-label">Slaughterhouse Location</label>
+                <select class="form-select" v-model="itemForm.slaughterhouse_locationID">
+                  <option value="">Select Slaughterhouse</option>
+                  <option v-for="location in slaughterhouseLocations" :key="location.locationID" :value="location.locationID">
+                    {{ location.company_address }}
+                  </option>
+                </select>
+                <div class="form-text">Select where the item will be slaughtered</div>
+              </div>
+
+              <!-- Measurement -->
               <div class="row mb-3">
-                <div class="col-md-4">
+                <div class="col">
                   <label class="form-label">Measurement Type</label>
                   <select class="form-select" v-model="itemForm.measurement_type" required>
-                    <option value="kg">KG</option>
+                    <option value="kg">Kilogram (KG)</option>
                     <option value="unit">Unit</option>
                   </select>
                 </div>
-                <div class="col-md-4">
-                  <label class="form-label">Measurement Value</label>
-                  <input type="number" class="form-control" v-model="itemForm.measurement_value" min="0" step="0.01" required>
-                </div>
-                <div class="col-md-4">
-                  <label class="form-label">Price (RM)</label>
-                  <input type="number" class="form-control" v-model="itemForm.price" min="0" step="0.01" required>
+                <div class="col">
+                  <label class="form-label">
+                    {{ itemForm.measurement_type === 'kg' ? 'Weight per Item (KG)' : 'Size per Item' }}
+                  </label>
+                  <input 
+                    type="number" 
+                    class="form-control" 
+                    v-model="itemForm.measurement_value" 
+                    required 
+                    min="0" 
+                    step="0.01"
+                    :placeholder="itemForm.measurement_type === 'kg' ? 'Enter weight in KG' : 'Enter size'"
+                  >
+                  <div class="form-text">
+                    {{ itemForm.measurement_type === 'kg' ? 'Weight of each item in kilograms' : 'Size/volume of each item' }}
+                  </div>
                 </div>
               </div>
-              
+
+              <!-- Price and Stock -->
+              <div class="row mb-3">
+                <div class="col">
+                  <label class="form-label">Price per Item (RM)</label>
+                  <input 
+                    type="number" 
+                    class="form-control" 
+                    v-model="itemForm.price" 
+                    required 
+                    min="0" 
+                    step="0.01"
+                    placeholder="Enter price"
+                  >
+                </div>
+                <div class="col">
+                  <label class="form-label">Quantity in Stock</label>
+                  <input 
+                    type="number" 
+                    class="form-control" 
+                    v-model="itemForm.stock" 
+                    required 
+                    min="0"
+                    placeholder="Enter quantity"
+                  >
+                  <div class="form-text">Number of items available</div>
+                </div>
+              </div>
+
+              <!-- Image Upload -->
               <div class="mb-3">
                 <label class="form-label">Item Image</label>
                 <input type="file" class="form-control" @change="handleImageChange" accept="image/*">
-                <div class="form-text">Optional. Max size: 2MB. Formats: JPG, PNG, GIF</div>
-              </div>
-              
-              <div class="mb-3" v-if="itemForm.item_image || imagePreview">
-                <label class="form-label">Image Preview</label>
-                <div class="image-preview">
-                  <img :src="imagePreview || itemForm.item_image" alt="Item Preview" class="img-thumbnail" style="max-height: 200px;">
+                <div v-if="imagePreview" class="mt-2">
+                  <img :src="imagePreview" class="img-thumbnail" style="max-height: 200px">
                 </div>
               </div>
-              
-              <div class="d-flex justify-content-end gap-2">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="submit" class="btn btn-primary" :disabled="formLoading">
-                  <span v-if="formLoading" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                  {{ isEditing ? 'Update Item' : 'Add Item' }}
-                </button>
-              </div>
             </form>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" class="btn btn-primary" @click="saveItem" :disabled="formLoading">
+              {{ formLoading ? 'Saving...' : (isEditing ? 'Update' : 'Save') }}
+            </button>
           </div>
         </div>
       </div>
@@ -286,6 +345,7 @@ import { useStore } from 'vuex';
 import api from '../utils/api';
 import modal from '../utils/modal';
 import formatter from '../utils/formatter'; // Import the formatter utility
+import { itemService } from '../services/itemService'; // Add this import
 import StatsCard from '../components/ui/StatsCard.vue';
 import ResponsiveTable from '../components/ui/ResponsiveTable.vue';
 import * as bootstrap from 'bootstrap';
@@ -320,13 +380,18 @@ export default {
     const poultryFilter = ref('');
     const measurementFilter = ref('');
     const locationFilter = ref('');
+    const slaughterhouseLocations = ref([]);
+    
+    // Update itemForm initialization
     const itemForm = reactive({
       itemID: null,
       poultryID: '',
       locationID: '',
+      slaughterhouse_locationID: '', // Add this line
       measurement_type: 'kg',
-      measurement_value: 0,
-      price: 0,
+      measurement_value: '',
+      price: '',
+      stock: '',
       item_image: null
     });
     
@@ -375,23 +440,18 @@ export default {
       return range;
     });
     
-    // Item stats - Initialize with default values to prevent undefined errors
+    // Move itemStats initialization to the top with other state variables
     const itemStats = ref({
       total_items: 0,
       total_kg: 0,
       total_units: 0,
       total_value: 0
     });
-    
-    // Table columns
-    const columns = [
-      { key: 'poultry', label: 'Poultry', sortable: false },
-      { key: 'measurement', label: 'Quantity', sortable: true, sortKey: 'measurement_value' },
-      { key: 'price', label: 'Price', sortable: true },
-      { key: 'stock', label: 'Stock', sortable: true }  // Stock column is defined correctly
-    ];
-    
-    // Fetch items with pagination, search, and filters
+
+    const companyLocations = ref([]);
+ 
+
+    // Update fetchItems params
     const fetchItems = async () => {
       try {
         loading.value = true;
@@ -408,26 +468,18 @@ export default {
           sort_direction: sortDirection.value
         };
         
-        const response = await api.get('/api/items', { params });
-        
-        if (response && response.data && response.success) {
-          console.log('Items response:', response.data); // Add this line to debug
-          items.value = response.data;
-          pagination.value = response.pagination;
-        } else {
-          items.value = [];
-          console.error('Unexpected response format:', response);
-        }
+        const { items: fetchedItems, pagination: paginationData } = await itemService.fetchItems(params);
+        items.value = fetchedItems;
+        pagination.value = paginationData || itemService.getDefaultPagination();
       } catch (err) {
-        console.error('Error fetching items:', err);
         error.value = err.message || 'Failed to load items. Please try again later.';
         items.value = [];
       } finally {
         loading.value = false;
       }
     };
-    
-    // Fetch item stats separately
+
+    // Update fetchItemStats to use service
     const fetchItemStats = async () => {
       try {
         const params = {
@@ -437,366 +489,304 @@ export default {
           measurement_type: measurementTypeFilter.value || null
         };
         
-        const statsData = await api.get('/api/items/stats', { params });
-        
-        if (statsData) {
-          itemStats.value = statsData;
-        }
+        const stats = await itemService.fetchItemStats(params);
+        itemStats.value = stats;
       } catch (err) {
         console.error('Error fetching item stats:', err);
       }
     };
     
-    // Fetch poultry types for filter dropdown
-    const fetchPoultryTypes = async () => {
-      try {
-        const response = await api.get('/api/poultries');
-        if (response && response.data) {
-          poultryTypes.value = response.data;
-        }
-      } catch (err) {
-        console.error('Error fetching poultry types:', err);
-      }
-    };
-    
-    // Fetch locations for filter dropdown
+    // Update fetchLocations to use service
     const fetchLocations = async () => {
       try {
-        const response = await api.get('/api/items/locations');
-        if (response) {
-          locations.value = response;
-        }
+        const { companyLocations: companyLocs, slaughterhouseLocations: slaughterLocs } = 
+          await itemService.fetchLocations();
+        companyLocations.value = companyLocs;
+        slaughterhouseLocations.value = slaughterLocs;
       } catch (err) {
-        console.error('Error fetching locations:', err);
+        modal.toast('Failed to fetch locations', 'danger');
       }
     };
     
-    // Apply filters
-    const applyFilters = () => {
-      // Set loading to true and clear items when applying filters
-      loading.value = true;
-      items.value = []; // Clear the current list while loading
-      
-      let filteredData = [...allItems.value];
-      
-      // Apply poultry filter
-      if (poultryFilter.value) {
-        filteredData = filteredData.filter(item => item.poultryID === poultryFilter.value);
-      }
-      
-      // Apply measurement filter
-      if (measurementFilter.value) {
-        filteredData = filteredData.filter(item => item.measurement_type === measurementFilter.value);
-      }
-      
-      // Apply location filter
-      if (locationFilter.value) {
-        filteredData = filteredData.filter(item => item.locationID === locationFilter.value);
-      }
-      currentPage.value = 1; // Reset to first page when applying filters
-      fetchItems();
-      fetchItemStats(); // Also update stats when filters change
-      // Short delay to ensure loading state is visible
-      setTimeout(() => {
-        items.value = filteredData;
-        loading.value = false;
-      }, 300);
-    };
-    
-    // Handle search from ResponsiveTable
-    const handleSearch = (query) => {
-      searchQuery.value = query;
-      currentPage.value = 1; // Reset to first page when searching
-      fetchItems();
-      fetchItemStats(); // Also update stats when search changes
-    };
-    
-    // Handle sorting
-    const handleSort = ({ field, direction }) => {
-      // Map the display field to the actual database field if needed
-      if (field === 'measurement') {
-        sortField.value = 'measurement_value';
-      } else if (field === 'price') {
-        sortField.value = field;
-      } else {
-        sortField.value = 'price'; // Changed default from created_at to price
-      }
-      
-      sortDirection.value = direction;
-      fetchItems();
-    };
-    
-    // Change page
-    const changePage = (page) => {
-      if (page < 1 || page > pagination.value.last_page || loading.value) return;
-      
-      // Update the current page immediately for UI feedback
-      currentPage.value = page;
-      
-      // Then fetch the data for the new page
-      fetchItems();
-    };
-    
-    // Format currency
-    const formatCurrency = (value, shorten = false) => {
-      if (typeof value !== 'number') {
-        // Try to convert to number if it's not already
-        value = Number(value);
-        if (isNaN(value)) return 'RM 0';
-      }
-      
-      // If shorten is true, format large numbers with suffixes
-      if (shorten) {
-        let formattedValue;
-        if (value >= 1000000000) {
-          formattedValue = (value / 1000000000).toFixed(1).replace(/\.0$/, '') + 'B';
-        } else if (value >= 1000000) {
-          formattedValue = (value / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
-        } else if (value >= 1000) {
-          formattedValue = (value / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
-        } else {
-          formattedValue = value.toFixed(2);
-        }
-        return 'RM ' + formattedValue;
-      }
-      
-      // Otherwise use standard formatting with MYR currency
-      return new Intl.NumberFormat('en-MY', {
-        style: 'currency',
-        currency: 'MYR',
-        currencyDisplay: 'narrowSymbol'
-      }).format(value);
-    };
-    
-    // Format date - simplified to use formatter utility
-    const formatDate = (dateString) => {
-      return formatter.formatDate(dateString, 'medium');
-    };
-    
-    // Handle image change
-    const handleImageChange = (event) => {
-      const file = event.target.files[0];
-      if (!file) return;
-      
-      // Create preview
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        imagePreview.value = e.target.result;
-      };
-      reader.readAsDataURL(file);
-    };
-    
-    // Edit item
-    const editItem = (item) => {
-      isEditing.value = true;
-      selectedItem.value = item;
-      
-      // Reset form with item data
-      itemForm.itemID = item.itemID;
-      itemForm.poultryID = item.poultryID;
-      itemForm.locationID = item.locationID;
-      itemForm.measurement_type = item.measurement_type;
-      itemForm.measurement_value = item.measurement_value;
-      itemForm.price = item.price;
-      itemForm.stock = item.stock; // Add stock field
-      itemForm.item_image = item.item_image;
-      
-      // Reset image preview
-      imagePreview.value = null;
-      
-      // Open modal - Use try/catch to handle potential bootstrap errors
+    // Update fetchPoultryTypes to use service
+    const fetchPoultryTypes = async () => {
       try {
-        const modal = new bootstrap.Modal(document.getElementById('itemModal'));
-        modal.show();
+        const poultries = await itemService.fetchPoultryTypes();
+        poultryTypes.value = poultries;
       } catch (err) {
-        console.error('Error showing modal:', err);
+        console.error('Error fetching poultry types:', err);
+        modal.toast('Failed to fetch poultry types', 'danger');
       }
     };
     
-    // Confirm delete
-    const confirmDelete = (item) => {
-      modal.confirm(
-        'Delete Item',
-        `Are you sure you want to delete this item (${item.poultry_name})?`,
-        async () => {
-          try {
-            loading.value = true;
-            await api.del(`/api/items/${item.itemID}`);
-            
-            // Refresh data after successful deletion
-            fetchItems();
-            fetchItemStats();
-            
-            modal.toast('Success', 'Item deleted successfully', 'success');
-          } catch (err) {
-            console.error('Error deleting item:', err);
-            modal.toast('Error', 'Failed to delete item', 'danger');
-          } finally {
-            loading.value = false;
-          }
-        }
-      );
-    };
-    
-    // Open add modal
-    const openAddModal = () => {
-      // Reset form
-      Object.assign(itemForm, {
-        itemID: null,
-        poultryID: '',
-        locationID: '',
-        measurement_type: 'kg',
-        measurement_value: '',
-        price: '',
-        stock: '', // Add stock field
-        item_image: null
-      });
-      
-      // Reset image preview
-      imagePreview.value = null;
-      
-      // Set editing mode
-      isEditing.value = false;
-      
-      // Open modal - Use try/catch to handle potential bootstrap errors
-      try {
-        const modal = new bootstrap.Modal(document.getElementById('itemModal'));
-        modal.show();
-      } catch (err) {
-        console.error('Error showing modal:', err);
-      }
-    };
-    
-    // Save item (add/edit)
+    // Update saveItem to use service
     const saveItem = async () => {
       try {
         formLoading.value = true;
-        
-        // Clear items to show loading state in the table
         items.value = [];
         loading.value = true;
-        
-        // Create form data for file upload
-        const formData = new FormData();
-        
-        // Add all form fields to formData
-        for (const key in itemForm) {
-          if (key !== 'item_image' && itemForm[key] !== null) {
-            formData.append(key, itemForm[key]);
-          }
-        }
-        
-        // Add image if it exists
-        if (itemForm.item_image instanceof File) {
-          formData.append('item_image', itemForm.item_image);
-        }
-        
-        let response;
-        if (isEditing.value) {
-          response = await api.post(`/api/items/${itemForm.itemID}`, formData, {
-            headers: {
-              'Content-Type': 'multipart/form-data'
-            }
-          });
-        } else {
-          response = await api.post('/api/items', formData, {
-            headers: {
-              'Content-Type': 'multipart/form-data'
-            }
-          });
-        }
-        
-        // Close modal - Use try/catch to handle potential bootstrap errors
-        try {
-          const modal = bootstrap.Modal.getInstance(document.getElementById('itemModal'));
-          if (modal) {
-            modal.hide();
-          }
-        } catch (err) {
-          console.error('Error hiding modal:', err);
-        }
-        
-        // Show success message after a short delay to ensure modal is closed
+
+        await itemService.saveItem(itemForm, isEditing.value);
+
+        // Close modal
+        const modalInstance = bootstrap.Modal.getInstance(document.getElementById('itemModal'));
+        if (modalInstance) modalInstance.hide();
+
+        // Show success message
         setTimeout(() => {
           modal.success(
             isEditing.value ? 'Item Updated' : 'Item Added',
             isEditing.value ? 'Item has been updated successfully.' : 'New item has been added successfully.'
           );
-          
-          // Refresh items after successful save
           fetchItems();
           fetchItemStats();
         }, 300);
-        
-        formLoading.value = false;
       } catch (err) {
-        console.error('Error saving item:', err);
-        formLoading.value = false;
-        loading.value = false; // Make sure to reset loading state on error
-        
-        // Show error message
         modal.danger('Error', 'Failed to save item. Please try again.');
-        
-        // Restore previous state without making additional API calls
-        items.value = [...allItems.value];
-        applyFilters();
+      } finally {
+        formLoading.value = false;
+        loading.value = false;
       }
+    };
+
+    // Update confirmDelete to use service
+    const confirmDelete = async (itemID) => {
+      modal.confirm(
+        'Delete Item',
+        'Are you sure you want to delete this item? This action cannot be undone.',
+        async () => {
+          try {
+            loading.value = true;
+            const response = await itemService.deleteItem(itemID);
+            
+            if (response?.success) {
+              modal.toast(
+                'Item has been successfully deleted.',
+                'success',
+                {
+                  position: 'top-right',
+                  delay: 3000,
+                  title: 'Success'
+                }
+              );
+              await fetchItems();
+              await fetchItemStats();
+            }
+          } catch (err) {
+            modal.danger('Error', err.response?.data?.message || 'Failed to delete item');
+          } finally {
+            loading.value = false;
+          }
+        },
+        null,
+        {
+          type: 'danger',
+          confirmLabel: 'Delete',
+          confirmType: 'danger',
+          cancelLabel: 'Cancel'
+        }
+      );
     };
     
-    // View item
-    const viewItem = (item) => {
-      selectedItem.value = item;
-      
-      // Open modal - Use try/catch to handle potential bootstrap errors
-      try {
-        const modal = new bootstrap.Modal(document.getElementById('viewItemModal'));
-        modal.show();
-      } catch (err) {
-        console.error('Error showing modal:', err);
-      }
-    };
-    const formatLargeNumber = (value) => {
-        if (typeof value !== 'number') {
-          // Try to convert to number if it's not already
-          value = Number(value);
-          if (isNaN(value)) return '0';
-        }
+    // Add this function definition before the return statement
+        const applyFilters = () => {
+          currentPage.value = 1;
+          fetchItems();
+          fetchItemStats();
+        };
         
-        // Format with appropriate suffix
-        if (value >= 1000000000) {
-          return (value / 1000000000).toFixed(1).replace(/\.0$/, '') + 'B';
-        }
-        if (value >= 1000000) {
-          return (value / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
-        }
-        if (value >= 1000) {
-          return (value / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
-        }
+        // Add onMounted hook to fetch initial data
+        onMounted(() => {
+          fetchItems();
+          fetchItemStats();
+          fetchPoultryTypes();
+          fetchLocations();
+        });
         
-        // For smaller numbers, just return as is with no decimal places
-        return value.toFixed(0);
-      };
-    // Initialize component
-    onMounted(async () => {
-      // Check if user is from a broiler company
-      const user = store.getters.user;
-      if (!user || !user.company || user.company.company_type !== 'broiler') {
-        modal.warning('Access Restricted', 'This page is only available for broiler companies');
-        router.push('/dashboard');
-        return;
-      }
-      
-      // Fetch data
-      await Promise.all([
-        fetchPoultryTypes(),
-        fetchLocations()
-      ]);
-      
-      await fetchItems();
-      await fetchItemStats();
-    });
+        // Handle search from ResponsiveTable
+        const handleSearch = (query) => {
+          searchQuery.value = query;
+          currentPage.value = 1; // Reset to first page when searching
+          fetchItems();
+          fetchItemStats(); // Also update stats when search changes
+        };
+        
+        // Handle sorting
+        const handleSort = ({ field, direction }) => {
+          // Map the display field to the actual database field if needed
+          if (field === 'measurement') {
+            sortField.value = 'measurement_value';
+          } else if (field === 'price') {
+            sortField.value = field;
+          } else {
+            sortField.value = 'price'; // Changed default from created_at to price
+          }
+          
+          sortDirection.value = direction;
+          fetchItems();
+        };
+        
+        // Change page
+        const changePage = (page) => {
+          if (page < 1 || page > pagination.value.last_page || loading.value) return;
+          
+          // Update the current page immediately for UI feedback
+          currentPage.value = page;
+          
+          // Then fetch the data for the new page
+          fetchItems();
+        };
+        
+        // Format currency
+        const formatCurrency = (value, shorten = false) => {
+          if (typeof value !== 'number') {
+            // Try to convert to number if it's not already
+            value = Number(value);
+            if (isNaN(value)) return 'RM 0';
+          }
+          
+          // If shorten is true, format large numbers with suffixes
+          if (shorten) {
+            let formattedValue;
+            if (value >= 1000000000) {
+              formattedValue = (value / 1000000000).toFixed(1).replace(/\.0$/, '') + 'B';
+            } else if (value >= 1000000) {
+              formattedValue = (value / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+            } else if (value >= 1000) {
+              formattedValue = (value / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+            } else {
+              formattedValue = value.toFixed(2);
+            }
+            return 'RM ' + formattedValue;
+          }
+          
+          // Otherwise use standard formatting with MYR currency
+          return new Intl.NumberFormat('en-MY', {
+            style: 'currency',
+            currency: 'MYR',
+            currencyDisplay: 'narrowSymbol'
+          }).format(value);
+        };
+        
+        // Format date - simplified to use formatter utility
+        const formatDate = (dateString) => {
+          return formatter.formatDate(dateString, 'medium');
+        };
+        
+        // Handle image change
+        const handleImageChange = (event) => {
+          const file = event.target.files[0];
+          if (!file) return;
+          
+          // Create preview
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            imagePreview.value = e.target.result;
+          };
+          reader.readAsDataURL(file);
+        };
+        
+        // Edit item
+        const editItem = (item) => {
+          isEditing.value = true;
+          selectedItem.value = item;
+          
+          // Reset form with item data
+          itemForm.itemID = item.itemID;
+          itemForm.poultryID = item.poultryID;
+          itemForm.locationID = item.locationID;
+          itemForm.measurement_type = item.measurement_type;
+          itemForm.measurement_value = item.measurement_value;
+          itemForm.price = item.price;
+          itemForm.stock = item.stock; // Add stock field
+          itemForm.item_image = item.item_image;
+          
+          // Reset image preview
+          imagePreview.value = null;
+          
+          // Open modal - Use try/catch to handle potential bootstrap errors
+          try {
+            const modal = new bootstrap.Modal(document.getElementById('itemModal'));
+            modal.show();
+          } catch (err) {
+            console.error('Error showing modal:', err);
+          }
+        };
+        // Open add modal
+        const openAddModal = () => {
+          // Reset form
+          Object.assign(itemForm, {
+            itemID: null,
+            poultryID: '',
+            locationID: '',
+            measurement_type: 'kg',
+            measurement_value: '',
+            price: '',
+            stock: '', // Add stock field
+            item_image: null
+          });
+          
+          // Reset image preview
+          imagePreview.value = null;
+          
+          // Set editing mode
+          isEditing.value = false;
+          
+          // Open modal - Use try/catch to handle potential bootstrap errors
+          try {
+            const modal = new bootstrap.Modal(document.getElementById('itemModal'));
+            modal.show();
+          } catch (err) {
+            console.error('Error showing modal:', err);
+          }
+        };
+        
+        
+        // View item
+        const viewItem = (item) => {
+          selectedItem.value = item;
+          
+          // Open modal - Use try/catch to handle potential bootstrap errors
+          try {
+            const modal = new bootstrap.Modal(document.getElementById('viewItemModal'));
+            modal.show();
+          } catch (err) {
+            console.error('Error showing modal:', err);
+          }
+        };
+        const formatLargeNumber = (value) => {
+            if (typeof value !== 'number') {
+              // Try to convert to number if it's not already
+              value = Number(value);
+              if (isNaN(value)) return '0';
+            }
+            
+            // Format with appropriate suffix
+            if (value >= 1000000000) {
+              return (value / 1000000000).toFixed(1).replace(/\.0$/, '') + 'B';
+            }
+            if (value >= 1000000) {
+              return (value / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+            }
+            if (value >= 1000) {
+              return (value / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+            }
+            
+            // For smaller numbers, just return as is with no decimal places
+            return value.toFixed(0);
+          };
+        // Table columns - Move this before the return statement
+        const columns = [
+          { key: 'poultry', label: 'Poultry', sortable: false },
+          { key: 'measurement', label: 'Quantity', sortable: true, sortKey: 'measurement_value' },
+          { key: 'price', label: 'Price', sortable: true },
+          { key: 'stock', label: 'Stock', sortable: true }
+        ];
+    
+    
     
     return {
+      slaughterhouseLocations,
       loading,
       error,
       items,
@@ -817,11 +807,12 @@ export default {
       selectedItem,
       itemForm,
       // Functions
+      fetchItems,
+      fetchItemStats,  // Add this
       applyFilters,
       handleSearch,
       handleSort,
       changePage,
-      // Use formatter utility functions
       formatCurrency: (value, shorten = false) => formatter.formatCurrency(value, 'MYR', 'en-MY', shorten),
       formatDate,
       formatLargeNumber: (value) => formatter.formatLargeNumber(value),
@@ -831,9 +822,10 @@ export default {
       handleImageChange,
       saveItem,
       viewItem,
-      formatPrice: (price) => Number(price).toFixed(2)
+      formatPrice: (price) => Number(price).toFixed(2),
+      companyLocations
     };
-  }
+    }
 };
 </script>
 

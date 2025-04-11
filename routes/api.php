@@ -87,7 +87,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('role.company:both,broiler')->group(function () {
         // Specific routes should come before wildcard routes
         Route::get('/items/stats', [ItemController::class, 'getItemStats']);
-        Route::get('/items/locations', [ItemController::class, 'getCompanyLocations']);
+        Route::get('/items/company/locations', [ItemController::class, 'getCompanyLocations']);
+        Route::get('/items/slaughterhouse/locations', [ItemController::class, 'getSlaughterhouseLocations']);
         
         // General item routes
         Route::get('/items', [ItemController::class, 'index']);

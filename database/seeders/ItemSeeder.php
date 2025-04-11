@@ -35,6 +35,15 @@ class ItemSeeder extends Seeder
         $broilerCompanies = Company::where('company_type', 'broiler')->get();
         
         foreach ($broilerCompanies as $company) {
+            // Get company's main location (supplier location)
+            $companyLocation = Location::where('companyID', $company->companyID)
+                ->where('location_type', 'supplier')
+                ->first();
+        
+            if (!$companyLocation) {
+                continue; // Skip if no main location found
+            }
+        
             // Get admin and employees for this company
             $admin = User::where('companyID', $company->companyID)
                 ->where('role', 'admin')
@@ -45,30 +54,29 @@ class ItemSeeder extends Seeder
                 ->get();
                 
             if (!$admin || $employees->isEmpty()) {
-                continue; // Skip if no admin or employees
+                continue;
             }
             
             // Randomly select 2-3 slaughterhouse locations
-            $selectedLocations = $slaughterhouseLocations->random(min(rand(2, 3), $slaughterhouseLocations->count()));
+            $selectedSlaughterhouses = $slaughterhouseLocations->random(min(rand(2, 3), $slaughterhouseLocations->count()));
             
-            foreach ($selectedLocations as $location) {
+            foreach ($selectedSlaughterhouses as $slaughterhouse) {
                 foreach ($poultryTypes as $poultry) {
-                    // Create 2-4 items per poultry type per location
                     $itemCount = rand(2, 4);
                     
                     for ($i = 0; $i < $itemCount; $i++) {
-                        $measurementType = 'kg'; // Fixed to kg only
+                        $measurementType = 'kg';
                         $measurementValue = $this->getRandomMeasurementValue($measurementType);
                         $price = $this->getRandomPrice($poultry->poultry_name, $measurementType, $measurementValue);
                         $stock = rand(20, 200);
                         
-                        // Randomly select either admin or one of the employees as the creator
                         $creator = rand(0, 10) < 3 ? $admin : $employees->random();
                         
                         Item::create([
                             'poultryID' => $poultry->poultryID,
                             'userID' => $creator->userID,
-                            'locationID' => $location->locationID,
+                            'locationID' => $companyLocation->locationID,  // Company's main location
+                            'slaughterhouse_locationID' => $slaughterhouse->locationID,  // Slaughterhouse location
                             'measurement_type' => $measurementType,
                             'item_image' => "items/{$poultry->poultry_name}-{$measurementType}.png",
                             'measurement_value' => $measurementValue,

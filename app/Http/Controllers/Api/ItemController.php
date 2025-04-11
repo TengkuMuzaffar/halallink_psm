@@ -29,24 +29,24 @@ class ItemController extends Controller
             $user = Auth::user();
             
             // Start with a base query
-            $query = Item::with(['poultry', 'location', 'user'])
+            $query = Item::with(['poultry', 'location', 'slaughterhouse', 'user'])
                 ->whereHas('user', function($q) use ($user) {
                     $q->where('companyID', $user->companyID);
                 });
             
-            // Apply poultry filter if provided
+            // Apply poultry filter
             if ($request->has('poultryID') && !empty($request->poultryID)) {
                 $query->where('poultryID', $request->poultryID);
             }
             
-            // Apply location filter if provided
+            // Apply company location filter
             if ($request->has('locationID') && !empty($request->locationID)) {
                 $query->where('locationID', $request->locationID);
             }
-            
-            // Apply measurement type filter if provided
-            if ($request->has('measurement_type') && !empty($request->measurement_type)) {
-                $query->where('measurement_type', $request->measurement_type);
+
+            // Apply slaughterhouse location filter
+            if ($request->has('slaughterhouse_locationID') && !empty($request->slaughterhouse_locationID)) {
+                $query->where('slaughterhouse_locationID', $request->slaughterhouse_locationID);
             }
             
             // Apply search if provided
@@ -58,8 +58,16 @@ class ItemController extends Controller
                     })
                     ->orWhereHas('location', function($q) use ($searchTerm) {
                         $q->where('company_address', 'LIKE', $searchTerm);
+                    })
+                    ->orWhereHas('slaughterhouse', function($q) use ($searchTerm) {
+                        $q->where('company_address', 'LIKE', $searchTerm);
                     });
                 });
+            }
+            
+            // Apply measurement type filter if provided
+            if ($request->has('measurement_type') && !empty($request->measurement_type)) {
+                $query->where('measurement_type', $request->measurement_type);
             }
             
             // Apply sorting
@@ -206,10 +214,11 @@ class ItemController extends Controller
             $validator = Validator::make($request->all(), [
                 'poultryID' => 'required|exists:poultries,poultryID',
                 'locationID' => 'required|exists:locations,locationID',
+                'slaughterhouse_locationID' => 'nullable|exists:locations,locationID',  // Add this line
                 'measurement_type' => 'required|string|in:kg,unit',
                 'measurement_value' => 'required|numeric|min:0',
                 'price' => 'required|numeric|min:0',
-                'stock' => 'required|integer|min:0', // Add stock validation
+                'stock' => 'required|integer|min:0',
                 'item_image' => 'nullable|image|max:2048',
             ]);
         
@@ -229,10 +238,11 @@ class ItemController extends Controller
             $item->poultryID = $request->poultryID;
             $item->userID = $user->userID;
             $item->locationID = $request->locationID;
+            $item->slaughterhouse_locationID = $request->slaughterhouse_locationID;  // Add this line
             $item->measurement_type = $request->measurement_type;
             $item->measurement_value = $request->measurement_value;
             $item->price = $request->price;
-            $item->stock = $request->stock; // Add stock field
+            $item->stock = $request->stock;
             
             // Handle image upload
             if ($request->hasFile('item_image')) {
@@ -427,10 +437,11 @@ class ItemController extends Controller
      */
     public function destroy($id)
     {
-        
         try {
             $user = Auth::user();
-            $item = Item::find($id);
+            
+            // Load the item with its cart items to check for orders
+            $item = Item::with(['cartItems'])->find($id);
             
             if (!$item) {
                 return response()->json(['message' => 'Item not found'], 404);
@@ -444,22 +455,38 @@ class ItemController extends Controller
                 }
             }
             
-            // Check if the item has associated orders
-            if ($item->orders()->count() > 0) {
-                return response()->json(['message' => 'Cannot delete item with associated orders'], 400);
+            // Check if the item has associated cart items
+            if ($item->cartItems()->exists()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cannot delete item that has been ordered',
+                    'error' => 'Item exists in cart or orders'
+                ], 400);
             }
             
             // Delete image if exists
             if ($item->item_image) {
-                Storage::disk('public')->delete($item->item_image);
+                $imagePath = storage_path('app/public/' . $item->item_image);
+                if (file_exists($imagePath)) {
+                    Storage::disk('public')->delete($item->item_image);
+                }
             }
             
             $item->delete();
             
-            return response()->json(['message' => 'Item deleted successfully']);
+            return response()->json([
+                'success' => true,
+                'message' => 'Item deleted successfully'
+            ]);
+            
         } catch (\Exception $e) {
             Log::error('Error deleting item: ' . $e->getMessage());
-            return response()->json(['message' => 'Failed to delete item', 'error' => $e->getMessage()], 500);
+            Log::error('Stack trace: ' . $e->getTraceAsString());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to delete item',
+                'error' => $e->getMessage()
+            ], 500);
         }
     }
     
@@ -471,67 +498,49 @@ class ItemController extends Controller
     public function getCompanyLocations()
     {
         try {
-            // Get all slaughterhouse locations regardless of company
-            $locations = Location::where('location_type', 'slaughterhouse')
-                ->select('locationID', 'company_address', 'location_type')
-                ->get();
+            $user = Auth::user();
+            $locations = Location::where('companyID', $user->companyID)
+            ->where('location_type', 'supplier')
+            ->get();
             
-            return response()->json($locations);
+            return response()->json([
+                'success' => true,
+                'data' => $locations
+            ]);
         } catch (\Exception $e) {
-            Log::error('Error fetching locations: ' . $e->getMessage());
-            return response()->json(['message' => 'Failed to fetch locations', 'error' => $e->getMessage()], 500);
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch locations'
+            ], 500);
         }
     }
     
-    /**
-     * Get poultry types for item creation/filtering
-     *
-     * @return \Illuminate\Http\Response
-     */
-    /*
-    public function getPoultryTypes()
-    {
-        
-        try {
-            $poultryTypes = Poultry::select('poultryID', 'poultry_name', 'poultry_image')->get();
-            
-            // Format poultry image URLs
-            $formattedPoultryTypes = $poultryTypes->map(function($poultry) {
-                return [
-                    'poultryID' => $poultry->poultryID,
-                    'poultry_name' => $poultry->poultry_name,
-                    'poultry_image' => $poultry->poultry_image ? asset('storage/' . $poultry->poultry_image) : null
-                ];
-            });
-            
-            return response()->json($formattedPoultryTypes);
-        } catch (\Exception $e) {
-            Log::error('Error fetching poultry types: ' . $e->getMessage());
-            return response()->json(['message' => 'Failed to fetch poultry types', 'error' => $e->getMessage()], 500);
-        }
-    }
-    */
-    
+
     /**
      * Get locations for the authenticated user's company
      *
      * @return \Illuminate\Http\Response
      */
-    public function getLocations()
+    public function getSlaughterhouseLocations()
     {
-        
         try {
             $user = Auth::user();
             
-            // Get locations for the user's company
-            $locations = Location::where('companyID', $user->companyID)
+            // Get only slaughterhouse locations for the user's company
+            $locations = Location::where('location_type', 'slaughterhouse')
                 ->select('locationID', 'company_address', 'location_type')
                 ->get();
             
-            return response()->json($locations);
+            return response()->json([
+                'success' => true,
+                'data' => $locations
+            ]);
         } catch (\Exception $e) {
-            Log::error('Error fetching locations: ' . $e->getMessage());
-            return response()->json(['message' => 'Failed to fetch locations', 'error' => $e->getMessage()], 500);
+            Log::error('Error fetching slaughterhouse locations: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch slaughterhouse locations'
+            ], 500);
         }
     }
 }

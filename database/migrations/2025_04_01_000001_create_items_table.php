@@ -15,7 +15,8 @@ return new class extends Migration
             $table->id('itemID');
             $table->foreignId('poultryID')->constrained('poultries', 'poultryID');
             $table->foreignId('userID')->constrained('users', 'userID');
-            $table->foreignId('locationID')->constrained('locations', 'locationID');
+            $table->foreignId('locationID')->constrained('locations', 'locationID')->comment('Company location ID');
+            $table->foreignId('slaughterhouse_locationID')->nullable()->constrained('locations', 'locationID')->comment('Slaughterhouse location ID');
             $table->string('measurement_type');
             $table->string('item_image')->nullable();
             $table->decimal('measurement_value', 10, 2);

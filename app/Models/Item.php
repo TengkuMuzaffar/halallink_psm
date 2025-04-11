@@ -25,6 +25,7 @@ class Item extends Model
         'poultryID',
         'userID',
         'locationID',
+        'slaughterhouse_locationID',  // Add this line
         'measurement_type',
         'item_image',
         'measurement_value',
@@ -57,11 +58,27 @@ class Item extends Model
     }
 
     /**
+     * Get the slaughterhouse location for the item.
+     */
+    public function slaughterhouse()
+    {
+        return $this->belongsTo(Location::class, 'slaughterhouse_locationID', 'locationID');
+    }
+
+    /**
      * Get the orders for the item.
      */
     public function orders()
     {
         return $this->hasMany(Order::class, 'itemID', 'itemID');
+    }
+
+    /**
+     * Get the cart items for the item.
+     */
+    public function cartItems()
+    {
+        return $this->hasMany(Cart::class, 'itemID', 'itemID');
     }
 
     /**
