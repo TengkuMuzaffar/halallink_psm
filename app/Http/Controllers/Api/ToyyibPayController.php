@@ -438,7 +438,6 @@ class ToyyibPayController extends Controller
     public function callBack(Request $request)
     {
         try {
-            // Log the callback data
             \Log::info('ToyyibPay Callback', $request->all());
             \Log::info('Callback URL: ' . url()->full());
             \Log::info('Callback headers: ' . json_encode($request->headers->all()));
@@ -447,19 +446,23 @@ class ToyyibPayController extends Controller
             $billCode = $request->billcode;
             $paymentStatus = $request->status_id;
             $referenceNo = $request->order_id;
+            $transactionId = $request->transaction_id;
+            $message = $request->msg;
             
             \Log::info('Callback parameters', [
                 'billCode' => $billCode,
                 'paymentStatus' => $paymentStatus,
-                'referenceNo' => $referenceNo
+                'referenceNo' => $referenceNo,
+                'transactionId' => $transactionId,
+                'message' => $message
             ]);
             
-            // Find payment by reference number
+            // Find payment by reference number or bill code
             $payment = Payment::where('bill_code', $billCode)
                              ->orWhere('payment_reference', $referenceNo)
                              ->first();
             
-            \Log::info('Callback payment lookup', ['found' => (bool)$payment]);
+            \Log::info('Callback payment lookup', ['found' => (bool)$payment, 'paymentDetails' => $payment ? $payment->toArray() : null]);
                              
             if (!$payment) {
                 \Log::warning('Callback payment not found', ['billCode' => $billCode, 'referenceNo' => $referenceNo]);
@@ -480,6 +483,7 @@ class ToyyibPayController extends Controller
             switch ($paymentStatus) {
                 case '1': // Success
                     $payment->payment_status = 'completed';
+                    $payment->transaction_id = $transactionId;
                     $order->order_status = 'paid';
                     
                     // Get cart items to update stock
@@ -504,7 +508,10 @@ class ToyyibPayController extends Controller
                         }
                     }
                     
-                    \Log::info('Callback payment successful', ['orderID' => $order->orderID]);
+                    \Log::info('Callback payment successful', [
+                        'orderID' => $order->orderID,
+                        'transactionId' => $transactionId
+                    ]);
                     break;
                 case '2': // Pending
                     $payment->payment_status = 'pending';

@@ -480,7 +480,7 @@ export default {
   async verifyPayment(params = {}) {
     try {
       // Show loading indicator
-      modal.loading('Verifying Payment', 'Please wait while we verify your payment...');
+      // modal.loading('Verifying Payment', 'Please wait while we verify your payment...');
       
       const { billcode, order_id, status_id, transaction_id } = params;
       

@@ -150,16 +150,20 @@ const routes = [
             title: 'Vehicle Management'
           }
       },
+       // Move payment-status route outside of the MainLayout and remove requiresAuth
+      {
+        path: '/payment-status',
+        name: 'PaymentStatus',
+        component: PaymentStatus,
+        meta: { 
+          requiresAuth: true, 
+          title: 'Payment Status' 
+        }
+      },
     ]
   },
   
-  // Move payment-status route outside of the MainLayout and remove requiresAuth
-  {
-    path: '/payment-status',
-    name: 'PaymentStatus',
-    component: PaymentStatus,
-    meta: { requiresAuth: false, title: 'Payment Status' }
-  },
+ 
 
   // Remove duplicate companies route
   // {

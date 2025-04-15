@@ -53,7 +53,7 @@
 <script>
 import { ref, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import marketplaceService from '../utils/tmarketplaceService';
+import marketplaceService from '../services/marketplaceService';
 
 export default {
   name: 'PaymentStatusPage',

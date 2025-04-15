@@ -52,4 +52,10 @@ class Verify extends Model
     {
         return $this->belongsTo(Vehicle::class, 'vehicleID', 'vehicleID');
     }
+
+    // Add new relationship
+    public function delivery()
+    {
+        return $this->hasOne(Delivery::class, 'verifyID', 'verifyID');
+    }
 }

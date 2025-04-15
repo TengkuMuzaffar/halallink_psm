@@ -24,12 +24,9 @@ Route::get('/companies/form/{formID}', [CompanyController::class, 'getByFormID']
 Route::get('/poultries', [PoultryController::class, 'index']);
 Route::get('/poultries/{poultry}', [PoultryController::class, 'show']);
 
-
-
+// Payment routes
 Route::get('/payment/status', [ToyyibPayController::class, 'paymentStatus'])->name('payment.status');
 Route::post('/payment/callback', [ToyyibPayController::class, 'callBack'])->name('payment.callback');
-// Payment routes
-Route::get('/payment/verify', [PaymentController::class, 'verifyPayment']);
 
 // Password routes
 Route::post('/password/forgot', [PasswordController::class, 'sendResetLinkEmail']);
@@ -45,7 +42,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [AuthController::class, 'user']);
     Route::post('/password/change', [PasswordController::class, 'changePassword']);
     Route::post('/logout', [AuthController::class, 'logout']);
-    
+    Route::get('/payment/verify', [PaymentController::class, 'verifyPayment']);
     // ToyyibPay routes
     Route::post('/payment/create', [\App\Http\Controllers\Api\ToyyibPayController::class, 'createBill'])->name('payment.create');
    
