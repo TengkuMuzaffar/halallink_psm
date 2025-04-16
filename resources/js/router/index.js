@@ -25,6 +25,14 @@ const VehicleManagement = () => import('../pages/VehicleManagement.vue');
 
 const routes = [
   {
+    path: '/test/after-payment/:id',
+    name: 'TestAfterPayment',
+    beforeEnter: (to, from, next) => {
+      // Redirect to the actual API endpoint
+      window.location.href = `/test/after-payment/${to.params.id}`;
+    }
+  },
+  {
     path: '/login',
     name: 'Login',
     component: Login,
@@ -150,7 +158,6 @@ const routes = [
             title: 'Vehicle Management'
           }
       },
-       // Move payment-status route outside of the MainLayout and remove requiresAuth
       {
         path: '/payment-status',
         name: 'PaymentStatus',

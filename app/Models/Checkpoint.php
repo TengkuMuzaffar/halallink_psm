@@ -24,7 +24,7 @@ class Checkpoint extends Model
     protected $fillable = [
         'orderID',
         'locationID',
-        'userID',
+        'companyID',
         'arrange_number',
         'arrive_timestamp',
     ];

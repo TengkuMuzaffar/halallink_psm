@@ -6,6 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\Cart;
 use App\Models\Order;
 use App\Models\Payment;
+use App\Models\Checkpoint;
+use App\Models\Task;
+use App\Models\SortLocation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
@@ -348,37 +351,22 @@ class ToyyibPayController extends Controller
             // Update payment status based on ToyyibPay status
             $originalStatus = $payment->payment_status;
             switch ($paymentStatus) {
+                // Similarly in callback method:
                 case '1': // Success
                     $payment->payment_status = 'completed';
                     $payment->transaction_id = $transactionId;
                     $order->order_status = 'paid';
                     
-                    // Get cart items to update stock
-                    $cartItems = Cart::where('orderID', $order->orderID)->with('item')->get();
-                    
                     // Update stock for each item
+                    $cartItems = Cart::where('orderID', $order->orderID)->with(['item'])->get();
                     foreach ($cartItems as $cartItem) {
                         if ($cartItem->item) {
-                            \Log::info('Updating stock for item', [
-                                'itemID' => $cartItem->itemID,
-                                'currentStock' => $cartItem->item->stock,
-                                'decreaseBy' => $cartItem->quantity
-                            ]);
-                            
-                            if (!$cartItem->item->decreaseStock($cartItem->quantity)) {
-                                \Log::warning('Failed to update stock for item', [
-                                    'itemID' => $cartItem->itemID,
-                                    'requestedQuantity' => $cartItem->quantity,
-                                    'availableStock' => $cartItem->item->stock
-                                ]);
-                            }
+                            $cartItem->item->decreaseStock($cartItem->quantity);
                         }
                     }
                     
-                    \Log::info('Payment successful', [
-                        'orderID' => $order->orderID, 
-                        'transactionId' => $transactionId
-                    ]);
+                    // Create checkpoints
+                    $this->createCheckpoints($order);
                     break;
                 case '2': // Pending
                     $payment->payment_status = 'pending';
@@ -481,37 +469,29 @@ class ToyyibPayController extends Controller
             // Update payment status based on ToyyibPay status
             $originalStatus = $payment->payment_status;
             switch ($paymentStatus) {
+                // Inside the case '1': // Success section
                 case '1': // Success
                     $payment->payment_status = 'completed';
                     $payment->transaction_id = $transactionId;
                     $order->order_status = 'paid';
                     
-                    // Get cart items to update stock
-                    $cartItems = Cart::where('orderID', $order->orderID)->with('item')->get();
+                    // Get cart items with necessary relationships
+                    $cartItems = Cart::where('orderID', $order->orderID)
+                                ->with([
+                                    'item.user.company',
+                                    'item.location.company',
+                                    'item.slaughterhouse.company'
+                                ])
+                                ->get();
                     
-                    // Update stock for each item
                     foreach ($cartItems as $cartItem) {
                         if ($cartItem->item) {
-                            \Log::info('Callback: Updating stock for item', [
-                                'itemID' => $cartItem->itemID,
-                                'currentStock' => $cartItem->item->stock,
-                                'decreaseBy' => $cartItem->quantity
-                            ]);
-                            
-                            if (!$cartItem->item->decreaseStock($cartItem->quantity)) {
-                                \Log::warning('Callback: Failed to update stock for item', [
-                                    'itemID' => $cartItem->itemID,
-                                    'requestedQuantity' => $cartItem->quantity,
-                                    'availableStock' => $cartItem->item->stock
-                                ]);
-                            }
+                            $cartItem->item->decreaseStock($cartItem->quantity);
                         }
                     }
                     
-                    \Log::info('Callback payment successful', [
-                        'orderID' => $order->orderID,
-                        'transactionId' => $transactionId
-                    ]);
+                    // Create checkpoints
+                    $this->createCheckpoints($order);
                     break;
                 case '2': // Pending
                     $payment->payment_status = 'pending';
@@ -548,4 +528,131 @@ class ToyyibPayController extends Controller
             return response()->json(['status' => 'error', 'message' => $e->getMessage()]);
         }
     }
+
+    public function createCheckpoints(Order $order)
+    {
+        try {
+            // Get cart items with necessary relationships
+            $cartItems = Cart::where('orderID', $order->orderID)
+                            ->with([
+                                'item.user.company',
+                                'item.location.company',
+                                'item.slaughterhouse.company'
+                            ])
+                            ->get();
+            
+            // Group items by supplier company to avoid duplicates
+            $itemsBySupplier = $cartItems->groupBy('item.user.company.companyID');
+            
+            $checkpoints = [];
+            
+            // Create checkpoints for each unique supplier
+            foreach ($itemsBySupplier as $companyID => $items) {
+                $firstItem = $items->first();
+                
+                // First checkpoint - Supplier location
+                $checkpoint1 = Checkpoint::create([
+                    'orderID' => $order->orderID,
+                    'companyID' => $companyID,
+                    'locationID' => $firstItem->item->locationID,
+                    'arrange_number' => 1,
+                    'arrive_timestamp' => null
+                ]);
+                
+                $sortLocation1 = SortLocation::create([
+                    'checkID' => $checkpoint1->checkID,
+                    'deliveryID' => null
+                ]);
+                
+                $checkpoints[] = [
+                    'checkpoint' => $checkpoint1,
+                    'sort_location' => $sortLocation1
+                ];
+                
+                // Second checkpoint - Slaughterhouse
+                if ($firstItem->item->slaughterhouse) {
+                    $checkpoint2 = Checkpoint::create([
+                        'orderID' => $order->orderID,
+                        'companyID' => $firstItem->item->slaughterhouse->company->companyID,
+                        'locationID' => $firstItem->item->slaughterhouse_locationID,
+                        'arrange_number' => 2,
+                        'arrive_timestamp' => null
+                    ]);
+                    
+                    $sortLocation2 = SortLocation::create([
+                        'checkID' => $checkpoint2->checkID,
+                        'deliveryID' => null
+                    ]);
+                    
+                    $task = Task::create([
+                        'checkID' => $checkpoint2->checkID,
+                        'task_type' => 'slaughter',
+                        'task_status' => 'pending',
+                        'start_timestamp' => null,
+                        'finish_timestamp' => null
+                    ]);
+                    
+                    $checkpoints[] = [
+                        'checkpoint' => $checkpoint2,
+                        'sort_location' => $sortLocation2,
+                        'task' => $task
+                    ];
+                    
+                    // Third checkpoint - Same as second
+                    $checkpoint3 = Checkpoint::create([
+                        'orderID' => $order->orderID,
+                        'companyID' => $firstItem->item->slaughterhouse->company->companyID,
+                        'locationID' => $firstItem->item->slaughterhouse_locationID,
+                        'arrange_number' => 3,
+                        'arrive_timestamp' => null
+                    ]);
+                    
+                    $sortLocation3 = SortLocation::create([
+                        'checkID' => $checkpoint3->checkID,
+                        'deliveryID' => null
+                    ]);
+                    
+                    $checkpoints[] = [
+                        'checkpoint' => $checkpoint3,
+                        'sort_location' => $sortLocation3
+                    ];
+                }
+            }
+            
+            // Fourth checkpoint - Customer's company
+            $checkpoint4 = Checkpoint::create([
+                'orderID' => $order->orderID,
+                'companyID' => $order->user->company->companyID,
+                'locationID' => $order->locationID,
+                'arrange_number' => 4,
+                'arrive_timestamp' => null
+            ]);
+            
+            $sortLocation4 = SortLocation::create([
+                'checkID' => $checkpoint4->checkID,
+                'deliveryID' => null
+            ]);
+            
+            $checkpoints[] = [
+                'checkpoint' => $checkpoint4,
+                'sort_location' => $sortLocation4
+            ];
+
+       
+            // // Dump and die with both checkpoints and tasks
+            // dd([
+            //     'checkpoints' => Checkpoint::where('orderID', $order->orderID)->get(),
+            //     'tasks' => Task::whereIn('checkID', 
+            //         Checkpoint::where('orderID', $order->orderID)->pluck('checkID')
+            //     )->get()
+            // ]);
+        
+        } catch (\Exception $e) {
+            dd([
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+        }
+    }
+
 }

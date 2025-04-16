@@ -33,13 +33,13 @@ class ProfileController extends Controller
             'email_verified_at' => $user->email_verified_at,
         ];
 
-        // If user is admin, include company data
-        if ($user->role === 'admin' && $user->companyID) {
+        // Include company data for admin users and SME users
+        if (($user->role === 'admin' || ($user->company && $user->company->company_type === 'sme')) && $user->companyID) {
             $company = Company::find($user->companyID);
             if ($company) {
                 $data['company'] = [
                     'companyID' => $company->companyID,
-                    'formID' => $company->formID, // Added formID here
+                    'formID' => $company->formID,
                     'company_name' => $company->company_name,
                     'company_image' => $company->company_image ? asset('storage/' . $company->company_image) : null,
                     'company_type' => $company->company_type,

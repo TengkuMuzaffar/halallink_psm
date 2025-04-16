@@ -1,20 +1,13 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\ToyyibPayController;
 
-/*
-|--------------------------------------------------------------------------
-| Web Routes
-|--------------------------------------------------------------------------
-|
-| Here is where you can register web routes for your application. These
-| routes are loaded by the RouteServiceProvider and all of them will
-| be assigned to the "web" middleware group. Make something great!
-|
-*/
+// Fix: Remove extra slash and add API middleware
+Route::get('test/after-payment/{order}', [ToyyibPayController::class, 'createCheckpoints'])
+    ->name('test.after.payment');
 
-// Return the main view for all routes not matched by other routes
-// This allows Vue router to handle client-side routing
+// Catch-all route for Vue
 Route::get('/{any}', function () {
     return view('app');
 })->where('any', '.*');

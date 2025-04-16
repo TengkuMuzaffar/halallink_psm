@@ -57,10 +57,7 @@
             {{ formatWeight(item.vehicle_load_weight) }}
           </template>
           
-          <template #company_name="{ item }">
-            <span v-if="item.company">{{ item.company.company_name }}</span>
-            <span v-else class="text-muted">Unknown</span>
-          </template>
+        
           
           <!-- Actions slot -->
           <template #actions="{ item }">
@@ -280,11 +277,8 @@ export default {
     
     // Table columns
     const columns = [
-      { key: 'vehicleID', label: 'ID', sortable: true },
       { key: 'vehicle_plate', label: 'Plate Number', sortable: true },
       { key: 'vehicle_load_weight', label: 'Load Capacity (kg)', sortable: true },
-      { key: 'company_name', label: 'Company', sortable: false },
-      { key: 'created_at', label: 'Created At', sortable: true }
     ];
     
     // Form
