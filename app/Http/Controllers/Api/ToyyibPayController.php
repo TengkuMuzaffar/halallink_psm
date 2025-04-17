@@ -556,18 +556,10 @@ class ToyyibPayController extends Controller
                     'companyID' => $companyID,
                     'locationID' => $firstItem->item->locationID,
                     'arrange_number' => 1,
-                    'arrive_timestamp' => null
-                ]);
-                
-                $sortLocation1 = SortLocation::create([
-                    'checkID' => $checkpoint1->checkID,
                     'deliveryID' => null
                 ]);
                 
-                $checkpoints[] = [
-                    'checkpoint' => $checkpoint1,
-                    'sort_location' => $sortLocation1
-                ];
+                $checkpoints[] = $checkpoint1;
                 
                 // Second checkpoint - Slaughterhouse
                 if ($firstItem->item->slaughterhouse) {
@@ -576,11 +568,6 @@ class ToyyibPayController extends Controller
                         'companyID' => $firstItem->item->slaughterhouse->company->companyID,
                         'locationID' => $firstItem->item->slaughterhouse_locationID,
                         'arrange_number' => 2,
-                        'arrive_timestamp' => null
-                    ]);
-                    
-                    $sortLocation2 = SortLocation::create([
-                        'checkID' => $checkpoint2->checkID,
                         'deliveryID' => null
                     ]);
                     
@@ -592,11 +579,7 @@ class ToyyibPayController extends Controller
                         'finish_timestamp' => null
                     ]);
                     
-                    $checkpoints[] = [
-                        'checkpoint' => $checkpoint2,
-                        'sort_location' => $sortLocation2,
-                        'task' => $task
-                    ];
+                    $checkpoints[] = $checkpoint2;
                     
                     // Third checkpoint - Same as second
                     $checkpoint3 = Checkpoint::create([
@@ -604,18 +587,10 @@ class ToyyibPayController extends Controller
                         'companyID' => $firstItem->item->slaughterhouse->company->companyID,
                         'locationID' => $firstItem->item->slaughterhouse_locationID,
                         'arrange_number' => 3,
-                        'arrive_timestamp' => null
-                    ]);
-                    
-                    $sortLocation3 = SortLocation::create([
-                        'checkID' => $checkpoint3->checkID,
                         'deliveryID' => null
                     ]);
                     
-                    $checkpoints[] = [
-                        'checkpoint' => $checkpoint3,
-                        'sort_location' => $sortLocation3
-                    ];
+                    $checkpoints[] = $checkpoint3;
                 }
             }
             
@@ -625,33 +600,27 @@ class ToyyibPayController extends Controller
                 'companyID' => $order->user->company->companyID,
                 'locationID' => $order->locationID,
                 'arrange_number' => 4,
-                'arrive_timestamp' => null
-            ]);
-            
-            $sortLocation4 = SortLocation::create([
-                'checkID' => $checkpoint4->checkID,
                 'deliveryID' => null
             ]);
             
-            $checkpoints[] = [
-                'checkpoint' => $checkpoint4,
-                'sort_location' => $sortLocation4
-            ];
+            $checkpoints[] = $checkpoint4;
 
-       
-            // // Dump and die with both checkpoints and tasks
-            // dd([
-            //     'checkpoints' => Checkpoint::where('orderID', $order->orderID)->get(),
-            //     'tasks' => Task::whereIn('checkID', 
-            //         Checkpoint::where('orderID', $order->orderID)->pluck('checkID')
-            //     )->get()
-            // ]);
-        
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Checkpoints created successfully',
+                'data' => [
+                    'order_id' => $order->orderID,
+                    'checkpoints' => $checkpoints
+                ]
+            ], 200);
+            
         } catch (\Exception $e) {
-            dd([
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
+            \Log::error('Error creating checkpoints: ' . $e->getMessage());
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to create checkpoints: ' . $e->getMessage(),
+                'order_id' => $order->orderID
+            ], 500);
         }
     }
 

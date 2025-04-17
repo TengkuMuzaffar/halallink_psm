@@ -26,12 +26,15 @@ class Checkpoint extends Model
         'locationID',
         'companyID',
         'arrange_number',
-        'arrive_timestamp',
+        'deliveryID'
     ];
 
-    protected $casts = [
-        'arrive_timestamp' => 'datetime',
-    ];
+    protected $casts = [];
+
+    public function delivery()
+    {
+        return $this->belongsTo(Delivery::class, 'deliveryID', 'deliveryID');
+    }
 
     // Update relationships
     public function sortLocations()

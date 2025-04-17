@@ -9,7 +9,14 @@ class Delivery extends Model
     protected $primaryKey = 'deliveryID';
     
     protected $fillable = [
-        'verifyID'
+        'verifyID',
+        'start_timestamp',
+        'arrive_timestamp'
+    ];
+    
+    protected $casts = [
+        'start_timestamp' => 'datetime',
+        'arrive_timestamp' => 'datetime'
     ];
     
     public function verify()
