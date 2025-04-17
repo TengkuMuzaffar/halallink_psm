@@ -22,6 +22,7 @@ const Marketplace = () => import('../pages/MarketplacePage.vue');
 // Add payment status page
 const PaymentStatus = () => import('../pages/PaymentStatusPage.vue');
 const VehicleManagement = () => import('../pages/VehicleManagement.vue');
+const DeliveryPage = () => import('../pages/DeliveryPage.vue'); // Import the new page
 
 const routes = [
   {
@@ -165,6 +166,17 @@ const routes = [
         meta: { 
           requiresAuth: true, 
           title: 'Payment Status' 
+        }
+      },
+      // Add the new delivery route
+      {
+        path: '/deliveries',
+        name: 'DeliveryManagement',
+        component: DeliveryPage,
+        meta: {
+          requiresAuth: true,
+          requiresCompanyType: 'logistic', // Assuming logistic role/company handles this
+          title: 'Delivery Management'
         }
       },
     ]

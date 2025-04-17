@@ -72,6 +72,7 @@ export default {
       // Add Vehicle Management for logistics companies
       if (companyType === 'logistic') {
         items.push({ label: 'Vehicle Management', path: '/vehicles', icon: 'fas fa-truck' });
+        items.push({ label: 'Delivery Management', path: '/deliveries', icon: 'fas fa-route' }); // Add Delivery Management link
       }
       
       // Add Marketplace for SME users
