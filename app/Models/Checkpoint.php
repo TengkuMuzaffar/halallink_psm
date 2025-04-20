@@ -29,18 +29,66 @@ class Checkpoint extends Model
         'deliveryID'
     ];
 
-    protected $casts = [];
+    /**
+     * The attributes that should be cast.
+     *
+     * @var array
+     */
+    protected $casts = [
+        // Add casts if needed, e.g., for arrange_number if it should always be integer
+        // 'arrange_number' => 'integer',
+    ];
 
+    /**
+     * Get the delivery associated with the checkpoint.
+     */
     public function delivery()
     {
         return $this->belongsTo(Delivery::class, 'deliveryID', 'deliveryID');
     }
 
-    // Update relationships
-    public function sortLocations()
+    /**
+     * Get the item associated with the checkpoint.
+     */
+    public function item()
     {
-        return $this->hasMany(SortLocation::class, 'checkID', 'checkID');
+        return $this->belongsTo(Item::class, 'itemID', 'itemID');
     }
 
-   
+    /**
+     * Get the order associated with the checkpoint.
+     */
+    public function order()
+    {
+        return $this->belongsTo(Order::class, 'orderID', 'orderID');
+    }
+
+    /**
+     * Get the location associated with the checkpoint.
+     */
+    public function location()
+    {
+        return $this->belongsTo(Location::class, 'locationID', 'locationID');
+    }
+
+    /**
+     * Get the company associated with the checkpoint.
+     */
+    public function company()
+    {
+        return $this->belongsTo(Company::class, 'companyID', 'companyID');
+    }
+
+    /**
+     * Get the task associated with the checkpoint.
+     * Assuming a one-to-one relationship where one checkpoint might have one task.
+     * If a checkpoint can have multiple tasks, use hasMany.
+     */
+    public function task()
+    {
+        return $this->hasOne(Task::class, 'checkID', 'checkID');
+    }
+
+    // Removed the sortLocations() relationship as the table was dropped.
+
 }

@@ -19,7 +19,7 @@ class AuthController extends Controller
         $validator = Validator::make($request->all(), [
             // Company information
             'company_name' => 'required|string|max:255',
-            'company_type' => 'required|in:broiler,slaughterhouse,SME,logistic',
+            'company_type' => 'required|in:broiler,slaughterhouse,sme,logistic',
             'company_logo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048', // Changed to accept image file
             
             // Admin user details

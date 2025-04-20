@@ -569,7 +569,7 @@ export default {
         // Table columns - Move this before the return statement
         const columns = [
           { key: 'poultry', label: 'Poultry', sortable: false },
-          { key: 'measurement', label: 'Quantity', sortable: true, sortKey: 'measurement_value' },
+          { key: 'measurement', label: 'Weight', sortable: true, sortKey: 'measurement_value' },
           { key: 'price', label: 'Price', sortable: true },
           { key: 'stock', label: 'Stock', sortable: true }
         ];

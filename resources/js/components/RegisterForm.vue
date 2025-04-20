@@ -22,7 +22,7 @@
           <option value="" disabled selected>Select Company Type</option>
           <option value="broiler">Broiler</option>
           <option value="slaughterhouse">Slaughterhouse</option>
-          <option value="SME">SME</option>
+          <option value="sme">SME</option>
           <option value="logistic">Logistic</option>
         </select>
       </div>
