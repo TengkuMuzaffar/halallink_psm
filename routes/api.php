@@ -112,6 +112,10 @@ Route::middleware('auth:sanctum')->group(function () {
         // Vehicle routes
         Route::get('/vehicles/companies', [App\Http\Controllers\Api\VehicleController::class, 'getCompanies']);
         Route::apiResource('vehicles', App\Http\Controllers\Api\VehicleController::class);
+        // Add these routes to your existing routes file
+        Route::get('/deliveries', [App\Http\Controllers\Api\DeliveryController::class, 'index']);
+        Route::get('/deliveries/location/{locationID}', [App\Http\Controllers\Api\DeliveryController::class, 'getByLocation']);
+        Route::post('/deliveries/assign', [App\Http\Controllers\Api\DeliveryController::class, 'assignDelivery']);
     });
 
 

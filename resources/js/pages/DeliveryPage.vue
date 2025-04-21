@@ -1,8 +1,8 @@
 <template>
-  <div class="delivery-management ">
+  <div class="delivery-management">
     <h1 class="mb-4">Delivery Management</h1>
 
-    <!-- Delivery Stats -->
+    <!-- Delivery Stats - Moved above tabs -->
     <div class="row mb-4">
       <div class="col-md-3 col-sm-6 mb-3">
         <StatsCard
@@ -38,333 +38,539 @@
       </div>
     </div>
 
-    <!-- Deliveries Table -->
-    <div class="card">
-      <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0">Deliveries</h5>
-        <button class="btn btn-primary" @click="openAssignModal" :disabled="loading">
-          <i class="fas fa-plus me-1"></i> Assign Delivery Run
-        </button>
-      </div>
-      <div class="card-body position-relative">
-        <!-- Error State -->
-        <div v-if="error" class="alert alert-danger" role="alert">
-          {{ error }}
-        </div>
-
-        <!-- Loading Spinner -->
-        <LoadingSpinner v-if="loading" overlay size="md" message="Loading deliveries..." />
-
-        <!-- Table -->
-        <ResponsiveTable
-          :columns="columns"
-          :items="deliveries"
-          :loading="false"
-          :has-actions="true"
-          item-key="deliveryID"
-          @search="handleSearch"
-          :show-pagination="false" 
-          :server-side="true"
-        >
-          <!-- Custom column slots -->
-          <template #status="{ item }">
-            <span :class="getStatusBadge(item.status)">{{ formatStatus(item.status) }}</span>
-          </template>
-
-          <template #driver="{ item }">
-            {{ item.driver ? item.driver.name : 'N/A' }}
-          </template>
-
-          <template #vehicle="{ item }">
-            {{ item.vehicle ? `${item.vehicle.vehicle_brand} (${item.vehicle.vehicle_plate})` : 'N/A' }}
-          </template>
-
-          <template #start_timestamp="{ item }">
-            {{ formatTimestamp(item.start_timestamp) }}
-          </template>
-
-          <template #arrive_timestamp="{ item }">
-            {{ formatTimestamp(item.arrive_timestamp) }}
-          </template>
-
-          <!-- Actions slot -->
-          <template #actions="{ item }">
-            <button class="btn btn-sm btn-outline-info me-1" @click="viewDeliveryDetails(item)" title="View Details">
-              <i class="fas fa-eye"></i>
-            </button>
-            <button v-if="canUpdate(item)" class="btn btn-sm btn-outline-primary me-1" @click="updateDeliveryStatus(item)" title="Update Status">
-              <i class="fas fa-edit"></i>
-            </button>
-             <button v-if="canCancel(item)" class="btn btn-sm btn-outline-danger" @click="cancelDelivery(item)" title="Cancel Delivery">
-              <i class="fas fa-times-circle"></i>
-            </button>
-          </template>
-        </ResponsiveTable>
-
-        <!-- Pagination -->
-        <div v-if="!loading && deliveries.length > 0" class="d-flex justify-content-between align-items-center mt-4">
-          <div>
-            <span class="text-muted">Showing {{ pagination.from || 1 }}-{{ pagination.to || deliveries.length }} of {{ pagination.total || deliveries.length }}</span>
+    <!-- Navigation Tabs - Moved below stats cards -->
+    <div class="delivery-tabs mb-4">
+      <div class="row g-2">
+        <div class="col-6">
+          <div 
+            class="delivery-tab-card" 
+            :class="{ 'active': activeTab === 'assign' }"
+            @click="activeTab = 'assign'"
+          >
+            <div class="tab-icon">
+              <i class="fas fa-clipboard-list"></i>
+            </div>
+            <div class="tab-content">
+              <h5 class="tab-title">Assign Deliveries</h5>
+              <p class="tab-desc mb-0">Manage new orders</p>
+            </div>
           </div>
-          <nav aria-label="Delivery pagination">
-            <ul class="pagination mb-0">
-              <li class="page-item" :class="{ disabled: currentPage <= 1 || loading }">
-                <a class="page-link" href="#" @click.prevent="!loading && changePage(currentPage - 1)">
-                  <i class="fas fa-chevron-left"></i>
-                </a>
-              </li>
-              <li
-                v-for="page in paginationRange"
-                :key="page"
-                class="page-item"
-                :class="{ active: page === currentPage, disabled: loading }"
-              >
-                <a class="page-link" href="#" @click.prevent="!loading && changePage(page)">{{ page }}</a>
-              </li>
-              <li class="page-item" :class="{ disabled: currentPage >= pagination.last_page || loading }">
-                <a class="page-link" href="#" @click.prevent="!loading && changePage(currentPage + 1)">
-                  <i class="fas fa-chevron-right"></i>
-                </a>
-              </li>
-            </ul>
-          </nav>
         </div>
-       
+        <div class="col-6">
+          <div 
+            class="delivery-tab-card" 
+            :class="{ 'active': activeTab === 'execute' }"
+            @click="activeTab = 'execute'"
+          >
+            <div class="tab-icon">
+              <i class="fas fa-truck"></i>
+            </div>
+            <div class="tab-content">
+              <h5 class="tab-title">Execute Deliveries</h5>
+              <p class="tab-desc mb-0">Track operations</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    
+    <div v-if="error" class="alert alert-danger" role="alert">
+      <i class="fas fa-exclamation-triangle me-2"></i> {{ error }}
+    </div>
+    
+    <!-- Assign Deliveries Tab Content -->
+    <DeliveryAssignment 
+      v-if="activeTab === 'assign'"
+      :loading="loading"
+      :error="error"
+      :locations="locations"
+      :selectedLocationID="selectedLocationID"
+      :groupedDeliveries="groupedDeliveries"
+      :pagination="pagination"
+      :isOrderExpanded="isOrderExpanded"
+      :calculateTotalMeasurement="calculateTotalMeasurement"
+      @change-location="handleLocationChange"
+      @change-page="changePage"
+      @toggle-details="toggleOrderDetails"
+      @assign-delivery="assignDelivery"
+      @refresh="refreshData"
+    />
+    
+    <!-- Execute Deliveries Tab Content -->
+    <DeliveryExecution 
+      v-else-if="activeTab === 'execute'"
+    />
+
+    <!-- Assign Delivery Modal -->
+    <div class="modal fade" id="assignDeliveryModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Assign Delivery</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <form @submit.prevent="submitAssignment">
+              <div class="mb-3">
+                <label for="driverSelect" class="form-label">Select Driver</label>
+                <select id="driverSelect" class="form-select" v-model="assignmentForm.driverID" required>
+                  <option value="">-- Select Driver --</option>
+                  <option v-for="driver in drivers" :key="driver.id" :value="driver.id">
+                    {{ driver.name }}
+                  </option>
+                </select>
+              </div>
+              <div class="mb-3">
+                <label for="vehicleSelect" class="form-label">Select Vehicle</label>
+                <select id="vehicleSelect" class="form-select" v-model="assignmentForm.vehicleID" required>
+                  <option value="">-- Select Vehicle --</option>
+                  <option v-for="vehicle in vehicles" :key="vehicle.vehicleID" :value="vehicle.vehicleID">
+                    {{ vehicle.vehicle_number }} ({{ vehicle.vehicle_type }})
+                  </option>
+                </select>
+              </div>
+              <div class="mb-3">
+                <label for="scheduledDate" class="form-label">Scheduled Date</label>
+                <input type="date" id="scheduledDate" class="form-control" v-model="assignmentForm.scheduledDate" required>
+              </div>
+              <div class="mb-3">
+                <label for="notes" class="form-label">Notes (Optional)</label>
+                <textarea id="notes" class="form-control" v-model="assignmentForm.notes" rows="3"></textarea>
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" class="btn btn-primary" @click="submitAssignment" :disabled="assignmentLoading">
+              <span v-if="assignmentLoading" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+              Assign
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script>
-import { ref, reactive, onMounted, computed } from 'vue';
 import StatsCard from '../components/ui/StatsCard.vue';
-import ResponsiveTable from '../components/ui/ResponsiveTable.vue';
-import LoadingSpinner from '../components/ui/LoadingSpinner.vue';
-import api from '../utils/api'; // Assuming you have this utility
-import modal from '../utils/modal'; // Assuming you have this utility
+import Badge from '../components/ui/Badge.vue';
+import DeliveryAssignment from '../components/delivery/DeliveryAssignment.vue';
+import DeliveryExecution from '../components/delivery/DeliveryExecution.vue';
+import deliveryService from '../services/deliveryService';
+import { Modal } from 'bootstrap';
+import modalUtil from '../utils/modal';
 
 export default {
-  name: 'DeliveryManagement',
+  name: 'DeliveryPage',
   components: {
     StatsCard,
-    ResponsiveTable,
-    LoadingSpinner
+    Badge,
+    DeliveryAssignment,
+    DeliveryExecution
   },
-  setup() {
-    const loading = ref(false);
-    const error = ref(null);
-    const deliveries = ref([]); // Holds the list of deliveries
-    const searchQuery = ref('');
-
-    // Pagination state
-    const currentPage = ref(1);
-    const perPage = ref(10); // Items per page
-    const pagination = ref({
-      current_page: 1,
-      last_page: 1,
-      per_page: 10,
-      total: 0,
-      from: 0,
-      to: 0
-    });
-
-    // Computed property for pagination range (similar to PoultryManagement)
-    const paginationRange = computed(() => {
-      const range = [];
-      const maxVisiblePages = 5;
-      const totalPages = pagination.value.last_page;
-
-      if (!totalPages || totalPages <= 1) return [];
-
-      if (totalPages <= maxVisiblePages) {
-        for (let i = 1; i <= totalPages; i++) range.push(i);
-      } else {
-        let startPage = Math.max(1, currentPage.value - Math.floor(maxVisiblePages / 2));
-        let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
-        if (endPage === totalPages) startPage = Math.max(1, endPage - maxVisiblePages + 1);
-        for (let i = startPage; i <= endPage; i++) range.push(i);
-      }
-      return range;
-    });
-
-    // Placeholder stats
-    const deliveryStats = ref({
-      pending: 0,
-      inProgress: 0,
-      completedToday: 0,
-      issues: 0
-    });
-
-    // Table columns definition
-    const columns = [
-      { key: 'deliveryID', label: 'ID', sortable: true },
-      { key: 'status', label: 'Status', sortable: true },
-      { key: 'driver', label: 'Driver', sortable: false }, // Assuming driver name isn't directly sortable here
-      { key: 'vehicle', label: 'Vehicle', sortable: false },
-      { key: 'start_timestamp', label: 'Started At', sortable: true },
-      { key: 'arrive_timestamp', label: 'Arrived At', sortable: true },
-      // Add more columns as needed (e.g., Origin, Destination, Checkpoints Count)
-    ];
-
-    // --- Placeholder Methods ---
-
-    const fetchDeliveries = async () => {
-      console.log('Fetching deliveries for page:', currentPage.value, 'Search:', searchQuery.value);
-      loading.value = true;
-      error.value = null;
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      // Replace with actual API call:
-      // try {
-      //   const params = { page: currentPage.value, per_page: perPage.value, search: searchQuery.value || null };
-      //   const response = await api.get('/api/deliveries', { params });
-      //   deliveries.value = response.data;
-      //   pagination.value = response.pagination;
-      // } catch (err) {
-      //   console.error('Error fetching deliveries:', err);
-      //   error.value = 'Failed to load deliveries.';
-      //   deliveries.value = [];
-      // } finally {
-      //   loading.value = false;
-      // }
-
-      // Placeholder data:
-      deliveries.value = []; // Start empty or with placeholder if needed
-      pagination.value = { current_page: 1, last_page: 1, per_page: 10, total: 0, from: 0, to: 0 };
-      loading.value = false;
-      // error.value = 'Data fetching not implemented yet.'; // Uncomment to show error
-    };
-
-    const fetchDeliveryStats = async () => {
-      console.log('Fetching delivery stats...');
-      // Replace with actual API call:
-      // try {
-      //   const statsData = await api.get('/api/deliveries/stats');
-      //   deliveryStats.value = statsData;
-      // } catch (err) {
-      //   console.error('Error fetching delivery stats:', err);
-      // }
-      deliveryStats.value = { pending: 5, inProgress: 3, completedToday: 12, issues: 1 }; // Placeholder
-    };
-
-    const handleSearch = (query) => {
-      searchQuery.value = query;
-      currentPage.value = 1;
-      fetchDeliveries();
-      // fetchDeliveryStats(); // Optionally update stats on search
-    };
-
-    const changePage = (page) => {
-      if (page < 1 || page > pagination.value.last_page || loading.value) return;
-      currentPage.value = page;
-      fetchDeliveries();
-    };
-
-    const openAssignModal = () => {
-      console.log('Open Assign Delivery Modal');
-      modal.info('Assign Delivery', 'Delivery assignment form will be here.'); // Placeholder modal
-    };
-
-    const viewDeliveryDetails = (item) => {
-      console.log('View details for delivery:', item.deliveryID);
-      modal.info('Delivery Details', `Details for Delivery ID: ${item.deliveryID}\nStatus: ${item.status || 'N/A'}`); // Placeholder
-    };
-
-    const updateDeliveryStatus = (item) => {
-      console.log('Update status for delivery:', item.deliveryID);
-       modal.info('Update Status', `Status update form for Delivery ID: ${item.deliveryID}`); // Placeholder
-    };
-
-     const cancelDelivery = (item) => {
-      console.log('Cancel delivery:', item.deliveryID);
-      modal.confirm(
-        'Cancel Delivery',
-        `Are you sure you want to cancel Delivery ID: ${item.deliveryID}?`,
-        () => { console.log('Confirmed cancellation'); /* Add API call here */ },
-        null,
-        { confirmLabel: 'Yes, Cancel', confirmType: 'danger' }
-      );
-    };
-
-    // Helper functions for display logic
-    const getStatusBadge = (status) => {
-      // Return appropriate Bootstrap badge class based on status
-      switch (status?.toLowerCase()) {
-        case 'pending': return 'badge bg-secondary';
-        case 'assigned': return 'badge bg-info text-dark';
-        case 'in_progress':
-        case 'departed': return 'badge bg-primary';
-        case 'arrived':
-        case 'completed': return 'badge bg-success';
-        case 'delayed': return 'badge bg-warning text-dark';
-        case 'cancelled':
-        case 'failed': return 'badge bg-danger';
-        default: return 'badge bg-light text-dark';
-      }
-    };
-
-    const formatStatus = (status) => {
-        if (!status) return 'Unknown';
-        return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()); // Capitalize words
-    };
-
-    const formatTimestamp = (timestamp) => {
-        if (!timestamp) return 'N/A';
-        try {
-            return new Date(timestamp).toLocaleString();
-        } catch (e) {
-            return 'Invalid Date';
-        }
-    };
-
-    const canUpdate = (item) => {
-        // Logic to determine if status can be updated (e.g., not completed or cancelled)
-        const lowerStatus = item.status?.toLowerCase();
-        return lowerStatus !== 'completed' && lowerStatus !== 'cancelled' && lowerStatus !== 'failed';
-    };
-
-     const canCancel = (item) => {
-        // Logic to determine if delivery can be cancelled (e.g., only before departure)
-        const lowerStatus = item.status?.toLowerCase();
-        return lowerStatus === 'pending' || lowerStatus === 'assigned';
-    };
-
-    // Fetch initial data on component mount
-    onMounted(() => {
-      fetchDeliveries();
-      fetchDeliveryStats();
-    });
-
+  data() {
     return {
-      loading,
-      error,
-      deliveries,
-      deliveryStats,
-      columns,
-      searchQuery,
-      currentPage,
-      pagination,
-      paginationRange,
-      handleSearch,
-      changePage,
-      openAssignModal,
-      viewDeliveryDetails,
-      updateDeliveryStatus,
-      cancelDelivery,
-      getStatusBadge,
-      formatStatus,
-      formatTimestamp,
-      canUpdate,
-      canCancel
+      activeTab: 'assign',
+      loading: true,
+      error: null,
+      groupedDeliveries: {},
+      pagination: {
+        current_page: 1,
+        last_page: 1,
+        per_page: 10,
+        total: 0,
+        from: 0,
+        to: 0
+      },
+      deliveryStats: {
+        pending: 0,
+        inProgress: 0,
+        completedToday: 0,
+        issues: 0
+      },
+      selectedLocationID: '',
+      locations: [],
+      drivers: [],
+      vehicles: [],
+      expandedOrders: {},
+      assignmentForm: {
+        locationID: null,
+        orderID: null,
+        driverID: '',
+        vehicleID: '',
+        scheduledDate: '',
+        notes: ''
+      },
+      assignmentLoading: false,
+      assignModal: null
     };
+  },
+  mounted() {
+    this.fetchDeliveryData();
+    this.fetchLocations();
+    this.fetchDrivers();
+    this.fetchVehicles();
+    this.fetchDeliveryStats();
+  },
+  methods: {
+    async fetchDeliveryData() {
+      this.loading = true;
+      this.error = null;
+      
+      try {
+        const response = await deliveryService.getDeliveries(
+          this.pagination.current_page,
+          this.pagination.per_page,
+          this.selectedLocationID
+        );
+
+        if (response.success) {
+          this.groupedDeliveries = response.data;
+          this.pagination = response.pagination;
+        } else {
+          throw new Error(response.message || 'Failed to fetch delivery data');
+        }
+      } catch (error) {
+        console.error('Error fetching delivery data:', error);
+        this.error = error.message || 'An error occurred while fetching delivery data';
+      } finally {
+        this.loading = false;
+      }
+    },
+    
+    async fetchLocations() {
+      try {
+        const response = await deliveryService.getLocations();
+        if (response.success) {
+          this.locations = response.data;
+        }
+      } catch (error) {
+        console.error('Error fetching locations:', error);
+      }
+    },
+    
+    async fetchDrivers() {
+      try {
+        const response = await deliveryService.getDrivers();
+        if (response.success) {
+          this.drivers = response.data;
+        }
+      } catch (error) {
+        console.error('Error fetching drivers:', error);
+      }
+    },
+    
+    async fetchVehicles() {
+      try {
+        const response = await deliveryService.getVehicles();
+        if (response.success) {
+          this.vehicles = response.data;
+        }
+      } catch (error) {
+        console.error('Error fetching vehicles:', error);
+      }
+    },
+    
+    async fetchDeliveryStats() {
+      try {
+        const response = await deliveryService.getDeliveryStats();
+        if (response.success) {
+          this.deliveryStats = response.data;
+        }
+      } catch (error) {
+        console.error('Error fetching delivery stats:', error);
+        this.deliveryStats = {
+          pending: 0,
+          inProgress: 0,
+          completedToday: 0,
+          issues: 0
+        };
+      }
+    },
+    
+    refreshData() {
+      this.fetchDeliveryData();
+      this.fetchDeliveryStats();
+    },
+    
+    handleLocationChange(locationID) {
+      this.selectedLocationID = locationID;
+      this.fetchDeliveryData();
+    },
+    
+    changePage(page) {
+      if (page < 1 || page > this.pagination.last_page) {
+        return;
+      }
+      
+      this.pagination.current_page = page;
+      this.fetchDeliveryData();
+    },
+    
+    getPageNumbers() {
+      const totalPages = this.pagination.last_page;
+      const currentPage = this.pagination.current_page;
+      
+      if (totalPages <= 5) {
+        return Array.from({ length: totalPages }, (_, i) => i + 1);
+      }
+      
+      if (currentPage <= 3) {
+        return [1, 2, 3, 4, 5];
+      }
+      
+      if (currentPage >= totalPages - 2) {
+        return [totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+      }
+      
+      return [currentPage - 2, currentPage - 1, currentPage, currentPage + 1, currentPage + 2];
+    },
+    
+    getLocationName(locationID) {
+      const location = this.locations.find(loc => loc.locationID == locationID);
+      return location ? location.location_name : null;
+    },
+    
+    formatPrice(price) {
+      return parseFloat(price).toFixed(2);
+    },
+    
+    calculateTotalMeasurement(items) {
+      // Check if items is an array before using reduce
+      if (!Array.isArray(items)) {
+        console.warn('Items is not an array:', items);
+        return 0;
+      }
+      
+      const total = items.reduce((sum, item) => {
+        // Only add if measurement type is kg or similar
+        if (item.measurement_type && item.measurement_type.toLowerCase().includes('kg')) {
+          return sum + (parseFloat(item.measurement_value || 0) * parseFloat(item.quantity || 1));
+        }
+        return sum;
+      }, 0);
+      
+      return total.toFixed(2);
+    },
+    
+    calculateOrderTotal(items) {
+      // Check if items is an array before using reduce
+      if (!Array.isArray(items)) {
+        console.warn('Items is not an array:', items);
+        return 0;
+      }
+      return items.reduce((total, item) => total + parseFloat(item.total_price || 0), 0);
+    },
+    
+    /**
+     * Toggle the expanded state of an order
+     */
+    toggleOrderDetails(locationID, orderID) {
+      const key = `${locationID}-${orderID}`;
+      if (!this.expandedOrders) {
+        this.expandedOrders = {};
+      }
+      this.expandedOrders[key] = !this.isOrderExpanded(locationID, orderID);
+    },
+    
+    /**
+     * Check if an order is expanded
+     */
+    isOrderExpanded(locationID, orderID) {
+      if (!this.expandedOrders) {
+        return false;
+      }
+      const key = `${locationID}-${orderID}`;
+      return !!this.expandedOrders[key];
+    },
+    
+    assignDelivery(locationID, orderID) {
+      this.assignmentForm = {
+        locationID,
+        orderID,
+        driverID: '',
+        vehicleID: '',
+        scheduledDate: new Date().toISOString().split('T')[0], // Today's date as default
+        notes: ''
+      };
+      
+      // Initialize modal if not already done
+      if (!this.assignModal) {
+        this.assignModal = new Modal(document.getElementById('assignDeliveryModal'));
+      }
+      
+      this.assignModal.show();
+    },
+    
+    async submitAssignment() {
+      this.assignmentLoading = true;
+      
+      try {
+        // Assuming you have an API endpoint to assign deliveries
+        const response = await api.post('/api/deliveries/assign', this.assignmentForm);
+        
+        if (response.success) {
+          this.assignModal.hide();
+          modalUtil.showSuccess('Success', 'Delivery assigned successfully');
+          this.refreshData();
+        } else {
+          throw new Error(response.message || 'Failed to assign delivery');
+        }
+      } catch (error) {
+        console.error('Error assigning delivery:', error);
+        modalUtil.showError('Error', error.message || 'An error occurred while assigning the delivery');
+      } finally {
+        this.assignmentLoading = false;
+      }
+    }
   }
 };
 </script>
 
 <style scoped>
-/* Add styles similar to PoultryManagement or specific to Delivery */
-.delivery-management .card {
-  box-shadow: 0 2px 4px rgba(0,0,0,.1);
+/* New tab styling */
+.delivery-tabs {
+  margin-top: 1rem;
+}
+
+.delivery-tab-card {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem;
+  border-radius: 8px;
+  background-color: #f8f9fa;
+  border: 2px solid #e9ecef;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  height: 100%;
+}
+
+.delivery-tab-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  border-color: #123524;
+}
+
+.delivery-tab-card.active {
+  background-color: #123524;
+  color: white;
+  border-color: #123524;
+  box-shadow: 0 4px 10px rgba(18, 53, 36, 0.3);
+}
+
+.tab-icon {
+  font-size: 1.25rem;
+  margin-right: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  height: 40px;
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.delivery-tab-card.active .tab-icon {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+.tab-content {
+  flex: 1;
+  overflow: hidden;
+}
+
+.tab-title {
+  margin-bottom: 0.25rem;
+  font-weight: 600;
+  font-size: 1rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tab-desc {
+  opacity: 0.8;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (min-width: 576px) {
+  .delivery-tab-card {
+    padding: 1rem;
+  }
+  
+  .tab-icon {
+    font-size: 1.5rem;
+    min-width: 50px;
+    height: 50px;
+  }
+  
+  .tab-title {
+    font-size: 1.1rem;
+  }
+  
+  .tab-desc {
+    font-size: 0.85rem;
+  }
+}
+
+@media (min-width: 992px) {
+  .delivery-tab-card {
+    padding: 1.25rem;
+  }
+  
+  .tab-icon {
+    font-size: 1.75rem;
+    min-width: 55px;
+    height: 55px;
+  }
+  
+  .tab-title {
+    font-size: 1.2rem;
+  }
+}
+
+/* Keep existing styles below */
+.nav-tabs .nav-link.active {
+  color: #fff;
+  background-color: #123524;
+  border-color: #123524;
+}
+
+.nav-tabs .nav-link:not(.active):hover {
+  border-color: #e9ecef #e9ecef #dee2e6;
+  color: #123524;
+}
+
+.nav-tabs .nav-link {
+  color: #495057;
+}
+
+.card {
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  border: none;
+  margin-bottom: 20px;
+}
+
+.card-header {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  padding: 15px 20px;
+}
+
+.card-body {
+  padding: 20px;
+}
+
+.table th {
+  font-weight: 600;
+  color: #495057;
 }
 
 .pagination {
@@ -372,17 +578,52 @@ export default {
 }
 
 .page-link {
-  color: #123524; /* Match theme */
+  color: #007bff;
+  border-radius: 4px;
+  margin: 0 2px;
 }
 
 .page-item.active .page-link {
-  background-color: #123524; /* Match theme */
-  border-color: #123524;
-  color: #fff;
+  background-color: #007bff;
+  border-color: #007bff;
 }
 
-.badge {
-    font-size: 0.8em;
-    padding: 0.4em 0.6em;
+@media (max-width: 768px) {
+  .card-header, .card-body {
+    padding: 15px;
+  }
+  
+  .tab-icon {
+    width: 45px;
+    height: 45px;
+    font-size: 1.5rem;
+    margin-right: 1rem;
+  }
+  
+  .tab-content h4 {
+    font-size: 1.1rem;
+  }
+  
+  .tab-content p {
+    font-size: 0.8rem;
+  }
+}
+
+.order-details {
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  padding: 10px;
+  transition: all 0.3s ease;
+}
+
+/* Add animation for expanding/collapsing */
+.order-details-enter-active, .order-details-leave-active {
+  transition: max-height 0.3s ease, opacity 0.3s ease;
+  max-height: 500px;
+  overflow: hidden;
+}
+.order-details-enter, .order-details-leave-to {
+  max-height: 0;
+  opacity: 0;
 }
 </style>
