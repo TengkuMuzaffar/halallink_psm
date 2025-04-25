@@ -25,6 +25,7 @@ class Verify extends Model
         'userID',
         'checkID',
         'vehicleID',
+        'deliveryID',
         'verify_status',
         'verify_comment',
     ];
@@ -46,16 +47,42 @@ class Verify extends Model
     }
 
     /**
-     * Get the vehicle that owns the verification.
+     * Get the vehicle associated with the verification.
      */
     public function vehicle()
     {
         return $this->belongsTo(Vehicle::class, 'vehicleID', 'vehicleID');
     }
 
-    // Add new relationship
+    /**
+     * Get the delivery associated with the verification.
+     */
     public function delivery()
     {
-        return $this->hasOne(Delivery::class, 'verifyID', 'verifyID');
+        return $this->belongsTo(Delivery::class, 'deliveryID', 'deliveryID');
+    }
+    
+    /**
+     * Check if all verifications for a specific order and arrange numbers are completed
+     * 
+     * @param int $orderID
+     * @param array $arrangeNumbers
+     * @return bool
+     */
+    public static function areCheckpointsVerified($orderID, $arrangeNumbers = [1, 2])
+    {
+        $checkpoints = Checkpoint::where('orderID', $orderID)
+            ->whereIn('arrange_number', $arrangeNumbers)
+            ->pluck('checkID');
+            
+        if ($checkpoints->isEmpty()) {
+            return false;
+        }
+        
+        $verifyCount = self::whereIn('checkID', $checkpoints)
+            ->where('verify_status', 'verified')
+            ->count();
+            
+        return $verifyCount == count($arrangeNumbers);
     }
 }

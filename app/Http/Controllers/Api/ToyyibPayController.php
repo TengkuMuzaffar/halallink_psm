@@ -355,7 +355,7 @@ class ToyyibPayController extends Controller
                 case '1': // Success
                     $payment->payment_status = 'completed';
                     $payment->transaction_id = $transactionId;
-                    $order->order_status = 'paid';
+                    $order->markAsPaid(); // Using the markAsPaid method to set status and timestamp
                     
                     // Update stock for each item
                     $cartItems = Cart::where('orderID', $order->orderID)->with(['item'])->get();
@@ -473,7 +473,7 @@ class ToyyibPayController extends Controller
                 case '1': // Success
                     $payment->payment_status = 'completed';
                     $payment->transaction_id = $transactionId;
-                    $order->order_status = 'paid';
+                    $order->markAsPaid(); 
                     
                     // Get cart items with necessary relationships
                     $cartItems = Cart::where('orderID', $order->orderID)

@@ -145,7 +145,7 @@ export const showModal = (options) => {
   
   // Create modal HTML with centered content and animated icon
   const modalHTML = `
-    <div class="modal fade" id="${modalId}" tabindex="-1" aria-labelledby="${modalId}-label">
+    <div class="modal fade" id="${modalId}" tabindex="-1" aria-labelledby="${modalId}-label" aria-modal="true" role="dialog">
       <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
           <div class="modal-header ${modalType.headerClass} justify-content-center">
@@ -199,6 +199,15 @@ export const showModal = (options) => {
     modalElement.addEventListener('hidden.bs.modal', onHidden);
   }
   
+  // Improved focus management for accessibility
+  modalElement.addEventListener('shown.bs.modal', () => {
+    // Set focus to the first focusable element in the modal
+    const firstFocusable = modalElement.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+    if (firstFocusable) {
+      firstFocusable.focus();
+    }
+  });
+  
   // Fix for aria-hidden accessibility issue
   modalElement.addEventListener('hide.bs.modal', () => {
     // Find all focusable elements in the modal
@@ -211,42 +220,26 @@ export const showModal = (options) => {
       // Check if any element inside the modal has focus
       const activeElement = document.activeElement;
       if (modalElement.contains(activeElement) && activeElement instanceof HTMLElement) {
-        // Store reference to the focused element
-        activeElement.dataset.lastFocused = 'true';
         activeElement.blur();
         
         // Move focus to the body explicitly
         document.body.focus();
-        
-        // Temporarily disable focus for all focusable elements
-        focusableElements.forEach(el => {
-          if (el instanceof HTMLElement) {
-            el.dataset.originalTabindex = el.tabIndex;
-            el.tabIndex = -1;
-          }
-        });
       }
+    }
+    
+    // Use the inert attribute on the modal content instead of relying on aria-hidden
+    const modalContent = modalElement.querySelector('.modal-content');
+    if (modalContent) {
+      modalContent.inert = true;
     }
   });
 
   // Restore original state when modal is fully hidden
   modalElement.addEventListener('hidden.bs.modal', () => {
-    const focusableElements = modalElement.querySelectorAll(
-      'button, [href], input, select, textarea, [tabindex]'
-    );
-    
-    // Restore original tabindex values
-    focusableElements.forEach(el => {
-      if (el.dataset.originalTabindex) {
-        el.tabIndex = Number(el.dataset.originalTabindex);
-        delete el.dataset.originalTabindex;
-      }
-    });
-    
-    // Remove temporary focus marker
-    const lastFocused = document.querySelector('[data-last-focused]');
-    if (lastFocused) {
-      delete lastFocused.dataset.lastFocused;
+    // Remove the inert attribute
+    const modalContent = modalElement.querySelector('.modal-content');
+    if (modalContent) {
+      modalContent.inert = false;
     }
   });
   

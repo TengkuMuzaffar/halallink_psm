@@ -24,10 +24,10 @@ class Payment extends Model
     protected $fillable = [
         'payment_amount',
         'payment_status',
-        'payment_timestamp',
         'payment_reference',
         'bill_code',
         'transaction_id',
+        'payment_timestamp',
     ];
 
     /**

@@ -116,6 +116,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/deliveries', [App\Http\Controllers\Api\DeliveryController::class, 'index']);
         Route::get('/deliveries/location/{locationID}', [App\Http\Controllers\Api\DeliveryController::class, 'getByLocation']);
         Route::post('/deliveries/assign', [App\Http\Controllers\Api\DeliveryController::class, 'assignDelivery']);
+        Route::get('/deliveries/vehicles', [App\Http\Controllers\Api\DeliveryController::class, 'getVehicles']);
+        Route::get('/deliveries/drivers', [App\Http\Controllers\Api\DeliveryController::class, 'getDrivers']);
     });
 
 

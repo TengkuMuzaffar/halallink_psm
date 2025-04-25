@@ -51,14 +51,20 @@
         </div>
         <div class="card-body">
           <!-- Loop through each order in this location -->
-          <div v-for="(items, orderID) in locationData.orders || {}" :key="orderID" class="mb-3 border-bottom pb-3">
+          <div v-for="(orderData, orderID) in locationData.orders || {}" :key="orderID" class="mb-3 border-bottom pb-3">
             <div class="d-flex justify-content-between align-items-center">
               <div>
                 <h6 class="mb-0">
                   <i class="fas fa-shopping-cart me-2"></i> Order #{{ orderID }}
                 </h6>
                 <div class="text-muted mt-1">
-                  Total: {{ calculateTotalMeasurement(items) }} kg
+                  <!-- Check if orderData has items property -->
+                  <template v-if="orderData && orderData.items">
+                    Total: {{ calculateTotalMeasurement(orderData.items) }} kg
+                  </template>
+                  <template v-else>
+                    Total: {{ calculateTotalMeasurement(orderData) }} kg
+                  </template>
                 </div>
               </div>
               <div class="d-flex">
@@ -77,6 +83,34 @@
             
             <!-- Collapsible order details -->
             <div v-if="isOrderExpanded(locationID, orderID)" class="mt-3 order-details">
+              <!-- From and To locations -->
+              <div class="mb-3 delivery-route">
+                <div class="row">
+                  <div class="col-md-6">
+                    <div class="card bg-light">
+                      <div class="card-body py-2">
+                        <h6 class="mb-1"><i class="fas fa-map-marker-alt text-primary me-2"></i>From:</h6>
+                        <p class="mb-0" v-if="orderData && orderData.from">
+                          {{ orderData.from.company_address }}
+                        </p>
+                        <p class="mb-0 text-muted" v-else>No origin location specified</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="card bg-light">
+                      <div class="card-body py-2">
+                        <h6 class="mb-1"><i class="fas fa-flag-checkered text-success me-2"></i>To:</h6>
+                        <p class="mb-0" v-if="orderData && orderData.to">
+                          {{ orderData.to.company_address }}
+                        </p>
+                        <p class="mb-0 text-muted" v-else>No destination location specified</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
               <div class="table-responsive">
                 <table class="table table-sm table-hover">
                   <thead class="table-light">
@@ -87,11 +121,21 @@
                     </tr>
                   </thead>
                   <tbody>
-                    <tr v-for="(item, index) in items" :key="index">
-                      <td>{{ item.item_name || `Item #${item.itemID}` }}</td>
-                      <td>{{ item.quantity }}</td>
-                      <td>{{ item.measurement_value }} {{ item.measurement_type }}</td>
-                    </tr>
+                    <!-- Check if orderData has items property -->
+                    <template v-if="orderData && orderData.items">
+                      <tr v-for="(item, index) in orderData.items" :key="index">
+                        <td>{{ item.item_name || `Item #${item.itemID}` }}</td>
+                        <td>{{ item.quantity }}</td>
+                        <td>{{ item.measurement_value }} {{ item.measurement_type }}</td>
+                      </tr>
+                    </template>
+                    <template v-else>
+                      <tr v-for="(item, index) in orderData" :key="index">
+                        <td>{{ item.item_name || `Item #${item.itemID}` }}</td>
+                        <td>{{ item.quantity }}</td>
+                        <td>{{ item.measurement_value }} {{ item.measurement_type }}</td>
+                      </tr>
+                    </template>
                   </tbody>
                 </table>
               </div>

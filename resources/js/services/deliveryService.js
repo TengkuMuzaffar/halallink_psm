@@ -26,7 +26,14 @@ const deliveryService = {
    * Get all drivers
    */
   async getDrivers() {
-    return await api.get('/api/drivers');
+    try {
+      const response = await api.get('/api/deliveries/drivers');
+      console.log('Raw API response:', response); // Debug the raw response
+      return response.data;
+    } catch (error) {
+      console.error('Error in getDrivers service:', error);
+      return { success: false, message: error.message };
+    }
   },
   
   /**
@@ -44,10 +51,19 @@ const deliveryService = {
   },
   
   /**
-   * Assign a delivery
+   * Assign a delivery to a driver and vehicle
    */
-  async assignDelivery(assignmentData) {
-    return await api.post('/api/deliveries/assign', assignmentData);
+  async assignDelivery(data) {
+    try {
+      const response = await api.post('/api/deliveries/assign', data);
+      return response;
+    } catch (error) {
+      console.error('Error in assignDelivery service:', error);
+      return { 
+        success: false, 
+        message: error.response?.data?.message || error.message || 'Failed to assign delivery' 
+      };
+    }
   },
   
   /**
@@ -55,7 +71,23 @@ const deliveryService = {
    */
   async getAssignedDeliveries(driverID) {
     return await api.get(`/api/drivers/${driverID}/deliveries`);
-  }
+  },
+  
+  /**
+   * Get location details by ID
+   */
+  async getLocationDetails(locationID) {
+    try {
+      const response = await api.get(`/api/locations/${locationID}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching location details:', error);
+      return { 
+        success: false, 
+        message: error.response?.data?.message || error.message || 'Failed to fetch location details' 
+      };
+    }
+  },
 };
 
 export default deliveryService;

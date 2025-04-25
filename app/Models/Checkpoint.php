@@ -26,7 +26,7 @@ class Checkpoint extends Model
         'locationID',
         'companyID',
         'arrange_number',
-        'deliveryID'
+        'deliveryID',
     ];
 
     /**
@@ -35,8 +35,7 @@ class Checkpoint extends Model
      * @var array
      */
     protected $casts = [
-        // Add casts if needed, e.g., for arrange_number if it should always be integer
-        // 'arrange_number' => 'integer',
+        'arrange_number' => 'integer',
     ];
 
     /**
@@ -56,14 +55,6 @@ class Checkpoint extends Model
     }
 
     /**
-     * Get the order associated with the checkpoint.
-     */
-    public function order()
-    {
-        return $this->belongsTo(Order::class, 'orderID', 'orderID');
-    }
-
-    /**
      * Get the location associated with the checkpoint.
      */
     public function location()
@@ -80,15 +71,34 @@ class Checkpoint extends Model
     }
 
     /**
-     * Get the task associated with the checkpoint.
-     * Assuming a one-to-one relationship where one checkpoint might have one task.
-     * If a checkpoint can have multiple tasks, use hasMany.
+     * Get the order associated with the checkpoint.
+     */
+    public function order()
+    {
+        return $this->belongsTo(Order::class, 'orderID', 'orderID');
+    }
+
+    /**
+     * Get the tasks for the checkpoint.
      */
     public function task()
     {
         return $this->hasOne(Task::class, 'checkID', 'checkID');
     }
 
-    // Removed the sortLocations() relationship as the table was dropped.
+    // /**
+    //  * Get the verification for the checkpoint.
+    //  */
+    // public function verify()
+    // {
+    //     return $this->hasOne(Verify::class, 'checkID', 'checkID');
+    // }
 
+    /**
+     * Get the verifications associated with this checkpoint.
+     */
+    public function verifies()
+    {
+        return $this->hasMany(Verify::class, 'checkID', 'checkID');
+    }
 }

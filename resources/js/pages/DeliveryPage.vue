@@ -74,8 +74,6 @@
       </div>
     </div>
 
-
-    
     <div v-if="error" class="alert alert-danger" role="alert">
       <i class="fas fa-exclamation-triangle me-2"></i> {{ error }}
     </div>
@@ -103,54 +101,17 @@
       v-else-if="activeTab === 'execute'"
     />
 
-    <!-- Assign Delivery Modal -->
-    <div class="modal fade" id="assignDeliveryModal" tabindex="-1" aria-hidden="true">
-      <div class="modal-dialog">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title">Assign Delivery</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-          </div>
-          <div class="modal-body">
-            <form @submit.prevent="submitAssignment">
-              <div class="mb-3">
-                <label for="driverSelect" class="form-label">Select Driver</label>
-                <select id="driverSelect" class="form-select" v-model="assignmentForm.driverID" required>
-                  <option value="">-- Select Driver --</option>
-                  <option v-for="driver in drivers" :key="driver.id" :value="driver.id">
-                    {{ driver.name }}
-                  </option>
-                </select>
-              </div>
-              <div class="mb-3">
-                <label for="vehicleSelect" class="form-label">Select Vehicle</label>
-                <select id="vehicleSelect" class="form-select" v-model="assignmentForm.vehicleID" required>
-                  <option value="">-- Select Vehicle --</option>
-                  <option v-for="vehicle in vehicles" :key="vehicle.vehicleID" :value="vehicle.vehicleID">
-                    {{ vehicle.vehicle_number }} ({{ vehicle.vehicle_type }})
-                  </option>
-                </select>
-              </div>
-              <div class="mb-3">
-                <label for="scheduledDate" class="form-label">Scheduled Date</label>
-                <input type="date" id="scheduledDate" class="form-control" v-model="assignmentForm.scheduledDate" required>
-              </div>
-              <div class="mb-3">
-                <label for="notes" class="form-label">Notes (Optional)</label>
-                <textarea id="notes" class="form-control" v-model="assignmentForm.notes" rows="3"></textarea>
-              </div>
-            </form>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-            <button type="button" class="btn btn-primary" @click="submitAssignment" :disabled="assignmentLoading">
-              <span v-if="assignmentLoading" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-              Assign
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+    <!-- Assign Delivery Modal Component -->
+    <DeliveryAssignmentModal
+      :drivers="drivers"
+      :vehicles="vehicles"
+      :initialFormData="assignmentForm"
+      :locationInfo="locationInfo"
+      :loading="assignmentLoading"
+      @submit="submitAssignment"
+      @validation-error="handleValidationError"
+      ref="assignmentModal"
+    />
   </div>
 </template>
 
@@ -159,9 +120,10 @@ import StatsCard from '../components/ui/StatsCard.vue';
 import Badge from '../components/ui/Badge.vue';
 import DeliveryAssignment from '../components/delivery/DeliveryAssignment.vue';
 import DeliveryExecution from '../components/delivery/DeliveryExecution.vue';
+import DeliveryAssignmentModal from '../components/delivery/DeliveryAssignmentModal.vue';
 import deliveryService from '../services/deliveryService';
-import { Modal } from 'bootstrap';
-import modalUtil from '../utils/modal';
+import { showModal } from '../utils/modal';
+import api from '../utils/api';
 
 export default {
   name: 'DeliveryPage',
@@ -169,8 +131,10 @@ export default {
     StatsCard,
     Badge,
     DeliveryAssignment,
-    DeliveryExecution
+    DeliveryExecution,
+    DeliveryAssignmentModal
   },
+  // In the data() function of DeliveryPage.vue, add the locationInfo property
   data() {
     return {
       activeTab: 'assign',
@@ -199,13 +163,15 @@ export default {
       assignmentForm: {
         locationID: null,
         orderID: null,
-        driverID: '',
+        userID: '',
         vehicleID: '',
-        scheduledDate: '',
-        notes: ''
+        scheduledDate: new Date().toISOString().split('T')[0]
       },
-      assignmentLoading: false,
-      assignModal: null
+      locationInfo: {
+      from: null,
+      to: null
+    },
+      assignmentLoading: false
     };
   },
   mounted() {
@@ -226,7 +192,7 @@ export default {
           this.pagination.per_page,
           this.selectedLocationID
         );
-
+        console.log('API Response:', response);
         if (response.success) {
           this.groupedDeliveries = response.data;
           this.pagination = response.pagination;
@@ -255,19 +221,33 @@ export default {
     async fetchDrivers() {
       try {
         const response = await deliveryService.getDrivers();
-        if (response.success) {
+        // console.log('Drivers API response:', response);
+        
+        if (Array.isArray(response)) {
+          // If response is directly an array of drivers
+          this.drivers = response;
+          console.log('Drivers loaded:', this.drivers.length, this.drivers);
+        } else if (response && response.data) {
+          // If response has the expected structure with data property
           this.drivers = response.data;
+          console.log('Drivers loaded:', this.drivers.length, this.drivers);
+        } else {
+          console.error('Failed to fetch drivers:', response);
+          this.drivers = []; // Ensure drivers is at least an empty array
         }
       } catch (error) {
         console.error('Error fetching drivers:', error);
+        this.drivers = []; // Ensure drivers is at least an empty array
       }
     },
     
     async fetchVehicles() {
       try {
         const response = await deliveryService.getVehicles();
-        if (response.success) {
-          this.vehicles = response.data;
+        if (response.vehicles) {
+          this.vehicles = response.vehicles.data;
+        } else {
+          console.error('Failed to fetch vehicles');
         }
       } catch (error) {
         console.error('Error fetching vehicles:', error);
@@ -387,47 +367,180 @@ export default {
       return !!this.expandedOrders[key];
     },
     
+    // Remove the duplicate assignDelivery method and use openAssignmentModal instead
     assignDelivery(locationID, orderID) {
-      this.assignmentForm = {
-        locationID,
-        orderID,
-        driverID: '',
-        vehicleID: '',
-        scheduledDate: new Date().toISOString().split('T')[0], // Today's date as default
-        notes: ''
-      };
+      // Get the order data for this order
+      const orderData = this.groupedDeliveries[locationID]?.orders[orderID];
       
-      // Initialize modal if not already done
-      if (!this.assignModal) {
-        this.assignModal = new Modal(document.getElementById('assignDeliveryModal'));
+      if (!orderData) {
+        console.error('Order data not found for', locationID, orderID);
+        return;
       }
       
-      this.assignModal.show();
+      console.log('Order data:', orderData); // Log the order data to check its structure
+      
+      // Extract checkIDs from items - handle both data structures
+      let checkIDs = [];
+      
+      if (orderData.items && Array.isArray(orderData.items)) {
+        // New structure: orderData has an items array property
+        checkIDs = orderData.items
+          .filter(item => item.checkID)
+          .map(item => item.checkID);
+      } else if (Array.isArray(orderData)) {
+        // Old structure: orderData is directly an array of items
+        checkIDs = orderData
+          .filter(item => item.checkID)
+          .map(item => item.checkID);
+      } else {
+        console.warn('Unable to extract checkIDs from order data:', orderData);
+      }
+      
+      // Get the fromLocationID and toLocationID directly from the orderData
+      let fromLocationID = null;
+      let toLocationID = null;
+      
+      // Check if orderData has from and to properties with locationID
+      if (orderData.from && orderData.from.locationID) {
+        fromLocationID = orderData.from.locationID;
+      }
+      
+      if (orderData.to && orderData.to.locationID) {
+        toLocationID = orderData.to.locationID;
+      }
+      
+      // Create the item object with all necessary data
+      const item = {
+        locationID,
+        orderID,
+        checkIDs,
+        fromLocationID,
+        toLocationID
+      };
+      
+      // Call openAssignmentModal with the item
+      this.openAssignmentModal(item);
     },
     
-    async submitAssignment() {
-      this.assignmentLoading = true;
-      
+    // Keep only one handleValidationError method
+    handleValidationError(message) {
+      // Use showModal for validation errors
+      showModal({
+        type: 'warning',
+        title: 'Validation Error',
+        message: message || 'Please check your input and try again'
+      });
+    },
+    
+    // Keep only one submitAssignment method
+    async submitAssignment(formData) {
       try {
-        // Assuming you have an API endpoint to assign deliveries
-        const response = await api.post('/api/deliveries/assign', this.assignmentForm);
+        this.assignmentLoading = true;
+        
+        // Include from and to location information in the request
+        const response = await deliveryService.assignDelivery(formData);
         
         if (response.success) {
-          this.assignModal.hide();
-          modalUtil.showSuccess('Success', 'Delivery assigned successfully');
-          this.refreshData();
+          // Use showModal instead of modalUtil.showSuccess
+          showModal({
+            type: 'success',
+            title: 'Success',
+            message: response.message || 'Delivery assigned successfully',
+            buttons: [
+              { 
+                label: 'OK', 
+                type: 'success', 
+                dismiss: true,
+                onClick: () => {
+                  this.$refs.assignmentModal.hide();
+                  this.fetchDeliveryData(); // Changed from fetchDeliveries to fetchDeliveryData
+                  this.fetchDeliveryStats(); // Also refresh the stats
+                }
+              }
+            ]
+          });
         } else {
-          throw new Error(response.message || 'Failed to assign delivery');
+          // Use showModal for error messages too
+          showModal({
+            type: 'danger',
+            title: 'Error',
+            message: response.message || 'Failed to assign delivery'
+          });
         }
       } catch (error) {
         console.error('Error assigning delivery:', error);
-        modalUtil.showError('Error', error.message || 'An error occurred while assigning the delivery');
+        // Use showModal for caught errors
+        showModal({
+          type: 'danger',
+          title: 'Error',
+          message: error.message || 'An unexpected error occurred'
+        });
       } finally {
         this.assignmentLoading = false;
       }
-    }
+    },
+    
+    handleValidationError(message) {
+      // Use showModal for validation errors
+      showModal({
+        type: 'warning',
+        title: 'Validation Error',
+        message: message || 'Please check your input and try again'
+      });
+    },
+    
+    async openAssignmentModal(item) {
+      try {
+        console.log('Opening assignment modal for item:', item);
+        
+        // Get the location data directly from the item
+        const fromLocation = item.fromLocationID || item.locationID;
+        const toLocation = item.toLocationID;
+        
+        // Set the initial form data
+        this.assignmentForm = {
+          locationID: item.locationID,
+          orderID: item.orderID,
+          userID: '',
+          vehicleID: '',
+          scheduledDate: new Date().toISOString().split('T')[0],
+          checkIDs: item.checkIDs || [],
+          // Add from and to location directly from the item
+          fromLocation: fromLocation,
+          toLocation: toLocation
+        };
+        
+        // We still set locationInfo for backward compatibility
+        this.locationInfo = {
+          from: { locationID: fromLocation },
+          to: { locationID: toLocation }
+        };
+        
+        // Show the modal
+        this.$refs.assignmentModal.show();
+      } catch (error) {
+        console.error('Error preparing assignment modal:', error);
+        showModal({
+          type: 'danger',
+          title: 'Error',
+          message: 'Failed to prepare assignment modal'
+        });
+      }
+    },
+    
+    
+    handleValidationError(message) {
+      // Use showModal for validation errors
+      showModal({
+        type: 'warning',
+        title: 'Validation Error',
+        message: message || 'Please check your input and try again'
+      });
+    },
+    
+    // ... other methods ...
   }
-};
+}
 </script>
 
 <style scoped>

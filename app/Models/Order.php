@@ -50,6 +50,20 @@ class Order extends Model
     ];
 
     /**
+     * Set order status to paid and update timestamp
+     *
+     * @return void
+     */
+    public function markAsPaid()
+    {
+        $this->order_status = 'paid';
+        if (!$this->order_timestamp) {
+            $this->order_timestamp = now();
+        }
+        $this->save();
+    }
+
+    /**
      * Get the location that owns the order.
      */
     public function location()

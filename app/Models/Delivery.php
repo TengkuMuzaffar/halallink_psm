@@ -9,23 +9,30 @@ class Delivery extends Model
     protected $primaryKey = 'deliveryID';
     
     protected $fillable = [
-        'verifyID',
         'start_timestamp',
-        'arrive_timestamp'
+        'arrive_timestamp',
+        'scheduled_date'
     ];
     
     protected $casts = [
         'start_timestamp' => 'datetime',
-        'arrive_timestamp' => 'datetime'
+        'arrive_timestamp' => 'datetime',
+        'scheduled_date' => 'date'
     ];
     
-    public function verify()
+    /**
+     * Get the verifications associated with this delivery.
+     */
+    public function verifies()
     {
-        return $this->belongsTo(Verify::class, 'verifyID', 'verifyID');
+        return $this->hasMany(Verify::class, 'deliveryID', 'deliveryID');
     }
     
-    public function sortLocations()
+    /**
+     * Get the checkpoints associated with this delivery.
+     */
+    public function checkpoints()
     {
-        return $this->hasMany(SortLocation::class, 'deliveryID', 'deliveryID');
+        return $this->hasMany(Checkpoint::class, 'deliveryID', 'deliveryID');
     }
 }
