@@ -1,201 +1,303 @@
 <template>
-  <div>
-    <!-- Location Filter -->
-    <div class="card mb-4">
-      <div class="card-body">
-        <div class="row align-items-center">
-          <div class="col-md-4">
-            <label for="locationFilter" class="form-label">Filter by Location:</label>
+  <div class="delivery-assignment">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Assign Deliveries</h5>
+        <div class="d-flex">
+          <button class="btn btn-sm btn-outline-primary me-2" @click="$emit('refresh')">
+            <i class="fas fa-sync-alt"></i>
+          </button>
+          <div class="location-filter-container">
             <select 
-              id="locationFilter" 
-              class="form-select" 
-              :value="selectedLocationID"
-              @change="$emit('change-location', $event.target.value)"
+              class="form-select form-select-sm" 
+              v-model="localSelectedLocationID"
+              @change="$emit('change-location', localSelectedLocationID)"
             >
               <option value="">All Locations</option>
-              <option v-for="location in locations" :key="location.locationID" :value="location.locationID">
-                {{ location.location_name }}
-              </option>
+              <optgroup label="Origin Locations">
+                <option v-for="location in fromLocations" :key="'from-'+location.locationID" :value="location.locationID">
+                  <i class="fas fa-arrow-right"></i> From: {{ location.company_address }}
+                </option>
+              </optgroup>
+              <optgroup label="Destination Locations">
+                <option v-for="location in toLocations" :key="'to-'+location.locationID" :value="location.locationID">
+                  <i class="fas fa-arrow-left"></i> To: {{ location.company_address }}
+                </option>
+              </optgroup>
             </select>
-          </div>
-          <div class="col-md-8 d-flex justify-content-end">
-            <button class="btn btn-outline-secondary me-2" @click="$emit('refresh')">
-              <i class="fas fa-sync-alt me-1"></i> Refresh
-            </button>
+            <div class="location-filter-icon">
+              <i class="fas fa-map-marker-alt"></i>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-
-    <!-- Delivery Groups -->
-    <div v-if="loading" class="text-center my-5">
-      <LoadingSpinner size="lg" message="Loading delivery data..." />
-    </div>
-    
-    <div v-else-if="error" class="alert alert-danger" role="alert">
-      <i class="fas fa-exclamation-triangle me-2"></i> {{ error }}
-    </div>
-    
-    <div v-else-if="Object.keys(groupedDeliveries).length === 0" class="alert alert-info" role="alert">
-      <i class="fas fa-info-circle me-2"></i> No pending deliveries found.
-    </div>
-    
-    <div v-else>
-      <!-- Loop through each location -->
-      <div v-for="(locationData, locationID) in groupedDeliveries" :key="locationID" class="card mb-4">
-        <div class="card-header bg-light">
-          <h5 class="mb-0">
-            <i class="fas fa-map-marker-alt me-2"></i> 
-            {{ locationData.company_address || 'Unknown Location' }}
-          </h5>
+      
+      <div class="card-body p-0">
+        <!-- Loading, error and empty states remain unchanged -->
+        <div v-if="loading" class="p-4 text-center">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <p class="mt-2 text-muted">Loading delivery data...</p>
         </div>
-        <div class="card-body">
-          <!-- Loop through each order in this location -->
-          <div v-for="(orderData, orderID) in locationData.orders || {}" :key="orderID" class="mb-3 border-bottom pb-3">
-            <div class="d-flex justify-content-between align-items-center">
-              <div>
-                <h6 class="mb-0">
-                  <i class="fas fa-shopping-cart me-2"></i> Order #{{ orderID }}
-                </h6>
-                <div class="text-muted mt-1">
-                  <!-- Check if orderData has items property -->
-                  <template v-if="orderData && orderData.items">
-                    Total: {{ calculateTotalMeasurement(orderData.items) }} kg
-                  </template>
-                  <template v-else>
-                    Total: {{ calculateTotalMeasurement(orderData) }} kg
-                  </template>
-                </div>
-              </div>
-              <div class="d-flex">
-                <button class="btn btn-sm btn-outline-secondary me-2" @click="$emit('toggle-details', locationID, orderID)" aria-expanded="isOrderExpanded(locationID, orderID)">
-                  <i :class="isOrderExpanded(locationID, orderID) ? 'fas fa-chevron-up me-1 ms-1' : 'fas fa-chevron-down me-1 ms-1'" aria-hidden="true"></i>
-                  <span class="d-none d-md-inline">{{ isOrderExpanded(locationID, orderID) ? 'Hide Details' : 'Show Details' }}</span>
-                  <span class="visually-hidden">{{ isOrderExpanded(locationID, orderID) ? 'Hide Order Details' : 'Show Order Details' }}</span>
-                </button>
-                <button class="btn btn-sm btn-primary" @click="$emit('assign-delivery', locationID, orderID)">
-                  <i class="fas fa-truck me-1" aria-hidden="true"></i>
-                  <span class="d-none d-md-inline">Assign</span>
-                  <span class="visually-hidden">Assign Delivery</span>
-                </button>
-              </div>
+        
+        <div v-else-if="error" class="p-4">
+          <div class="alert alert-danger mb-0">
+            {{ error }}
+          </div>
+        </div>
+        
+        <div v-else-if="Object.keys(groupedDeliveries).length === 0" class="p-4 text-center">
+          <div class="alert alert-info mb-0">
+            <i class="fas fa-info-circle me-2"></i> No deliveries found for the selected criteria.
+          </div>
+        </div>
+        
+        <div v-else>
+          <!-- Delivery Groups by Location -->
+          <div v-for="(locationData, locationID) in groupedDeliveries" :key="locationID" class="location-group">
+            <div class="location-header p-3 border-bottom bg-light">
+              <h5 class="mb-0">
+                <i class="fas fa-map-marker-alt me-2 text-primary"></i>
+                {{ getLocationName(locationID) || locationData.company_address || 'Unknown Location' }}
+              </h5>
             </div>
             
-            <!-- Collapsible order details -->
-            <div v-if="isOrderExpanded(locationID, orderID)" class="mt-3 order-details">
-              <!-- From and To locations -->
-              <div class="mb-3 delivery-route">
-                <div class="row">
-                  <div class="col-md-6">
-                    <div class="card bg-light">
-                      <div class="card-body py-2">
-                        <h6 class="mb-1"><i class="fas fa-map-marker-alt text-primary me-2"></i>From:</h6>
-                        <p class="mb-0" v-if="orderData && orderData.from">
-                          {{ orderData.from.company_address }}
-                        </p>
-                        <p class="mb-0 text-muted" v-else>No origin location specified</p>
-                      </div>
+            <!-- Orders for this location -->
+            <div v-if="!locationData.orders || Object.keys(locationData.orders).length === 0" class="p-3 text-center text-muted">
+              No orders found for this location
+            </div>
+            
+            <div v-else class="order-list">
+              <div v-for="(orderData, orderID) in locationData.orders" :key="orderID" class="order-item border-bottom">
+                <div class="order-header p-3 d-flex justify-content-between align-items-center" 
+                     @click="$emit('toggle-details', locationID, orderID)">
+                  <div>
+                    <h6 class="mb-1">Order #{{ orderID }}</h6>
+                    <div class="small text-muted d-flex align-items-center">
+                      <span v-if="orderData.items && orderData.items.length">
+                        {{ orderData.items.length }} items | 
+                        {{ calculateTotalMeasurement(orderData.items) }} kg
+                      </span>
+                      <!-- Removed the From/To location display div -->
+                      <!-- 
+                      <div class="ms-2 d-flex align-items-center" v-if="orderData.from && orderData.to">
+                        <span class="badge bg-secondary me-1">From:</span>
+                        <span class="me-2">{{ getLocationAddress(orderData.from) }}</span>
+                        <i class="fas fa-arrow-right mx-1"></i>
+                        <span class="badge bg-secondary me-1">To:</span>
+                        <span>{{ getLocationAddress(orderData.to) }}</span>
+                      </div> 
+                      -->
                     </div>
                   </div>
-                  <div class="col-md-6">
-                    <div class="card bg-light">
-                      <div class="card-body py-2">
-                        <h6 class="mb-1"><i class="fas fa-flag-checkered text-success me-2"></i>To:</h6>
-                        <p class="mb-0" v-if="orderData && orderData.to">
-                          {{ orderData.to.company_address }}
-                        </p>
-                        <p class="mb-0 text-muted" v-else>No destination location specified</p>
+                  <div class="d-flex align-items-center">
+                    <span class="badge bg-primary me-2">
+                      {{ orderData.status || 'Pending' }}
+                    </span>
+                    <span class="badge bg-info me-3" v-if="getTripType(orderData)">
+                      {{ getTripType(orderData) }}
+                    </span>
+                    <button 
+                      class="btn btn-sm btn-primary"
+                      :disabled="!selectedDeliveryID"
+                      @click.stop="$emit('assign-delivery', locationID, orderID)"
+                    >
+                      <i class="fas fa-truck me-1"></i> Assign
+                    </button>
+                    <i class="fas" :class="isOrderExpanded(locationID, orderID) ? 'fa-chevron-up ms-3' : 'fa-chevron-down ms-3'"></i>
+                  </div>
+                </div>
+                
+                <!-- Order Details (Expanded) - Only showing items -->
+                <div v-if="isOrderExpanded(locationID, orderID)" class="order-details p-3 bg-light">
+                  <!-- Order Items -->
+                  <div class="card mb-0">
+                    <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                      <div>
+                        <i class="fas fa-box me-2"></i> Order Items
+                      </div>
+                      <div class="small">
+                        Total: {{ orderData.items ? orderData.items.length : 0 }} items
+                      </div>
+                    </div>
+                    <div class="card-body p-0">
+                      <div class="table-responsive">
+                        <table class="table table-striped table-hover mb-0">
+                          <thead>
+                            <tr>
+                              <th>Item</th>
+                              <th>Quantity</th>
+                              <th>Measurement</th>
+                              <th>Price</th>
+                              <th>Total</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr v-for="(item, index) in orderData.items" :key="index">
+                              <td>{{ item.item_name || 'Unknown Item' }}</td>
+                              <td>{{ item.quantity || 1 }}</td>
+                              <td>{{ item.measurement_value || 0 }} {{ item.measurement_type || 'kg' }}</td>
+                              <td>RM {{ formatPrice(item.price) }}</td>
+                              <td>RM {{ formatPrice(item.total_price || item.price) }}</td>
+                            </tr>
+                          </tbody>
+                          <tfoot>
+                            <tr class="fw-bold">
+                              <td colspan="4" class="text-end">Total:</td>
+                              <td>RM {{ formatPrice(calculateOrderTotal(orderData.items)) }}</td>
+                            </tr>
+                          </tfoot>
+                        </table>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
-              
-              <div class="table-responsive">
-                <table class="table table-sm table-hover">
-                  <thead class="table-light">
-                    <tr>
-                      <th>Item</th>
-                      <th>Quantity</th>
-                      <th>Weight</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <!-- Check if orderData has items property -->
-                    <template v-if="orderData && orderData.items">
-                      <tr v-for="(item, index) in orderData.items" :key="index">
-                        <td>{{ item.item_name || `Item #${item.itemID}` }}</td>
-                        <td>{{ item.quantity }}</td>
-                        <td>{{ item.measurement_value }} {{ item.measurement_type }}</td>
-                      </tr>
-                    </template>
-                    <template v-else>
-                      <tr v-for="(item, index) in orderData" :key="index">
-                        <td>{{ item.item_name || `Item #${item.itemID}` }}</td>
-                        <td>{{ item.quantity }}</td>
-                        <td>{{ item.measurement_value }} {{ item.measurement_type }}</td>
-                      </tr>
-                    </template>
-                  </tbody>
-                </table>
-              </div>
             </div>
           </div>
         </div>
+        
+        <!-- Pagination -->
+        <div v-if="pagination && pagination.last_page > 1" class="d-flex justify-content-center p-3">
+          <nav aria-label="Page navigation">
+            <ul class="pagination mb-0">
+              <li class="page-item" :class="{ disabled: pagination.current_page === 1 }">
+                <a class="page-link" href="#" @click.prevent="$emit('change-page', pagination.current_page - 1)">
+                  <i class="fas fa-chevron-left"></i>
+                </a>
+              </li>
+              <li 
+                v-for="page in getPageNumbers()" 
+                :key="page" 
+                class="page-item"
+                :class="{ active: page === pagination.current_page }"
+              >
+                <a class="page-link" href="#" @click.prevent="$emit('change-page', page)">
+                  {{ page }}
+                </a>
+              </li>
+              <li class="page-item" :class="{ disabled: pagination.current_page === pagination.last_page }">
+                <a class="page-link" href="#" @click.prevent="$emit('change-page', pagination.current_page + 1)">
+                  <i class="fas fa-chevron-right"></i>
+                </a>
+              </li>
+            </ul>
+          </nav>
+        </div>
       </div>
-    </div>
-
-    <!-- Pagination -->
-    <div v-if="pagination.total > 0" class="d-flex justify-content-between align-items-center mt-4">
-      <div>
-        Showing {{ pagination.from }} to {{ pagination.to }} of {{ pagination.total }} entries
-      </div>
-      <nav aria-label="Page navigation">
-        <ul class="pagination">
-          <li class="page-item" :class="{ disabled: pagination.current_page === 1 }">
-            <a class="page-link" href="#" @click.prevent="$emit('change-page', pagination.current_page - 1)">
-              Previous
-            </a>
-          </li>
-          <li 
-            v-for="page in getPageNumbers()" 
-            :key="page" 
-            class="page-item"
-            :class="{ active: page === pagination.current_page }"
-          >
-            <a class="page-link" href="#" @click.prevent="$emit('change-page', page)">{{ page }}</a>
-          </li>
-          <li class="page-item" :class="{ disabled: pagination.current_page === pagination.last_page }">
-            <a class="page-link" href="#" @click.prevent="$emit('change-page', pagination.current_page + 1)">
-              Next
-            </a>
-          </li>
-        </ul>
-      </nav>
     </div>
   </div>
 </template>
 
 <script>
-import LoadingSpinner from '../../components/ui/LoadingSpinner.vue';
-
 export default {
   name: 'DeliveryAssignment',
-  components: {
-    LoadingSpinner
-  },
   props: {
-    loading: Boolean,
-    error: String,
-    locations: Array,
-    selectedLocationID: String,
-    groupedDeliveries: Object,
-    pagination: Object,
-    isOrderExpanded: Function,
-    calculateTotalMeasurement: Function
+    loading: {
+      type: Boolean,
+      default: false
+    },
+    error: {
+      type: String,
+      default: null
+    },
+    locations: {
+      type: Array,
+      default: () => []
+    },
+    selectedLocationID: {
+      type: [String, Number],
+      default: ''
+    },
+    groupedDeliveries: {
+      type: Object,
+      default: () => ({})
+    },
+    pagination: {
+      type: Object,
+      default: () => ({})
+    },
+    isOrderExpanded: {
+      type: Function,
+      required: true
+    },
+    calculateTotalMeasurement: {
+      type: Function,
+      required: true
+    },
+    selectedDeliveryID: {
+      type: [String, Number],
+      default: null
+    }
+  },
+  data() {
+    return {
+      localSelectedLocationID: this.selectedLocationID
+    };
+  },
+  computed: {
+    // Filter locations into from/to categories
+    fromLocations() {
+      return this.locations.filter(location => 
+        location.location_type === 'farm' || 
+        location.location_type === 'slaughterhouse' || 
+        location.location_type === 'processing'
+      );
+    },
+    toLocations() {
+      return this.locations.filter(location => 
+        location.location_type === 'distribution' || 
+        location.location_type === 'retail' || 
+        location.location_type === 'customer'
+      );
+    }
+  },
+  watch: {
+    selectedLocationID(newVal) {
+      this.localSelectedLocationID = newVal;
+    }
   },
   methods: {
+    // Existing methods remain unchanged
+    getLocationName(locationID) {
+      const location = this.locations.find(loc => loc.locationID == locationID);
+      return location ? location.company_address : null;
+    },
+    
+    getLocationAddress(location) {
+      if (!location) return 'Unknown Location';
+      
+      if (location.company_address) {
+        return location.company_address;
+      }
+      
+      // Try to find the location in the locations array
+      if (location.locationID) {
+        const foundLocation = this.locations.find(loc => loc.locationID == location.locationID);
+        if (foundLocation && foundLocation.company_address) {
+          return foundLocation.company_address;
+        }
+      }
+      
+      return 'Unknown Location';
+    },
+    
+    formatPrice(price) {
+      return parseFloat(price || 0).toFixed(2);
+    },
+    
+    calculateOrderTotal(items) {
+      if (!Array.isArray(items)) return 0;
+      
+      return items.reduce((total, item) => {
+        return total + parseFloat(item.total_price || item.price || 0);
+      }, 0);
+    },
+    
     getPageNumbers() {
+      if (!this.pagination) return [1];
+      
       const totalPages = this.pagination.last_page;
       const currentPage = this.pagination.current_page;
       
@@ -212,27 +314,105 @@ export default {
       }
       
       return [currentPage - 2, currentPage - 1, currentPage, currentPage + 1, currentPage + 2];
+    },
+    
+    getTripType(orderData) {
+      if (!orderData) return null;
+      
+      // Check if we have from and to locations
+      if (orderData.from && orderData.to) {
+        const fromLocationID = orderData.from.locationID;
+        const toLocationID = orderData.to.locationID;
+        
+        // Check if this is likely a broiler to slaughterhouse trip
+        // by examining the items and their locations
+        if (orderData.items && orderData.items.length > 0) {
+          const isBroilerToSlaughterhouse = orderData.items.some(item => 
+            item.locationID === fromLocationID && item.slaughterhouse_locationID === toLocationID
+          );
+          
+          if (isBroilerToSlaughterhouse) {
+            return 'Broiler to Slaughterhouse';
+          } else {
+            return 'Slaughterhouse to Customer';
+          }
+        }
+      }
+      
+      // If we have checkpoints, determine based on arrange_number
+      if (orderData.checkpoints) {
+        const hasArrange1or2 = orderData.checkpoints.some(cp => 
+          cp.arrange_number === 1 || cp.arrange_number === 2
+        );
+        
+        const hasArrange3or4 = orderData.checkpoints.some(cp => 
+          cp.arrange_number === 3 || cp.arrange_number === 4
+        );
+        
+        if (hasArrange1or2 && !hasArrange3or4) {
+          return 'Broiler to Slaughterhouse';
+        } else if (hasArrange3or4) {
+          return 'Slaughterhouse to Customer';
+        }
+      }
+      
+      return null;
     }
   }
 };
 </script>
 
 <style scoped>
-.order-details {
+.location-header {
   background-color: #f8f9fa;
-  border-radius: 4px;
-  padding: 10px;
-  transition: all 0.3s ease;
+  border-bottom: 1px solid #dee2e6;
 }
 
-/* Add animation for expanding/collapsing */
-.order-details-enter-active, .order-details-leave-active {
-  transition: max-height 0.3s ease, opacity 0.3s ease;
-  max-height: 500px;
-  overflow: hidden;
+.order-item:hover {
+  background-color: rgba(0, 0, 0, 0.02);
 }
-.order-details-enter, .order-details-leave-to {
-  max-height: 0;
-  opacity: 0;
+
+.order-header {
+  cursor: pointer;
+}
+
+.order-details {
+  background-color: #f8f9fa;
+}
+
+/* New styles for the location filter */
+.location-filter-container {
+  position: relative;
+  min-width: 220px;
+}
+
+.location-filter-container select {
+  padding-left: 30px;
+  /* appearance: auto; */ /* Remove or comment out this line */
+  width: 100%; /* Keep this for responsiveness */
+}
+
+.location-filter-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #6c757d;
+  pointer-events: none;
+}
+
+/* Style for optgroup */
+::v-deep optgroup {
+  font-weight: bold;
+  color: #495057;
+  background-color: #f8f9fa;
+}
+
+::v-deep option {
+  padding: 8px 12px;
+}
+
+::v-deep option:hover {
+  background-color: #e9ecef;
 }
 </style>

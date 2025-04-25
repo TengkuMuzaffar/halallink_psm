@@ -112,12 +112,19 @@ Route::middleware('auth:sanctum')->group(function () {
         // Vehicle routes
         Route::get('/vehicles/companies', [App\Http\Controllers\Api\VehicleController::class, 'getCompanies']);
         Route::apiResource('vehicles', App\Http\Controllers\Api\VehicleController::class);
-        // Add these routes to your existing routes file
-        Route::get('/deliveries', [App\Http\Controllers\Api\DeliveryController::class, 'index']);
-        Route::get('/deliveries/location/{locationID}', [App\Http\Controllers\Api\DeliveryController::class, 'getByLocation']);
+        
+        // Delivery routes
+        Route::get('/deliveries/trips', [App\Http\Controllers\Api\DeliveryController::class, 'index']);
+        Route::get('/deliveries/created', [App\Http\Controllers\Api\DeliveryController::class, 'getCreatedDeliveries']);
+        Route::get('/deliveries/stats', [App\Http\Controllers\Api\DeliveryController::class, 'getDeliveryStats']);
+        Route::get('/deliveries/{deliveryID}', [App\Http\Controllers\Api\DeliveryController::class, 'getDeliveryDetails']);
+        Route::post('/deliveries/create', [App\Http\Controllers\Api\DeliveryController::class, 'createDelivery']);
         Route::post('/deliveries/assign', [App\Http\Controllers\Api\DeliveryController::class, 'assignDelivery']);
-        Route::get('/deliveries/vehicles', [App\Http\Controllers\Api\DeliveryController::class, 'getVehicles']);
-        Route::get('/deliveries/drivers', [App\Http\Controllers\Api\DeliveryController::class, 'getDrivers']);
+        Route::put('/deliveries/{deliveryID}/status', [App\Http\Controllers\Api\DeliveryController::class, 'updateDeliveryStatus']);
+        
+        // Location routes for delivery
+        Route::get('/locations', [App\Http\Controllers\Api\LocationController::class, 'index']);
+        Route::get('/users/drivers', [App\Http\Controllers\Api\DeliveryController::class, 'getDrivers']);
     });
 
 

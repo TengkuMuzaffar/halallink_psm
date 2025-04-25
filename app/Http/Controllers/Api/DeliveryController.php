@@ -705,4 +705,347 @@ class DeliveryController extends Controller
             ], 500);
         }
     }
+    
+    /**
+     * Create a new delivery
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+     */
+    public function createDelivery(Request $request)
+    {
+        try {
+            // Log the request data
+            Log::info('Create delivery request received', [
+                'request_data' => $request->all()
+            ]);
+            
+            // Validate request
+            $validated = $request->validate([
+                'fromLocation' => 'required|exists:locations,locationID',
+                'toLocation' => 'required|exists:locations,locationID|different:fromLocation',
+                'scheduledDate' => 'required|date|after_or_equal:today',
+            ]);
+            
+            // Begin transaction
+            DB::beginTransaction();
+            
+            // Create new delivery
+            $delivery = new Delivery();
+            $delivery->scheduled_date = $validated['scheduledDate'];
+            $delivery->start_timestamp = null;
+            $delivery->arrive_timestamp = null;
+            $delivery->save();
+            
+            // Get location details for response
+            $fromLocation = Location::find($validated['fromLocation']);
+            $toLocation = Location::find($validated['toLocation']);
+            
+            DB::commit();
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Delivery created successfully',
+                'data' => [
+                    'deliveryID' => $delivery->deliveryID,
+                    'scheduledDate' => $delivery->scheduled_date,
+                    'from' => [
+                        'locationID' => $fromLocation->locationID,
+                        'company_address' => $fromLocation->company_address
+                    ],
+                    'to' => [
+                        'locationID' => $toLocation->locationID,
+                        'company_address' => $toLocation->company_address
+                    ]
+                ]
+            ]);
+            
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error creating delivery: ' . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to create delivery: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+    
+    /**
+     * Get created deliveries
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+     */
+    public function getCreatedDeliveries(Request $request)
+    {
+        try {
+            $perPage = $request->input('per_page', 10);
+            $page = $request->input('page', 1);
+            
+            $deliveries = Delivery::with(['verifies.user', 'verifies.vehicle'])
+                ->orderBy('created_at', 'desc')
+                ->paginate($perPage);
+                
+            $formattedDeliveries = $deliveries->map(function($delivery) {
+                // Get from and to locations from verifies if available
+                $fromLocation = null;
+                $toLocation = null;
+                $driver = null;
+                $vehicle = null;
+                $status = 'pending';
+                
+                // Check if delivery has verifications
+                if ($delivery->verifies->isNotEmpty()) {
+                    // Get the first verify for from location
+                    $firstVerify = $delivery->verifies->first();
+                    if ($firstVerify && $firstVerify->checkpoint) {
+                        $fromLocation = [
+                            'locationID' => $firstVerify->checkpoint->locationID,
+                            'company_address' => $firstVerify->checkpoint->location ? 
+                                $firstVerify->checkpoint->location->company_address : 'Unknown'
+                        ];
+                    }
+                    
+                    // Get the last verify for to location
+                    $lastVerify = $delivery->verifies->last();
+                    if ($lastVerify && $lastVerify->checkpoint) {
+                        $toLocation = [
+                            'locationID' => $lastVerify->checkpoint->locationID,
+                            'company_address' => $lastVerify->checkpoint->location ? 
+                                $lastVerify->checkpoint->location->company_address : 'Unknown'
+                        ];
+                    }
+                    
+                    // Get driver and vehicle from any verify
+                    $verifyWithDriver = $delivery->verifies->first(function($verify) {
+                        return $verify->user !== null;
+                    });
+                    
+                    if ($verifyWithDriver) {
+                        $driver = [
+                            'userID' => $verifyWithDriver->user->userID,
+                            'name' => $verifyWithDriver->user->name
+                        ];
+                    }
+                    
+                    $verifyWithVehicle = $delivery->verifies->first(function($verify) {
+                        return $verify->vehicle !== null;
+                    });
+                    
+                    if ($verifyWithVehicle) {
+                        $vehicle = [
+                            'vehicleID' => $verifyWithVehicle->vehicle->vehicleID,
+                            'vehicle_plate' => $verifyWithVehicle->vehicle->vehicle_plate
+                        ];
+                    }
+                    
+                    // Determine status
+                    if ($delivery->arrive_timestamp) {
+                        $status = 'completed';
+                    } else if ($delivery->start_timestamp) {
+                        $status = 'in_progress';
+                    }
+                }
+                
+                return [
+                    'deliveryID' => $delivery->deliveryID,
+                    'scheduledDate' => $delivery->scheduled_date,
+                    'startTimestamp' => $delivery->start_timestamp,
+                    'arriveTimestamp' => $delivery->arrive_timestamp,
+                    'from' => $fromLocation,
+                    'to' => $toLocation,
+                    'driver' => $driver,
+                    'vehicle' => $vehicle,
+                    'status' => $status,
+                    'created_at' => $delivery->created_at
+                ];
+            });
+            
+            return response()->json([
+                'success' => true,
+                'data' => $formattedDeliveries,
+                'pagination' => [
+                    'current_page' => $deliveries->currentPage(),
+                    'last_page' => $deliveries->lastPage(),
+                    'per_page' => $deliveries->perPage(),
+                    'total' => $deliveries->total()
+                ]
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error('Error fetching created deliveries: ' . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch created deliveries: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+    
+    /**
+     * Get delivery statistics
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function getDeliveryStats()
+    {
+        try {
+            $stats = [
+                'pending' => Delivery::whereNull('start_timestamp')->count(),
+                'inProgress' => Delivery::whereNotNull('start_timestamp')
+                    ->whereNull('arrive_timestamp')->count(),
+                'completedToday' => Delivery::whereNotNull('arrive_timestamp')
+                    ->whereDate('arrive_timestamp', now()->toDateString())->count(),
+                'issues' => Verify::where('verify_status', 'rejected')->count()
+            ];
+            
+            return response()->json([
+                'success' => true,
+                'data' => $stats
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error('Error fetching delivery stats: ' . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch delivery stats: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+    
+    /**
+     * Get delivery details
+     *
+     * @param  int  $deliveryID
+     * @return \Illuminate\Http\Response
+     */
+    public function getDeliveryDetails($deliveryID)
+    {
+        try {
+            $delivery = Delivery::with(['verifies.user', 'verifies.vehicle', 'verifies.checkpoint.location'])
+                ->findOrFail($deliveryID);
+                
+            // Format delivery data
+            $fromLocation = null;
+            $toLocation = null;
+            $driver = null;
+            $vehicle = null;
+            $status = 'pending';
+            $checkpoints = [];
+            
+            // Check if delivery has verifications
+            if ($delivery->verifies->isNotEmpty()) {
+                // Get the first verify for from location
+                $firstVerify = $delivery->verifies->first();
+                if ($firstVerify && $firstVerify->checkpoint) {
+                    $fromLocation = [
+                        'locationID' => $firstVerify->checkpoint->locationID,
+                        'company_address' => $firstVerify->checkpoint->location ? 
+                            $firstVerify->checkpoint->location->company_address : 'Unknown'
+                    ];
+                }
+                
+                // Get the last verify for to location
+                $lastVerify = $delivery->verifies->last();
+                if ($lastVerify && $lastVerify->checkpoint) {
+                    $toLocation = [
+                        'locationID' => $lastVerify->checkpoint->locationID,
+                        'company_address' => $lastVerify->checkpoint->location ? 
+                            $lastVerify->checkpoint->location->company_address : 'Unknown'
+                    ];
+                }
+                
+                // Get driver and vehicle from any verify
+                $verifyWithDriver = $delivery->verifies->first(function($verify) {
+                    return $verify->user !== null;
+                });
+                
+                if ($verifyWithDriver) {
+                    $driver = [
+                        'userID' => $verifyWithDriver->user->userID,
+                        'name' => $verifyWithDriver->user->name
+                    ];
+                }
+                
+                $verifyWithVehicle = $delivery->verifies->first(function($verify) {
+                    return $verify->vehicle !== null;
+                });
+                
+                if ($verifyWithVehicle) {
+                    $vehicle = [
+                        'vehicleID' => $verifyWithVehicle->vehicle->vehicleID,
+                        'vehicle_plate' => $verifyWithVehicle->vehicle->vehicle_plate
+                    ];
+                }
+                
+                // Determine status
+                if ($delivery->arrive_timestamp) {
+                    $status = 'completed';
+                } else if ($delivery->start_timestamp) {
+                    $status = 'in_progress';
+                }
+                
+                // Format checkpoints
+                foreach ($delivery->verifies as $verify) {
+                    if ($verify->checkpoint) {
+                        $checkpoints[] = [
+                            'checkID' => $verify->checkpoint->checkID,
+                            'locationID' => $verify->checkpoint->locationID,
+                            'location' => $verify->checkpoint->location ? 
+                                $verify->checkpoint->location->company_address : 'Unknown',
+                            'arrange_number' => $verify->checkpoint->arrange_number,
+                            'verify_status' => $verify->verify_status,
+                            'verify_comment' => $verify->verify_comment,
+                            'verified_at' => $verify->updated_at
+                        ];
+                    }
+                }
+            }
+            
+            $formattedDelivery = [
+                'deliveryID' => $delivery->deliveryID,
+                'scheduledDate' => $delivery->scheduled_date,
+                'startTimestamp' => $delivery->start_timestamp,
+                'arriveTimestamp' => $delivery->arrive_timestamp,
+                'from' => $fromLocation,
+                'to' => $toLocation,
+                'driver' => $driver,
+                'vehicle' => $vehicle,
+                'status' => $status,
+                'checkpoints' => $checkpoints,
+                'created_at' => $delivery->created_at
+            ];
+            
+            return response()->json([
+                'success' => true,
+                'data' => $formattedDelivery
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error('Error fetching delivery details: ' . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch delivery details: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }

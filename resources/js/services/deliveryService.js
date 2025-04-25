@@ -1,92 +1,107 @@
-import api from '../utils/api';
+import { fetchData } from '../utils/api';
 
 const deliveryService = {
   /**
-   * Get deliveries with optional location filter
+   * Get deliveries for assignment
+   * @param {Object} params - Query parameters
+   * @returns {Promise} - API response
    */
-  async getDeliveries(page = 1, perPage = 10, locationID = null) {
-    let url = '/api/deliveries';
-    const params = { page, per_page: perPage };
-    
-    if (locationID) {
-      url = `/api/deliveries/location/${locationID}`;
-    }
-    
-    return await api.get(url, { params });
+  async getTrips(params = {}) {
+    return fetchData('/api/deliveries/trips', {
+      params
+    });
   },
   
   /**
-   * Get all locations
+   * Get created deliveries
+   * @param {Number} page - Page number
+   * @param {Number} perPage - Items per page
+   * @returns {Promise} - API response
    */
-  async getLocations() {
-    return await api.get('/api/locations');
-  },
-  
-  /**
-   * Get all drivers
-   */
-  async getDrivers() {
-    try {
-      const response = await api.get('/api/deliveries/drivers');
-      console.log('Raw API response:', response); // Debug the raw response
-      return response.data;
-    } catch (error) {
-      console.error('Error in getDrivers service:', error);
-      return { success: false, message: error.message };
-    }
-  },
-  
-  /**
-   * Get all vehicles
-   */
-  async getVehicles() {
-    return await api.get('/api/vehicles');
+  async getCreatedDeliveries(page = 1, perPage = 10) {
+    return fetchData('/api/deliveries/created', {
+      params: {
+        page,
+        per_page: perPage
+      }
+    });
   },
   
   /**
    * Get delivery statistics
+   * @returns {Promise} - API response
    */
   async getDeliveryStats() {
-    return await api.get('/api/deliveries/stats');
+    return fetchData('/api/deliveries/stats');
   },
   
   /**
-   * Assign a delivery to a driver and vehicle
+   * Get locations
+   * @returns {Promise} - API response
+   */
+  async getLocations() {
+    return fetchData('/api/locations');
+  },
+  
+  /**
+   * Get drivers (users with driver role)
+   * @returns {Promise} - API response
+   */
+  async getDrivers() {
+    return fetchData('/api/users/drivers');
+  },
+  
+  /**
+   * Get vehicles
+   * @returns {Promise} - API response
+   */
+  async getVehicles() {
+    return fetchData('/api/vehicles');
+  },
+  
+  /**
+   * Assign delivery
+   * @param {Object} data - Assignment data
+   * @returns {Promise} - API response
    */
   async assignDelivery(data) {
-    try {
-      const response = await api.post('/api/deliveries/assign', data);
-      return response;
-    } catch (error) {
-      console.error('Error in assignDelivery service:', error);
-      return { 
-        success: false, 
-        message: error.response?.data?.message || error.message || 'Failed to assign delivery' 
-      };
-    }
+    return fetchData('/api/deliveries/assign', {
+      method: 'post',
+      data
+    });
   },
   
   /**
-   * Get deliveries assigned to a specific driver
+   * Update delivery status
+   * @param {Object} data - Status update data
+   * @returns {Promise} - API response
    */
-  async getAssignedDeliveries(driverID) {
-    return await api.get(`/api/drivers/${driverID}/deliveries`);
+  async updateDeliveryStatus(deliveryID, data) {
+    return fetchData(`/api/deliveries/${deliveryID}/status`, {
+      method: 'put',
+      data
+    });
   },
   
   /**
-   * Get location details by ID
+   * Get delivery details
+   * @param {Number} deliveryID - Delivery ID
+   * @returns {Promise} - API response
    */
-  async getLocationDetails(locationID) {
-    try {
-      const response = await api.get(`/api/locations/${locationID}`);
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching location details:', error);
-      return { 
-        success: false, 
-        message: error.response?.data?.message || error.message || 'Failed to fetch location details' 
-      };
-    }
+  async getDeliveryDetails(deliveryID) {
+    return fetchData(`/api/deliveries/${deliveryID}`);
+  },
+  
+  /**
+   * Create a new delivery
+   * @param {Object} data - Delivery data (fromLocation, toLocation, scheduledDate)
+   * @returns {Promise} - API response
+   */
+  async createDelivery(data) {
+    return fetchData('/api/deliveries/create', {
+      method: 'post',
+      data
+    });
   },
 };
 

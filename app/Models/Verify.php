@@ -9,25 +9,14 @@ class Verify extends Model
 {
     use HasFactory;
 
-    /**
-     * The primary key for the model.
-     *
-     * @var string
-     */
     protected $primaryKey = 'verifyID';
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var array<int, string>
-     */
     protected $fillable = [
-        'userID',
-        'checkID',
-        'vehicleID',
+        'verifyID',
         'deliveryID',
+        'checkID',
         'verify_status',
-        'verify_comment',
+        'verify_comment'
     ];
 
     /**
@@ -63,12 +52,21 @@ class Verify extends Model
     }
     
     /**
-     * Check if all verifications for a specific order and arrange numbers are completed
-     * 
-     * @param int $orderID
-     * @param array $arrangeNumbers
-     * @return bool
+     * Scope for verified checkpoints
      */
+    public function scopeVerified($query)
+    {
+        return $query->where('verify_status', 'verified');
+    }
+
+    /**
+     * Check if verification is completed
+     */
+    public function isVerified()
+    {
+        return $this->verify_status === 'verified';
+    }
+    
     public static function areCheckpointsVerified($orderID, $arrangeNumbers = [1, 2])
     {
         $checkpoints = Checkpoint::where('orderID', $orderID)
