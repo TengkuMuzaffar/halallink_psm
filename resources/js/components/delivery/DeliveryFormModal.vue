@@ -1,6 +1,6 @@
 <template>
   <div class="modal fade" id="deliveryFormModal" tabindex="-1" aria-labelledby="deliveryFormModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog">
       <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title" id="deliveryFormModalLabel">Create Delivery</h5>
@@ -16,88 +16,56 @@
           <form v-else @submit.prevent="validateAndSubmit">
             <!-- Scheduled Date -->
             <div class="form-group mb-3">
-              <label for="scheduledDate" class="form-label">Scheduled Date</label>
+              <label for="scheduled_date" class="form-label">Scheduled Date</label>
               <input 
                 type="date" 
-                id="scheduledDate" 
-                v-model="formData.scheduledDate" 
+                id="scheduled_date" 
+                v-model="formData.scheduled_date" 
                 class="form-control"
                 :min="minDate"
+                @change="onDateChange"
                 required
               >
-              <div v-if="errors.scheduledDate" class="text-danger mt-1">
-                {{ errors.scheduledDate }}
+              <div v-if="errors.scheduled_date" class="text-danger mt-1">
+                {{ errors.scheduled_date }}
               </div>
             </div>
             
-            <!-- From Location -->
+            <!-- Driver Selection -->
             <div class="form-group mb-3">
-              <label for="fromLocation" class="form-label">From Location</label>
-              <select id="fromLocation" v-model="formData.fromLocation" class="form-select" required>
-                <option value="">Select Origin Location</option>
-                <option v-for="location in fromLocations" 
-                        :key="location.locationID" 
-                        :value="location.locationID">
-                  {{ location.company_address }}
+              <label for="driver" class="form-label">Driver</label>
+              <select id="driver" v-model="formData.userID" class="form-select" :disabled="!formData.scheduled_date" required>
+                <option value="">Select Driver</option>
+                <option v-for="driver in drivers" 
+                        :key="driver.userID" 
+                        :value="driver.userID">
+                  {{ driver.fullname }}
                 </option>
               </select>
-              <div v-if="errors.fromLocation" class="text-danger mt-1">
-                {{ errors.fromLocation }}
+              <div v-if="!formData.scheduled_date && !errors.userID" class="text-muted mt-1">
+                Please select a date first
+              </div>
+              <div v-if="errors.userID" class="text-danger mt-1">
+                {{ errors.userID }}
               </div>
             </div>
             
-            <!-- To Location -->
+            <!-- Vehicle Selection -->
             <div class="form-group mb-3">
-              <label for="toLocation" class="form-label">To Location</label>
-              <select id="toLocation" v-model="formData.toLocation" class="form-select" required>
-                <option value="">Select Destination Location</option>
-                <option v-for="location in toLocations" 
-                        :key="location.locationID" 
-                        :value="location.locationID">
-                  {{ location.company_address }}
+              <label for="vehicle" class="form-label">Vehicle</label>
+              <select id="vehicle" v-model="formData.vehicleID" class="form-select" :disabled="!formData.scheduled_date" required>
+                <option value="">Select Vehicle</option>
+                <option v-for="vehicle in vehicles" 
+                        :key="vehicle.vehicleID" 
+                        :value="vehicle.vehicleID">
+                  {{ vehicle.vehicle_plate }} - {{ vehicle.vehicle_load_weight }}kg
                 </option>
               </select>
-              <div v-if="errors.toLocation" class="text-danger mt-1">
-                {{ errors.toLocation }}
+              <div v-if="!formData.scheduled_date && !errors.vehicleID" class="text-muted mt-1">
+                Please select a date first
               </div>
-            </div>
-            
-            <!-- Additional Notes (Optional) -->
-            <div class="form-group mb-3">
-              <label for="notes" class="form-label">Notes (Optional)</label>
-              <textarea 
-                id="notes" 
-                v-model="formData.notes" 
-                class="form-control"
-                rows="3"
-                placeholder="Add any additional information about this delivery"
-              ></textarea>
-            </div>
-            
-            <!-- Verification Information -->
-            <div class="form-group mb-3">
-              <label class="form-label">Verification Information</label>
-              <div class="card">
-                <div class="card-body">
-                  <p class="text-muted mb-2">
-                    <i class="fas fa-info-circle me-2"></i>
-                    This delivery will be linked to verification records when assigned to checkpoints.
-                  </p>
-                  <ul class="list-group list-group-flush">
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                      <span>Driver Assignment</span>
-                      <span class="badge bg-secondary">Pending</span>
-                    </li>
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                      <span>Vehicle Assignment</span>
-                      <span class="badge bg-secondary">Pending</span>
-                    </li>
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                      <span>Checkpoint Verification</span>
-                      <span class="badge bg-secondary">Pending</span>
-                    </li>
-                  </ul>
-                </div>
+              <div v-if="errors.vehicleID" class="text-danger mt-1">
+                {{ errors.vehicleID }}
               </div>
             </div>
           </form>
@@ -119,9 +87,10 @@
 </template>
 
 <script>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import deliveryService from '../../services/deliveryService';
-import modalUtil from '../../utils/modal';
+import { showModal, showSuccess, showDanger } from '../../utils/modal';
+import * as bootstrap from 'bootstrap';
 
 export default {
   name: 'DeliveryFormModal',
@@ -130,15 +99,14 @@ export default {
   
   setup(props, { emit }) {
     const loading = ref(false);
-    const fromLocations = ref([]);
-    const toLocations = ref([]);
+    const drivers = ref([]);
+    const vehicles = ref([]);
     const errors = ref({});
     
     const formData = ref({
-      scheduledDate: '',
-      fromLocation: '',
-      toLocation: '',
-      notes: ''
+      scheduled_date: '',
+      userID: '',
+      vehicleID: ''
     });
     
     const minDate = computed(() => {
@@ -148,27 +116,58 @@ export default {
     
     const isFormValid = computed(() => {
       return (
-        formData.value.scheduledDate && 
-        formData.value.fromLocation && 
-        formData.value.toLocation &&
-        formData.value.fromLocation !== formData.value.toLocation
+        formData.value.scheduled_date && 
+        formData.value.userID &&
+        formData.value.vehicleID
       );
     });
     
-    const fetchLocations = async () => {
+    const onDateChange = () => {
+      // Reset selections when date changes
+      formData.value.userID = '';
+      formData.value.vehicleID = '';
+      
+      if (formData.value.scheduled_date) {
+        fetchDrivers();
+        fetchVehicles();
+      }
+    };
+    
+    const fetchDrivers = async () => {
+      if (!formData.value.scheduled_date) return;
+      
       try {
         loading.value = true;
-        const response = await deliveryService.getLocations();
-        
+        const response = await deliveryService.getDrivers(formData.value.scheduled_date);
+        console.log(response); // Add this line to log the response to the console
         if (response.success) {
-          fromLocations.value = response.data;
-          toLocations.value = response.data;
+          drivers.value = response.data;
         } else {
-          modalUtil.showDanger('Error', response.message || 'Failed to load locations');
+          showDanger('Error', response.message || 'Failed to load drivers');
         }
       } catch (error) {
-        console.error('Error fetching locations:', error);
-        modalUtil.showDanger('Error', 'An unexpected error occurred while loading locations');
+        console.error('Error fetching drivers:', error);
+        showDanger('Error', 'An unexpected error occurred while loading drivers');
+      } finally {
+        loading.value = false;
+      }
+    };
+    
+    const fetchVehicles = async () => {
+      if (!formData.value.scheduled_date) return;
+      
+      try {
+        loading.value = true;
+        const response = await deliveryService.getVehicles(formData.value.scheduled_date);
+        
+        if (response.success) {
+          vehicles.value = response.data;
+        } else {
+          showDanger('Error', response.message || 'Failed to load vehicles');
+        }
+      } catch (error) {
+        console.error('Error fetching vehicles:', error);
+        showDanger('Error', 'An unexpected error occurred while loading vehicles');
       } finally {
         loading.value = false;
       }
@@ -177,20 +176,16 @@ export default {
     const validateForm = () => {
       errors.value = {};
       
-      if (!formData.value.scheduledDate) {
-        errors.value.scheduledDate = 'Scheduled date is required';
+      if (!formData.value.scheduled_date) {
+        errors.value.scheduled_date = 'Scheduled date is required';
       }
       
-      if (!formData.value.fromLocation) {
-        errors.value.fromLocation = 'Origin location is required';
+      if (!formData.value.userID) {
+        errors.value.userID = 'Driver is required';
       }
       
-      if (!formData.value.toLocation) {
-        errors.value.toLocation = 'Destination location is required';
-      }
-      
-      if (formData.value.fromLocation === formData.value.toLocation) {
-        errors.value.toLocation = 'Destination must be different from origin';
+      if (!formData.value.vehicleID) {
+        errors.value.vehicleID = 'Vehicle is required';
       }
       
       return Object.keys(errors.value).length === 0;
@@ -207,7 +202,7 @@ export default {
         const response = await deliveryService.createDelivery(formData.value);
         
         if (response.success) {
-          modalUtil.showSuccess('Success', 'Delivery created successfully');
+          showSuccess('Success', 'Delivery created successfully');
           emit('delivery-created', response.data);
           resetForm();
           // Close the modal
@@ -219,11 +214,11 @@ export default {
             }
           }
         } else {
-          modalUtil.showDanger('Error', response.message || 'Failed to create delivery');
+          showDanger('Error', response.message || 'Failed to create delivery');
         }
       } catch (error) {
         console.error('Error creating delivery:', error);
-        modalUtil.showDanger('Error', 'An unexpected error occurred while creating the delivery');
+        showDanger('Error', 'An unexpected error occurred while creating the delivery');
       } finally {
         loading.value = false;
       }
@@ -231,17 +226,17 @@ export default {
     
     const resetForm = () => {
       formData.value = {
-        scheduledDate: '',
-        fromLocation: '',
-        toLocation: '',
-        notes: ''
+        scheduled_date: '',
+        userID: '',
+        vehicleID: ''
       };
       errors.value = {};
+      drivers.value = [];
+      vehicles.value = [];
     };
     
     const showModal = () => {
       resetForm();
-      fetchLocations();
       
       const modalElement = document.getElementById('deliveryFormModal');
       if (modalElement) {
@@ -261,11 +256,12 @@ export default {
     return {
       loading,
       formData,
-      fromLocations,
-      toLocations,
+      drivers,
+      vehicles,
       errors,
       minDate,
       isFormValid,
+      onDateChange,
       validateAndSubmit,
       showModal
     };
@@ -274,17 +270,16 @@ export default {
 </script>
 
 <style scoped>
-.card {
-  border-radius: 0.375rem;
-  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+.modal-dialog {
+  max-width: 500px;
 }
 
-.list-group-item {
-  padding: 0.75rem 1.25rem;
-}
-
-.badge {
+.form-label {
   font-weight: 500;
-  padding: 0.5em 0.75em;
+}
+
+.form-select, .form-control {
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.375rem;
 }
 </style>

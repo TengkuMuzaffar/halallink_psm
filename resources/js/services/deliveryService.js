@@ -45,18 +45,28 @@ const deliveryService = {
   
   /**
    * Get drivers (users with driver role)
+   * @param {String} scheduled_date - Date to check driver availability
    * @returns {Promise} - API response
    */
-  async getDrivers() {
-    return fetchData('/api/users/drivers');
+  async getDrivers(scheduled_date) {
+    return fetchData('/api/users/get/drivers', {
+      params: {
+        scheduled_date
+      }
+    });
   },
   
   /**
    * Get vehicles
+   * @param {String} scheduled_date - Date to check vehicle availability
    * @returns {Promise} - API response
    */
-  async getVehicles() {
-    return fetchData('/api/vehicles');
+  async getVehicles(scheduled_date) {
+    return fetchData('api/deliveries/get/vehicles', {
+      params: {
+        scheduled_date
+      }
+    });
   },
   
   /**

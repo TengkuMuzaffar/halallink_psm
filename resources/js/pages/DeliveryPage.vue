@@ -81,14 +81,14 @@
       <!-- Left column: List of created deliveries -->
       <div class="col-md-4">
         <div class="card">
-          <!-- In the template section, update the Created Deliveries card header -->
+          <!-- In the Created Deliveries card header -->
           <div class="card-header d-flex justify-content-between align-items-center">
             <h5 class="mb-0">Created Deliveries</h5>
             <div>
               <button class="btn btn-sm btn-success me-2" @click="openCreateDeliveryModal">
                 <i class="fas fa-plus"></i>
               </button>
-              <button class="btn btn-sm btn-outline-primary" @click="fetchCreatedDeliveries">
+              <button class="btn btn-sm btn-outline-primary" @click="refreshCreatedDeliveries">
                 <i class="fas fa-sync-alt"></i>
               </button>
             </div>
@@ -145,7 +145,9 @@
       
       <!-- Right column: DeliveryAssignment component -->
       <div class="col-md-8">
+        <!-- Update the DeliveryAssignment component -->
         <DeliveryAssignment 
+          v-if="activeTab === 'assign'"
           :loading="loading"
           :error="error"
           :locations="locations"
@@ -159,20 +161,10 @@
           @change-page="changePage"
           @toggle-details="toggleOrderDetails"
           @assign-delivery="assignDelivery"
-          @refresh="refreshData"
+          @refresh="refreshAssignDeliveries"
         />
       </div>
     </div>
-    
-    <!-- Execute Deliveries Tab Content -->
-    <DeliveryExecution 
-      v-else-if="activeTab === 'execute'"
-      :loading="loading"
-      :error="error"
-      :deliveries="createdDeliveries"
-      @refresh="refreshData"
-    />
-
     <!-- Assign Delivery Modal Component -->
     <DeliveryAssignmentModal
       ref="assignmentModal"
@@ -260,15 +252,14 @@ export default {
     };
   },
   mounted() {
-    this.fetchDeliveryData();
+    this.fetchDeliveryTripsData();
     this.fetchLocationsForAssignment();
-    this.fetchDrivers();
-    this.fetchVehicles();
+
     this.fetchDeliveryStats();
     this.fetchCreatedDeliveries();
   },
   methods: {
-    async fetchDeliveryData() {
+    async fetchDeliveryTripsData() {
       try {
         this.loading = true;
         this.error = null;
@@ -300,8 +291,9 @@ export default {
     onDeliveryCreated(deliveryData) {
       // Handle the event when a delivery is created successfully
       this.showToast('Success', 'Delivery created successfully', 'success');
-      this.fetchDeliveryData();
+      this.fetchDeliveryTripsData();
       this.fetchDeliveryStats();
+      this.fetchCreatedDeliveries(); // Add this line to refresh the created deliveries
     },
     
 
@@ -323,41 +315,16 @@ export default {
       }
     },
     
-    async fetchDrivers() {
-      try {
-        const response = await deliveryService.getDrivers();
-        if (response.success) {
-          this.drivers = response.data;
-        } else {
-          console.error('Failed to load drivers:', response.message);
-          // Use the modal utility to show error to user
-          showModal({
-            type: 'danger',
-            title: 'Error Loading Drivers',
-            message: 'Failed to load driver data. Please try again later.'
-          });
-        }
-      } catch (error) {
-        console.error('Error fetching drivers:', error);
-        showModal({
-          type: 'danger',
-          title: 'Error',
-          message: 'An unexpected error occurred while loading drivers.'
-        });
-      }
-    },
+  
     
-    async fetchVehicles() {
-      try {
-        const response = await deliveryService.getVehicles();
-        if (response.success) {
-          this.vehicles = response.data;
-        } else {
-          console.error('Failed to load vehicles:', response.message);
-        }
-      } catch (error) {
-        console.error('Error fetching vehicles:', error);
-      }
+      // Add new method for refreshing created deliveries only
+    refreshCreatedDeliveries() {
+      this.fetchCreatedDeliveries();
+    },
+
+    // Add new method for refreshing assign deliveries only
+    refreshAssignDeliveries() {
+      this.fetchDeliveryTripsData();
     },
     
     async fetchDeliveryStats() {
@@ -395,7 +362,7 @@ export default {
     selectDelivery(deliveryID) {
       this.selectedDeliveryID = deliveryID;
       // Refresh the delivery assignment data based on selected delivery
-      this.fetchDeliveryData();
+      this.fetchDeliveryTripsData();
     },
     
     changeCreatedDeliveriesPage(page) {
@@ -430,16 +397,17 @@ export default {
     handleLocationChange(locationID) {
       this.selectedLocationID = locationID;
       this.pagination.current_page = 1;
-      this.fetchDeliveryData();
+      this.fetchDeliveryTripsData();
     },
     
     refreshData() {
-      this.fetchDeliveryData();
+      // Remove the fetchDeliveryTripsData() and fetchCreatedDeliveries() calls
+      // Only refresh delivery stats since it's common
       this.fetchDeliveryStats();
-      this.fetchCreatedDeliveries();
       // Reset the selected order info when refreshing data
       this.selectedOrderInfo = null;
     },
+    
     
     changePage(page) {
       if (page < 1 || page > this.pagination.last_page) {
@@ -447,7 +415,7 @@ export default {
       }
       
       this.pagination.current_page = page;
-      this.fetchDeliveryData();
+      this.fetchDeliveryTripsData();
     },
     
     getPageNumbers() {
@@ -641,7 +609,7 @@ export default {
                 dismiss: true,
                 onClick: () => {
                   this.$refs.assignmentModal.hide();
-                  this.fetchDeliveryData();
+                  this.fetchDeliveryTripsData();
                   this.fetchDeliveryStats();
                   this.fetchCreatedDeliveries();
                 }

@@ -16,7 +16,7 @@ use App\Models\Vehicle;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
-
+use Illuminate\Support\Facades\Schema;
 class DeliveryController extends Controller
 {
     /**
@@ -641,21 +641,74 @@ class DeliveryController extends Controller
     /**
      * Get all vehicles
      *
+     * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\Response
      */
-    public function getVehicles()
+    public function getVehicles(Request $request)
     {
         try {
-            $vehicles = Vehicle::where('status', 'active')
-                ->select('vehicleID', 'vehicle_plate', 'vehicle_load_weight')
-                ->get();
+            $query = Vehicle::query();
+            
+            // Add null check for user and companyID
+            $user = auth()->user();
+            if (!$user || !$user->companyID) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User not authenticated or missing company ID'
+                ], 401);
+            }
+            
+            $query->where('companyID', $user->companyID);
+            
+            // Get the scheduled date from the request
+            $scheduledDate = $request->input('scheduled_date');
+            
+            // If scheduled date is provided, filter out vehicles that are already assigned to deliveries on that date
+            if ($scheduledDate) {
+                // Get IDs of vehicles that are already assigned to deliveries on the scheduled date
+                // and where the delivery is not completed (arrive_timestamp is null)
+
+                $assignedVehicleIds = Delivery::whereDate('scheduled_date', '=', $scheduledDate)
+                    ->whereNull('arrive_timestamp')
+                    ->pluck('vehicleID')
+                    ->toArray();
+                
+                // Exclude these vehicles from the results
+                if (!empty($assignedVehicleIds)) {
+                    $query->whereNotIn('vehicleID', $assignedVehicleIds);
+                }
+            }
+            
+            // Search by vehicle plate
+            if ($request->has('search') && !empty($request->search)) {
+                $query->where('vehicle_plate', 'like', '%' . $request->search . '%');
+            }
+            
+            // Filter by load weight
+            if ($request->has('min_weight') && is_numeric($request->min_weight)) {
+                $query->where('vehicle_load_weight', '>=', $request->min_weight);
+            }
+            
+            if ($request->has('max_weight') && is_numeric($request->max_weight)) {
+                $query->where('vehicle_load_weight', '<=', $request->max_weight);
+            }
+            
+            // Select specific fields
+            $query->select('vehicleID', 'vehicle_plate', 'vehicle_load_weight');
+            
+            // Get all vehicles without pagination
+            $vehicles = $query->get();
             
             return response()->json([
                 'success' => true,
                 'data' => $vehicles
             ]);
         } catch (\Exception $e) {
-            Log::error('Error fetching vehicles: ' . $e->getMessage());
+            Log::error('Error fetching vehicles: ' . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
             
             return response()->json([
                 'success' => false,
@@ -667,9 +720,10 @@ class DeliveryController extends Controller
     /**
      * Get all drivers
      *
+     * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\Response
      */
-    public function getDrivers()
+    public function getDrivers(Request $request)
     {
         try {
             // Get the authenticated user
@@ -685,16 +739,34 @@ class DeliveryController extends Controller
             // Get the company ID of the authenticated user
             $companyID = $user->companyID;
             
+            // Get the scheduled date from the request
+            $scheduledDate = $request->input('scheduled_date');
+            
             // Get all active employees from the same company who can be drivers
-            $drivers = User::where('role', 'employee')
+            $driversQuery = User::where('role', 'employee')
                 ->where('status', 'active')
-                ->where('companyID', $companyID)
-                ->select('userID', 'fullname', 'tel_number', 'email')
+                ->where('companyID', $companyID);
+            
+            // If scheduled date is provided, filter out drivers who are already assigned to deliveries on that date
+            if ($scheduledDate) {
+                // Get IDs of drivers who are already assigned to deliveries on the scheduled date
+                // and where the delivery is not completed (arrive_timestamp is null)
+                $assignedDriverIds = Delivery::whereDate('scheduled_date', '=', $scheduledDate)
+                    ->pluck('userID')
+                    ->toArray();
+                
+                // Exclude these drivers from the results
+                if (!empty($assignedDriverIds)) {
+                    $driversQuery->whereNotIn('userID', $assignedDriverIds);
+                }
+            }
+            
+            $drivers = $driversQuery->select('userID', 'fullname', 'tel_number', 'email')
                 ->get();
             
             return response()->json([
                 'success' => true,
-                'data' => $drivers
+                'data' => $drivers,
             ]);
         } catch (\Exception $e) {
             Log::error('Error fetching drivers: ' . $e->getMessage());
@@ -707,7 +779,7 @@ class DeliveryController extends Controller
     }
     
     /**
-     * Create a new delivery
+     * Create a new delivery based on Delivery model
      *
      * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\Response
@@ -722,9 +794,11 @@ class DeliveryController extends Controller
             
             // Validate request
             $validated = $request->validate([
-                'fromLocation' => 'required|exists:locations,locationID',
-                'toLocation' => 'required|exists:locations,locationID|different:fromLocation',
-                'scheduledDate' => 'required|date|after_or_equal:today',
+                'userID' => 'required|exists:users,userID',
+                'vehicleID' => 'required|exists:vehicles,vehicleID',
+                'scheduled_date' => 'required|date|after_or_equal:today',
+                'start_timestamp' => 'nullable|date',
+                'arrive_timestamp' => 'nullable|date',
             ]);
             
             // Begin transaction
@@ -732,14 +806,16 @@ class DeliveryController extends Controller
             
             // Create new delivery
             $delivery = new Delivery();
-            $delivery->scheduled_date = $validated['scheduledDate'];
-            $delivery->start_timestamp = null;
-            $delivery->arrive_timestamp = null;
+            $delivery->userID = $validated['userID'];
+            $delivery->vehicleID = $validated['vehicleID'];
+            $delivery->scheduled_date = $validated['scheduled_date'];
+            $delivery->start_timestamp = $validated['start_timestamp'] ?? null;
+            $delivery->arrive_timestamp = $validated['arrive_timestamp'] ?? null;
             $delivery->save();
             
-            // Get location details for response
-            $fromLocation = Location::find($validated['fromLocation']);
-            $toLocation = Location::find($validated['toLocation']);
+            // Get driver and vehicle details for response
+            $driver = User::find($validated['userID']);
+            $vehicle = Vehicle::find($validated['vehicleID']);
             
             DB::commit();
             
@@ -749,14 +825,19 @@ class DeliveryController extends Controller
                 'data' => [
                     'deliveryID' => $delivery->deliveryID,
                     'scheduledDate' => $delivery->scheduled_date,
-                    'from' => [
-                        'locationID' => $fromLocation->locationID,
-                        'company_address' => $fromLocation->company_address
+                    'startTimestamp' => $delivery->start_timestamp,
+                    'arriveTimestamp' => $delivery->arrive_timestamp,
+                    'driver' => [
+                        'userID' => $driver->userID,
+                        'name' => $driver->name
                     ],
-                    'to' => [
-                        'locationID' => $toLocation->locationID,
-                        'company_address' => $toLocation->company_address
-                    ]
+                    'vehicle' => [
+                        'vehicleID' => $vehicle->vehicleID,
+                        'vehicle_number' => $vehicle->vehicle_number,
+                        'vehicle_type' => $vehicle->vehicle_type
+                    ],
+                    'status' => $delivery->arrive_timestamp ? 'completed' : 
+                               ($delivery->start_timestamp ? 'in_progress' : 'scheduled')
                 ]
             ]);
             
@@ -771,6 +852,93 @@ class DeliveryController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to create delivery: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+    
+    /**
+     * Create a new trip
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+     */
+    public function createTrips(Request $request)
+    {
+        try {
+            // Log the request data
+            Log::info('Create trip request received', [
+                'request_data' => $request->all()
+            ]);
+            
+            // Validate request
+            $validated = $request->validate([
+                'userID' => 'required|exists:users,userID',
+                'vehicleID' => 'required|exists:vehicles,vehicleID',
+                'fromLocation' => 'required|exists:locations,locationID',
+                'toLocation' => 'required|exists:locations,locationID|different:fromLocation',
+                'scheduledDate' => 'required|date|after_or_equal:today',
+                'notes' => 'nullable|string',
+            ]);
+            
+            // Begin transaction
+            DB::beginTransaction();
+            
+            // Create new delivery
+            $delivery = new Delivery();
+            $delivery->userID = $validated['userID'];
+            $delivery->vehicleID = $validated['vehicleID'];
+            $delivery->scheduled_date = $validated['scheduledDate'];
+            $delivery->start_timestamp = null;
+            $delivery->arrive_timestamp = null;
+            $delivery->save();
+            
+            // Get location details for response
+            $fromLocation = Location::find($validated['fromLocation']);
+            $toLocation = Location::find($validated['toLocation']);
+            
+            // Get driver and vehicle details for response
+            $driver = User::find($validated['userID']);
+            $vehicle = Vehicle::find($validated['vehicleID']);
+            
+            DB::commit();
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Trip created successfully',
+                'data' => [
+                    'deliveryID' => $delivery->deliveryID,
+                    'scheduledDate' => $delivery->scheduled_date,
+                    'driver' => [
+                        'userID' => $driver->userID,
+                        'name' => $driver->name
+                    ],
+                    'vehicle' => [
+                        'vehicleID' => $vehicle->vehicleID,
+                        'vehicle_number' => $vehicle->vehicle_number,
+                        'vehicle_type' => $vehicle->vehicle_type
+                    ],
+                    'from' => [
+                        'locationID' => $fromLocation->locationID,
+                        'company_address' => $fromLocation->company_address
+                    ],
+                    'to' => [
+                        'locationID' => $toLocation->locationID,
+                        'company_address' => $toLocation->company_address
+                    ]
+                ]
+            ]);
+            
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error creating trip: ' . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to create trip: ' . $e->getMessage()
             ], 500);
         }
     }

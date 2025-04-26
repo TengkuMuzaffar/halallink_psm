@@ -124,7 +124,8 @@ Route::middleware('auth:sanctum')->group(function () {
         
         // Location routes for delivery
         Route::get('/locations', [App\Http\Controllers\Api\LocationController::class, 'index']);
-        Route::get('/users/drivers', [App\Http\Controllers\Api\DeliveryController::class, 'getDrivers']);
+        Route::get('/users/get/drivers', [App\Http\Controllers\Api\DeliveryController::class, 'getDrivers']);
+        Route::get('/deliveries/get/vehicles', [App\Http\Controllers\Api\DeliveryController::class, 'getVehicles']);
     });
 
 
