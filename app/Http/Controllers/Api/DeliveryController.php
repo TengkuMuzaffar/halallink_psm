@@ -86,6 +86,31 @@ class DeliveryController extends Controller
                 $checkpoint3List = $checkpoints->where('arrange_number', 3);
                 $checkpoint4List = $checkpoints->where('arrange_number', 4);
                 
+                // Determine which checkpoints to display based on tasks
+                $displayCheckpoints = [];
+                $useCheckpoint3And4 = false;
+                
+                // Check if arrange_number 2 has tasks and if they're complete
+                foreach ($checkpoint2List as $cp2) {
+                    $task = $cp2->task; // This is a single task, not a collection
+                    
+                    // Check if task exists and is complete
+                    if ($task && $task->task_status === 'complete') {
+                        // If task in checkpoint 2 is complete, show checkpoints 3 and 4
+                        $useCheckpoint3And4 = true;
+                        $displayCheckpoints = [3, 4];
+                    } else {
+                        // If task doesn't exist or is not complete, show checkpoints 1 and 2
+                        $displayCheckpoints = [1, 2];
+                        break; // Exit the loop as we've made our decision
+                    }
+                }
+                
+                // If no checkpoint2 exists, default to showing checkpoints 1 and 2
+                if ($checkpoint2List->isEmpty()) {
+                    $displayCheckpoints = [1, 2];
+                }
+                
                 // Process each cart item
                 foreach ($order->cartItems as $cartItem) {
                     if (!$cartItem->item) {
@@ -98,135 +123,14 @@ class DeliveryController extends Controller
                     
                     $item = $cartItem->item;
                     
-                    // Find matching checkpoint1 for this item (match item's locationID with checkpoint locationID)
-                    $checkpoint1 = null;
-                    foreach ($checkpoint1List as $cp) {
-                        if ($cp->locationID == $item->locationID) {
-                            $checkpoint1 = $cp;
-                            break;
-                        }
-                    }
-                    
-                    // Find matching checkpoint2 for this item (match item's slaughterhouse_locationID with checkpoint locationID)
-                    $checkpoint2 = null;
-                    foreach ($checkpoint2List as $cp) {
-                        if ($cp->locationID == $item->slaughterhouse_locationID) {
-                            $checkpoint2 = $cp;
-                            break;
-                        }
-                    }
-                    
-                    // Find matching checkpoint3 for this item (same logic as checkpoint2)
-                    $checkpoint3 = null;
-                    foreach ($checkpoint3List as $cp) {
-                        if ($cp->locationID == $item->slaughterhouse_locationID) {
-                            $checkpoint3 = $cp;
-                            break;
-                        }
-                    }
-                    
-                    // Find matching checkpoint4 for this item (match with customer location)
-                    $checkpoint4 = null;
-                    foreach ($checkpoint4List as $cp) {
-                        if ($cp->locationID == $order->locationID) {
-                            $checkpoint4 = $cp;
-                            break;
-                        }
-                    }
-                    
-                    // Log checkpoint information
-                    Log::info('Checkpoint status for order and item', [
-                        'orderID' => $order->orderID,
-                        'itemID' => $item->itemID,
-                        'checkpoint1' => $checkpoint1 ? $checkpoint1->checkID : 'null',
-                        'checkpoint2' => $checkpoint2 ? $checkpoint2->checkID : 'null',
-                        'checkpoint3' => $checkpoint3 ? $checkpoint3->checkID : 'null',
-                        'checkpoint4' => $checkpoint4 ? $checkpoint4->checkID : 'null'
-                    ]);
-                    
-                    // Check if we should display this item based on delivery and verification status
-                    $shouldDisplay = false;
-                    $useCheckpoint3 = false;
-                    
-                    // Modified display logic: Display if checkpoint has no deliveryID OR all verifies are complete
-                    if ($checkpoint1 && $checkpoint2) {
-                        // Case 1: If either checkpoint1 or checkpoint2 doesn't have deliveryID, display it
-                        if (!$checkpoint1->deliveryID || !$checkpoint2->deliveryID) {
-                            $shouldDisplay = true;
-                            $useCheckpoint3 = false;
-                            
-                            Log::info('Displaying item - at least one checkpoint has no deliveryID', [
-                                'orderID' => $order->orderID,
-                                'itemID' => $item->itemID,
-                                'checkpoint1_deliveryID' => $checkpoint1->deliveryID,
-                                'checkpoint2_deliveryID' => $checkpoint2->deliveryID
-                            ]);
-                        } 
-                        // Case 2: Both checkpoints have deliveryID, check if all verifications are complete
-                        else {
-                            // Check if all verifications for checkpoint1 are complete
-                            $checkpoint1VerificationsComplete = true;
-                            if ($checkpoint1->verifies->isNotEmpty()) {
-                                foreach ($checkpoint1->verifies as $verify) {
-                                    if ($verify->verify_status !== 'verified') {
-                                        $checkpoint1VerificationsComplete = false;
-                                        break;
-                                    }
-                                }
-                            } else {
-                                // If no verifications exist, consider it incomplete
-                                $checkpoint1VerificationsComplete = false;
-                            }
-                            
-                            // Check if all verifications for checkpoint2 are complete
-                            $checkpoint2VerificationsComplete = true;
-                            if ($checkpoint2->verifies->isNotEmpty()) {
-                                foreach ($checkpoint2->verifies as $verify) {
-                                    if ($verify->verify_status !== 'verified') {
-                                        $checkpoint2VerificationsComplete = false;
-                                        break;
-                                    }
-                                }
-                            } else {
-                                // If no verifications exist, consider it incomplete
-                                $checkpoint2VerificationsComplete = false;
-                            }
-                            
-                            // If both checkpoints have complete verifications, display for arrange_number 3 and 4
-                            if ($checkpoint1VerificationsComplete && $checkpoint2VerificationsComplete) {
-                                $shouldDisplay = true;
-                                $useCheckpoint3 = true;
-                                
-                                Log::info('Displaying item for arrange_number 3 and 4 - all verifications complete', [
-                                    'orderID' => $order->orderID,
-                                    'itemID' => $item->itemID,
-                                    'checkpoint1_verifies' => $checkpoint1->verifies->count(),
-                                    'checkpoint2_verifies' => $checkpoint2->verifies->count()
-                                ]);
-                            } else {
-                                Log::info('Not displaying item - verifications incomplete', [
-                                    'orderID' => $order->orderID,
-                                    'itemID' => $item->itemID,
-                                    'checkpoint1_verifies_complete' => $checkpoint1VerificationsComplete,
-                                    'checkpoint2_verifies_complete' => $checkpoint2VerificationsComplete
-                                ]);
-                            }
-                        }
-                    }
-                    
-                    // If we shouldn't display this item, skip to the next one
-                    if (!$shouldDisplay) {
-                        continue;
-                    }
-                    
-                    // Determine which locationID to use
+                    // Determine which locationID to use for grouping
                     $targetLocationID = null;
-                    if ($useCheckpoint3) {
-                        // For arrange_number 3 and 4, use checkpoint3's locationID or item's slaughterhouse_locationID
-                        $targetLocationID = $checkpoint3 ? $checkpoint3->locationID : $item->slaughterhouse_locationID;
+                    if ($useCheckpoint3And4) {
+                        // For arrange_number 3 and 4, use slaughterhouse_locationID
+                        $targetLocationID = $item->slaughterhouse_locationID;
                     } else {
-                        // For arrange_number 1 and 2, use checkpoint2's locationID or item's slaughterhouse_locationID
-                        $targetLocationID = $checkpoint2 ? $checkpoint2->locationID : $item->slaughterhouse_locationID;
+                        // For arrange_number 1 and 2, use slaughterhouse_locationID
+                        $targetLocationID = $item->slaughterhouse_locationID;
                     }
                     
                     // If no valid locationID found, skip
@@ -245,87 +149,6 @@ class DeliveryController extends Controller
                         continue; // Skip if location not found
                     }
                     
-                    // Determine from and to locations
-                    $fromLocationDetails = null;
-                    $toLocationDetails = null;
-                    
-                    if (!$useCheckpoint3) {
-                        // For arrange_number 1 and 2
-                        if ($checkpoint1) {
-                            $fromLoc = Location::find($checkpoint1->locationID);
-                            if ($fromLoc) {
-                                $fromLocationDetails = [
-                                    'locationID' => $fromLoc->locationID,
-                                    'company_address' => $fromLoc->company_address
-                                ];
-                            }
-                        } else if ($item->location) {
-                            // Fallback to item's location if checkpoint1 doesn't exist
-                            $fromLocationDetails = [
-                                'locationID' => $item->location->locationID,
-                                'company_address' => $item->location->company_address
-                            ];
-                        }
-                        
-                        if ($checkpoint2) {
-                            $toLoc = Location::find($checkpoint2->locationID);
-                            if ($toLoc) {
-                                $toLocationDetails = [
-                                    'locationID' => $toLoc->locationID,
-                                    'company_address' => $toLoc->company_address
-                                ];
-                            }
-                        } else if ($item->slaughterhouse) {
-                            // Fallback to item's slaughterhouse if checkpoint2 doesn't exist
-                            $toLocationDetails = [
-                                'locationID' => $item->slaughterhouse->locationID,
-                                'company_address' => $item->slaughterhouse->company_address
-                            ];
-                        }
-                    } else {
-                        // For arrange_number 3 and 4
-                        if ($checkpoint3) {
-                            $fromLoc = Location::find($checkpoint3->locationID);
-                            if ($fromLoc) {
-                                $fromLocationDetails = [
-                                    'locationID' => $fromLoc->locationID,
-                                    'company_address' => $fromLoc->company_address
-                                ];
-                            }
-                        } else if ($item->slaughterhouse) {
-                            // Fallback to item's slaughterhouse if checkpoint3 doesn't exist
-                            $fromLocationDetails = [
-                                'locationID' => $item->slaughterhouse->locationID,
-                                'company_address' => $item->slaughterhouse->company_address
-                            ];
-                        }
-                        
-                        if ($checkpoint4) {
-                            $toLoc = Location::find($checkpoint4->locationID);
-                            if ($toLoc) {
-                                $toLocationDetails = [
-                                    'locationID' => $toLoc->locationID,
-                                    'company_address' => $toLoc->company_address
-                                ];
-                            }
-                        } else if ($order->location) {
-                            // Fallback to order's location if checkpoint4 doesn't exist
-                            $toLocationDetails = [
-                                'locationID' => $order->location->locationID,
-                                'company_address' => $order->location->company_address
-                            ];
-                        }
-                    }
-                    
-                    // Ensure we have at least a from location
-                    if (!$fromLocationDetails && $order->location) {
-                        // Last resort: use order's location
-                        $fromLocationDetails = [
-                            'locationID' => $order->location->locationID,
-                            'company_address' => $order->location->company_address
-                        ];
-                    }
-                    
                     // Prepare item data
                     $itemData = [
                         'itemID' => $item->itemID,
@@ -335,8 +158,6 @@ class DeliveryController extends Controller
                         'price' => $item->price,
                         'quantity' => $cartItem->quantity,
                         'total_price' => $cartItem->price_at_purchase * $cartItem->quantity,
-                        'checkID' => $useCheckpoint3 ? ($checkpoint3 ? $checkpoint3->checkID : null) : 
-                                                     ($checkpoint2 ? $checkpoint2->checkID : null),
                     ];
                     
                     // Initialize location in groupedData if not exists
@@ -350,14 +171,82 @@ class DeliveryController extends Controller
                     // Initialize order in location if not exists
                     if (!isset($groupedData[$targetLocationID]['orders'][$order->orderID])) {
                         $groupedData[$targetLocationID]['orders'][$order->orderID] = [
-                            'from' => $fromLocationDetails,
-                            'to' => $toLocationDetails,
-                            'items' => []
+                            'checkpoints' => [],
+                            'to' => null // Will be set later
                         ];
                     }
                     
-                    // Add item to the order
-                    $groupedData[$targetLocationID]['orders'][$order->orderID]['items'][] = $itemData;
+                    // Add item to the appropriate checkpoints
+                    foreach ($displayCheckpoints as $arrangeNumber) {
+                        $checkpointList = null;
+                        
+                        // Get the appropriate checkpoint list
+                        switch ($arrangeNumber) {
+                            case 1:
+                                $checkpointList = $checkpoint1List;
+                                break;
+                            case 2:
+                                $checkpointList = $checkpoint2List;
+                                break;
+                            case 3:
+                                $checkpointList = $checkpoint3List;
+                                break;
+                            case 4:
+                                $checkpointList = $checkpoint4List;
+                                break;
+                        }
+                        
+                        if ($checkpointList && $checkpointList->isNotEmpty()) {
+                            foreach ($checkpointList as $checkpoint) {
+                                // Check if this checkpoint is relevant for this item
+                                $isRelevant = false;
+                                
+                                if ($arrangeNumber == 1 && $checkpoint->locationID == $item->locationID) {
+                                    $isRelevant = true;
+                                } else if ($arrangeNumber == 2 && $checkpoint->locationID == $item->slaughterhouse_locationID) {
+                                    $isRelevant = true;
+                                } else if ($arrangeNumber == 3 && $checkpoint->locationID == $item->slaughterhouse_locationID) {
+                                    $isRelevant = true;
+                                } else if ($arrangeNumber == 4 && $checkpoint->locationID == $order->locationID) {
+                                    $isRelevant = true;
+                                }
+                                
+                                if ($isRelevant) {
+                                    // Check if this checkpoint already exists in the order
+                                    $checkpointExists = false;
+                                    foreach ($groupedData[$targetLocationID]['orders'][$order->orderID]['checkpoints'] as &$existingCheckpoint) {
+                                        if ($existingCheckpoint['checkID'] == $checkpoint->checkID) {
+                                            // Add item to existing checkpoint
+                                            $existingCheckpoint['items'][] = $itemData;
+                                            $checkpointExists = true;
+                                            break;
+                                        }
+                                    }
+                                    
+                                    // If checkpoint doesn't exist, create it
+                                    if (!$checkpointExists) {
+                                        $checkpointLocation = Location::find($checkpoint->locationID);
+                                        
+                                        $groupedData[$targetLocationID]['orders'][$order->orderID]['checkpoints'][] = [
+                                            'checkID' => $checkpoint->checkID,
+                                            'arrange_number' => $checkpoint->arrange_number,
+                                            'locationID' => $checkpoint->locationID,
+                                            'company_address' => $checkpointLocation ? $checkpointLocation->company_address : 'Unknown',
+                                            'items' => [$itemData]
+                                        ];
+                                        
+                                        // If this is the last checkpoint (arrange_number 4), set it as the "to" location
+                                        if ($arrangeNumber == 4) {
+                                            $groupedData[$targetLocationID]['orders'][$order->orderID]['to'] = [
+                                                'locationID' => $checkpoint->locationID,
+                                                'company_address' => $checkpointLocation ? $checkpointLocation->company_address : 'Unknown'
+                                            ];
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
             
@@ -955,69 +844,110 @@ class DeliveryController extends Controller
             $perPage = $request->input('per_page', 10);
             $page = $request->input('page', 1);
             
-            $deliveries = Delivery::with(['verifies.user', 'verifies.vehicle'])
+            $deliveries = Delivery::with(['user', 'vehicle', 'checkpoints.location', 'verifies.user', 'verifies.vehicle'])
                 ->orderBy('created_at', 'desc')
                 ->paginate($perPage);
                 
             $formattedDeliveries = $deliveries->map(function($delivery) {
-                // Get from and to locations from verifies if available
+                // Get from and to locations from checkpoints if available
                 $fromLocation = null;
                 $toLocation = null;
                 $driver = null;
                 $vehicle = null;
                 $status = 'pending';
                 
-                // Check if delivery has verifications
-                if ($delivery->verifies->isNotEmpty()) {
-                    // Get the first verify for from location
-                    $firstVerify = $delivery->verifies->first();
-                    if ($firstVerify && $firstVerify->checkpoint) {
+                // First try to get driver and vehicle directly from delivery
+                if ($delivery->user) {
+                    $driver = [
+                        'userID' => $delivery->user->userID,
+                        'fullname' => $delivery->user->fullname
+                    ];
+                }
+                
+                if ($delivery->vehicle) {
+                    $vehicle = [
+                        'vehicleID' => $delivery->vehicle->vehicleID,
+                        'vehicle_plate' => $delivery->vehicle->vehicle_plate
+                    ];
+                }
+                
+                // If checkpoints exist, use them for from/to locations
+                if ($delivery->checkpoints->isNotEmpty()) {
+                    $firstCheckpoint = $delivery->checkpoints->sortBy('arrange_number')->first();
+                    $lastCheckpoint = $delivery->checkpoints->sortByDesc('arrange_number')->first();
+                    
+                    if ($firstCheckpoint && $firstCheckpoint->location) {
                         $fromLocation = [
-                            'locationID' => $firstVerify->checkpoint->locationID,
-                            'company_address' => $firstVerify->checkpoint->location ? 
-                                $firstVerify->checkpoint->location->company_address : 'Unknown'
+                            'locationID' => $firstCheckpoint->locationID,
+                            'company_address' => $firstCheckpoint->location->company_address ?? 'Unknown'
                         ];
                     }
                     
-                    // Get the last verify for to location
-                    $lastVerify = $delivery->verifies->last();
-                    if ($lastVerify && $lastVerify->checkpoint) {
+                    if ($lastCheckpoint && $lastCheckpoint->location) {
                         $toLocation = [
-                            'locationID' => $lastVerify->checkpoint->locationID,
-                            'company_address' => $lastVerify->checkpoint->location ? 
-                                $lastVerify->checkpoint->location->company_address : 'Unknown'
+                            'locationID' => $lastCheckpoint->locationID,
+                            'company_address' => $lastCheckpoint->location->company_address ?? 'Unknown'
                         ];
                     }
-                    
-                    // Get driver and vehicle from any verify
-                    $verifyWithDriver = $delivery->verifies->first(function($verify) {
-                        return $verify->user !== null;
-                    });
-                    
-                    if ($verifyWithDriver) {
-                        $driver = [
-                            'userID' => $verifyWithDriver->user->userID,
-                            'name' => $verifyWithDriver->user->name
-                        ];
+                }
+                
+                // Fallback to verifies if no driver/vehicle found or no checkpoints
+                if ((!$driver || !$vehicle || !$fromLocation || !$toLocation) && $delivery->verifies->isNotEmpty()) {
+                    // Get driver from verifies if not already set
+                    if (!$driver) {
+                        $verifyWithDriver = $delivery->verifies->first(function($verify) {
+                            return $verify->user !== null;
+                        });
+                        
+                        if ($verifyWithDriver && $verifyWithDriver->user) {
+                            $driver = [
+                                'userID' => $verifyWithDriver->user->userID,
+                                'fullname' => $verifyWithDriver->user->fullname
+                            ];
+                        }
                     }
                     
-                    $verifyWithVehicle = $delivery->verifies->first(function($verify) {
-                        return $verify->vehicle !== null;
-                    });
-                    
-                    if ($verifyWithVehicle) {
-                        $vehicle = [
-                            'vehicleID' => $verifyWithVehicle->vehicle->vehicleID,
-                            'vehicle_plate' => $verifyWithVehicle->vehicle->vehicle_plate
-                        ];
+                    // Get vehicle from verifies if not already set
+                    if (!$vehicle) {
+                        $verifyWithVehicle = $delivery->verifies->first(function($verify) {
+                            return $verify->vehicle !== null;
+                        });
+                        
+                        if ($verifyWithVehicle && $verifyWithVehicle->vehicle) {
+                            $vehicle = [
+                                'vehicleID' => $verifyWithVehicle->vehicle->vehicleID,
+                                'vehicle_plate' => $verifyWithVehicle->vehicle->vehicle_plate
+                            ];
+                        }
                     }
                     
-                    // Determine status
-                    if ($delivery->arrive_timestamp) {
-                        $status = 'completed';
-                    } else if ($delivery->start_timestamp) {
-                        $status = 'in_progress';
+                    // Get from/to locations from verifies if not already set
+                    if (!$fromLocation && $delivery->verifies->isNotEmpty()) {
+                        $firstVerify = $delivery->verifies->first();
+                        if ($firstVerify && $firstVerify->checkpoint && $firstVerify->checkpoint->location) {
+                            $fromLocation = [
+                                'locationID' => $firstVerify->checkpoint->locationID,
+                                'company_address' => $firstVerify->checkpoint->location->company_address ?? 'Unknown'
+                            ];
+                        }
                     }
+                    
+                    if (!$toLocation && $delivery->verifies->isNotEmpty()) {
+                        $lastVerify = $delivery->verifies->last();
+                        if ($lastVerify && $lastVerify->checkpoint && $lastVerify->checkpoint->location) {
+                            $toLocation = [
+                                'locationID' => $lastVerify->checkpoint->locationID,
+                                'company_address' => $lastVerify->checkpoint->location->company_address ?? 'Unknown'
+                            ];
+                        }
+                    }
+                }
+                
+                // Determine status
+                if ($delivery->arrive_timestamp) {
+                    $status = 'completed';
+                } else if ($delivery->start_timestamp) {
+                    $status = 'in_progress';
                 }
                 
                 return [
@@ -1145,7 +1075,7 @@ class DeliveryController extends Controller
                 if ($verifyWithDriver) {
                     $driver = [
                         'userID' => $verifyWithDriver->user->userID,
-                        'name' => $verifyWithDriver->user->name
+                        'name' => $verifyWithDriver->user->fullname
                     ];
                 }
                 

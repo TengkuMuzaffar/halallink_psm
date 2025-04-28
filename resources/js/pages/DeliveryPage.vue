@@ -93,6 +93,13 @@
               </button>
             </div>
           </div>
+          <!-- Add selected delivery info -->
+          <div v-if="selectedDeliveryID" class="p-2 bg-light border-bottom">
+            <div class="d-flex align-items-center">
+              <span class="badge bg-success me-2">Selected</span>
+              <span>Delivery #{{ selectedDeliveryID }}</span>
+            </div>
+          </div>
           <div class="card-body p-0">
             <div v-if="loading" class="p-3 text-center">
               <div class="spinner-border text-primary" role="status">
@@ -104,24 +111,54 @@
             </div>
             <ul v-else class="list-group list-group-flush">
               <li v-for="(delivery, index) in createdDeliveries" :key="index" 
-                  class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
-                  :class="{'active': selectedDeliveryID === delivery.deliveryID}"
-                  @click="selectDelivery(delivery.deliveryID)">
-                <div>
-                  <div class="fw-bold">Delivery #{{ delivery.deliveryID }}</div>
-                  <div class="small text-muted">
-                    <span v-if="delivery.from">From: {{ getLocationName(delivery.from.locationID) }}</span>
-                    <span v-if="delivery.to"> → To: {{ getLocationName(delivery.to.locationID) }}</span>
+                  class="list-group-item"
+                  :class="{'active': selectedDeliveryID === delivery.deliveryID}">
+                <div class="d-flex justify-content-between align-items-center">
+                  <div class="d-flex align-items-center">
+                    <div class="form-check me-2">
+                      <input class="form-check-input" 
+                             type="radio" 
+                             :id="'delivery-' + delivery.deliveryID" 
+                             name="selectedDelivery" 
+                             :value="delivery.deliveryID"
+                             :checked="selectedDeliveryID === delivery.deliveryID"
+                             @change="selectDelivery(delivery.deliveryID)">
+                      <label class="form-check-label" :for="'delivery-' + delivery.deliveryID">
+                        <span class="visually-hidden">Select Delivery #{{ delivery.deliveryID }}</span>
+                      </label>
+                    </div>
+                    <div>
+                      <div class="fw-bold">Delivery #{{ delivery.deliveryID }}</div>
+                      <div class="small text-muted">
+                        <span v-if="delivery.from">From: {{ getLocationName(delivery.from.locationID) }}</span>
+                        <span v-if="delivery.to"> → To: {{ getLocationName(delivery.to.locationID) }}</span>
+                      </div>
+                      <div class="small">
+                        <span class="badge bg-primary me-1">{{ delivery.status || 'Pending' }} {{ formatDate(delivery.scheduledDate) }}</span>
+                      </div>
+                    </div>
                   </div>
-                  <div class="small">
-                    <span class="badge bg-primary me-1">{{ delivery.status || 'Pending' }}</span>
-                    <span class="text-muted">{{ delivery.scheduledDate }}</span>
+                  <div>
+                    <i class="fas expand-icon" 
+                       :class="expandedDeliveries[delivery.deliveryID] ? 'fa-chevron-up' : 'fa-chevron-down'"
+                       @click.stop="toggleDeliveryDetails(delivery.deliveryID)"></i>
                   </div>
                 </div>
-                <div>
-                  <button class="btn btn-sm btn-outline-secondary" @click.stop="viewDeliveryDetails(delivery)">
-                    <i class="fas fa-eye"></i>
-                  </button>
+                <!-- Expanded Details Section -->
+                <div v-if="expandedDeliveries[delivery.deliveryID]" class="mt-3 delivery-details">
+                  <div class="card">
+                    <div class="card-body">
+                      <div class="row">
+                        <div class="col-md-6">
+                          <h6>Delivery Information</h6>
+                          <p class="mb-1"><strong>Status:</strong> {{ delivery.status || 'Pending' }}</p>
+                          <p class="mb-1"><strong>Scheduled Date:</strong> {{ formatDate(delivery.scheduledDate) }}</p>
+                          <p class="mb-1"><strong>Driver:</strong> {{ delivery.driver?.fullname || 'Not assigned' }}</p>
+                          <p class="mb-1"><strong>Vehicle:</strong> {{ delivery.vehicle?.vehicle_plate || 'Not assigned' }}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </li>
             </ul>
@@ -247,19 +284,19 @@ export default {
       createdDeliveriesPerPage: 10,
       hasMoreCreatedDeliveries: false,
       selectedDeliveryID: null,
-      
-      selectedOrderInfo: null
+      selectedOrderInfo: null,
+      expandedDeliveries: {} // Add this line to fix the error
     };
   },
   mounted() {
-    this.fetchDeliveryTripsData();
+    this.fetchDeliveryAssignmentTrips();
     this.fetchLocationsForAssignment();
 
     this.fetchDeliveryStats();
     this.fetchCreatedDeliveries();
   },
   methods: {
-    async fetchDeliveryTripsData() {
+    async fetchDeliveryAssignmentTrips() {
       try {
         this.loading = true;
         this.error = null;
@@ -289,11 +326,10 @@ export default {
     },
     
     onDeliveryCreated(deliveryData) {
-      // Handle the event when a delivery is created successfully
-      this.showToast('Success', 'Delivery created successfully', 'success');
-      this.fetchDeliveryTripsData();
+      // Remove the showModal call and just refresh the data
+      this.fetchDeliveryAssignmentTrips();
       this.fetchDeliveryStats();
-      this.fetchCreatedDeliveries(); // Add this line to refresh the created deliveries
+      this.fetchCreatedDeliveries();
     },
     
 
@@ -315,16 +351,30 @@ export default {
       }
     },
     
-  
+    formatDate(dateString) {
+      if (!dateString) return '';
+      
+      // Parse the date string
+      const date = new Date(dateString);
+      
+      // Check if the date is valid
+      if (isNaN(date.getTime())) return '';
+      
+      // Format the date as DD/MM/YYYY
+      return date.toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+    },
     
-      // Add new method for refreshing created deliveries only
     refreshCreatedDeliveries() {
       this.fetchCreatedDeliveries();
     },
 
     // Add new method for refreshing assign deliveries only
     refreshAssignDeliveries() {
-      this.fetchDeliveryTripsData();
+      this.fetchDeliveryAssignmentTrips();
     },
     
     async fetchDeliveryStats() {
@@ -346,7 +396,12 @@ export default {
           this.createdDeliveriesPage,
           this.createdDeliveriesPerPage
         );
-        
+    
+        // Log each property of the response object
+        console.log('Response Success:', response.success);
+        console.log('Response Data:', response.data);
+        console.log('Response Pagination:', response.pagination);
+    
         if (response.success) {
           this.createdDeliveries = response.data;
           this.hasMoreCreatedDeliveries = response.pagination && 
@@ -362,7 +417,7 @@ export default {
     selectDelivery(deliveryID) {
       this.selectedDeliveryID = deliveryID;
       // Refresh the delivery assignment data based on selected delivery
-      this.fetchDeliveryTripsData();
+      this.fetchDeliveryAssignmentTrips();
     },
     
     changeCreatedDeliveriesPage(page) {
@@ -397,11 +452,11 @@ export default {
     handleLocationChange(locationID) {
       this.selectedLocationID = locationID;
       this.pagination.current_page = 1;
-      this.fetchDeliveryTripsData();
+      this.fetchDeliveryAssignmentTrips();
     },
     
     refreshData() {
-      // Remove the fetchDeliveryTripsData() and fetchCreatedDeliveries() calls
+      // Remove the fetchDeliveryAssignmentTrips() and fetchCreatedDeliveries() calls
       // Only refresh delivery stats since it's common
       this.fetchDeliveryStats();
       // Reset the selected order info when refreshing data
@@ -415,7 +470,7 @@ export default {
       }
       
       this.pagination.current_page = page;
-      this.fetchDeliveryTripsData();
+      this.fetchDeliveryAssignmentTrips();
     },
     
     getPageNumbers() {
@@ -585,7 +640,32 @@ export default {
         message: message || 'Please check your input and try again'
       });
     },
-    
+    /**
+     * Toggle the expanded state of a delivery
+     */
+    toggleDeliveryDetails(deliveryID) {
+      // Initialize if not already
+      if (!this.expandedDeliveries) {
+        this.expandedDeliveries = {};
+      }
+      
+      // Toggle the expanded state for this delivery
+      this.expandedDeliveries[deliveryID] = !this.expandedDeliveries[deliveryID];
+      
+      // If we're expanding this delivery, collapse all others
+      if (this.expandedDeliveries[deliveryID]) {
+        const deliveryIDStr = deliveryID.toString();
+        Object.keys(this.expandedDeliveries).forEach(key => {
+          if (key !== deliveryIDStr) {
+            this.expandedDeliveries[key] = false;
+          }
+        });
+      }
+    },
+
+      
+
+
     async submitAssignment(formData) {
       try {
         this.assignmentLoading = true;
@@ -609,7 +689,7 @@ export default {
                 dismiss: true,
                 onClick: () => {
                   this.$refs.assignmentModal.hide();
-                  this.fetchDeliveryTripsData();
+                  this.fetchDeliveryAssignmentTrips();
                   this.fetchDeliveryStats();
                   this.fetchCreatedDeliveries();
                 }
@@ -679,6 +759,53 @@ export default {
   }
 }
 </script>
+
+<style scoped>
+.list-group-item.active {
+  background-color: #123524;
+  border-color: #123524;
+  color: white;
+}
+
+.list-group-item.active .text-muted {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.list-group-item:hover:not(.active) {
+  background-color: rgba(0, 0, 0, 0.03);
+}
+
+.expand-icon {
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  transition: background-color 0.2s;
+}
+
+.expand-icon:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.list-group-item.active .expand-icon:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Remove the default hover effect on active items */
+.list-group-item.active:hover {
+  background-color: #123524;
+  border-color: #123524;
+}
+
+/* Style the selected delivery indicator */
+.p-2.bg-light.border-bottom {
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.badge.bg-success {
+  background-color: #123524 !important;
+}
+</style>
 
 <style scoped>
 /* New tab styling */
@@ -781,4 +908,24 @@ export default {
     height: 55px;
   }
 }
+.delivery-details {
+  background-color: #f8f9fa;
+  border-radius: 0.25rem;
+  transition: all 0.3s ease;
+}
+
+.list-group-item {
+  cursor: pointer;
+}
+
+.list-group-item:hover {
+  background-color: #f8f9fa;
+}
+
+.fa-chevron-up, .fa-chevron-down {
+  transition: transform 0.3s ease;
+}
+
 </style>
+
+

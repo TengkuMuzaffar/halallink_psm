@@ -202,7 +202,7 @@ export default {
         const response = await deliveryService.createDelivery(formData.value);
         
         if (response.success) {
-          showSuccess('Success', 'Delivery created successfully');
+          showSuccess('Success', 'Delivery created successfully'); // First success modal
           emit('delivery-created', response.data);
           resetForm();
           // Close the modal

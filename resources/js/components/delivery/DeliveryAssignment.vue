@@ -317,8 +317,88 @@ export default {
     },
     
     getTripType(orderData) {
-      if (!orderData) return null;
+      if (!orderData) return '';
       
+      // Determine trip type based on from/to locations
+      if (orderData.from && orderData.to) {
+        const fromType = this.getLocationType(orderData.from.locationID);
+        const toType = this.getLocationType(orderData.to.locationID);
+        
+        if (fromType === 'farm' && toType === 'slaughterhouse') {
+          return 'Farm to Slaughterhouse';
+        } else if (fromType === 'slaughterhouse' && toType === 'processing') {
+          return 'Slaughterhouse to Processing';
+        } else if (fromType === 'processing' && toType === 'distribution') {
+          return 'Processing to Distribution';
+        } else if (fromType === 'distribution' && toType === 'retail') {
+          return 'Distribution to Retail';
+        } else if (toType === 'customer') {
+          return 'Delivery to Customer';
+        }
+      }
+      
+      return 'Standard Delivery';
+    },
+    
+    getLocationType(locationID) {
+      const location = this.locations.find(loc => loc.locationID == locationID);
+      return location ? location.location_type : null;
+    },
+    
+    getLocationAddress(location) {
+      if (!location) return 'Unknown Location';
+      
+      if (location.company_address) {
+        return location.company_address;
+      }
+      
+      // Try to find the location in the locations array
+      if (location.locationID) {
+        const foundLocation = this.locations.find(loc => loc.locationID == location.locationID);
+        if (foundLocation && foundLocation.company_address) {
+          return foundLocation.company_address;
+        }
+      }
+      
+      return 'Unknown Location';
+    },
+    
+    formatPrice(price) {
+      return parseFloat(price || 0).toFixed(2);
+    },
+    
+    calculateOrderTotal(items) {
+      if (!Array.isArray(items)) return 0;
+      
+      return items.reduce((total, item) => {
+        return total + parseFloat(item.total_price || item.price || 0);
+      }, 0);
+    },
+    
+    getPageNumbers() {
+      if (!this.pagination) return [1];
+      
+      const totalPages = this.pagination.last_page;
+      const currentPage = this.pagination.current_page;
+      
+      if (totalPages <= 5) {
+        return Array.from({ length: totalPages }, (_, i) => i + 1);
+      }
+      
+      if (currentPage <= 3) {
+        return [1, 2, 3, 4, 5];
+      }
+      
+      if (currentPage >= totalPages - 2) {
+        return [totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+      }
+      
+      return [currentPage - 2, currentPage - 1, currentPage, currentPage + 1, currentPage + 2];
+    },
+    
+    getTripType(orderData) {
+      if (!orderData) return null;
+      console.dir("Get Trip Type: " + JSON.stringify(orderData,null, 4));
       // Check if we have from and to locations
       if (orderData.from && orderData.to) {
         const fromLocationID = orderData.from.locationID;

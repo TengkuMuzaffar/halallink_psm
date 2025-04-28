@@ -15,6 +15,8 @@ class Verify extends Model
         'verifyID',
         'deliveryID',
         'checkID',
+        'userID',
+        'vehicleID',
         'verify_status',
         'verify_comment'
     ];
