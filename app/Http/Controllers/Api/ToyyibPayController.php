@@ -8,6 +8,7 @@ use App\Models\Order;
 use App\Models\Payment;
 use App\Models\Checkpoint;
 use App\Models\Task;
+use App\Models\Trip;
 use App\Models\SortLocation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -555,8 +556,7 @@ class ToyyibPayController extends Controller
                     'orderID' => $order->orderID,
                     'companyID' => $companyID,
                     'locationID' => $firstItem->item->locationID,
-                    'arrange_number' => 1,
-                    'deliveryID' => null
+                    'arrange_number' => 1
                 ]);
                 
                 $checkpoints[] = $checkpoint1;
@@ -567,8 +567,7 @@ class ToyyibPayController extends Controller
                         'orderID' => $order->orderID,
                         'companyID' => $firstItem->item->slaughterhouse->company->companyID,
                         'locationID' => $firstItem->item->slaughterhouse_locationID,
-                        'arrange_number' => 2,
-                        'deliveryID' => null
+                        'arrange_number' => 2
                     ]);
                     
                     $task = Task::create([
@@ -581,13 +580,19 @@ class ToyyibPayController extends Controller
                     
                     $checkpoints[] = $checkpoint2;
                     
+                    // Create Trip for arrange_number 1 to 2 (Supplier to Slaughterhouse)
+                    Trip::create([
+                        'deliveryID' => null, // Will be assigned when delivery is created
+                        'start_checkID' => $checkpoint1->checkID,
+                        'end_checkID' => $checkpoint2->checkID
+                    ]);
+                    
                     // Third checkpoint - Same as second
                     $checkpoint3 = Checkpoint::create([
                         'orderID' => $order->orderID,
                         'companyID' => $firstItem->item->slaughterhouse->company->companyID,
                         'locationID' => $firstItem->item->slaughterhouse_locationID,
-                        'arrange_number' => 3,
-                        'deliveryID' => null
+                        'arrange_number' => 3
                     ]);
                     
                     $checkpoints[] = $checkpoint3;
@@ -599,11 +604,24 @@ class ToyyibPayController extends Controller
                 'orderID' => $order->orderID,
                 'companyID' => $order->user->company->companyID,
                 'locationID' => $order->locationID,
-                'arrange_number' => 4,
-                'deliveryID' => null
+                'arrange_number' => 4
             ]);
             
             $checkpoints[] = $checkpoint4;
+            
+            // Create Trips for arrange_number 3 to 4 (Slaughterhouse to Customer)
+            // Get all checkpoints with arrange_number 3 for this order
+            $checkpoints3 = Checkpoint::where('orderID', $order->orderID)
+                ->where('arrange_number', 3)
+                ->get();
+                
+            foreach ($checkpoints3 as $checkpoint3) {
+                Trip::create([
+                    'deliveryID' => null, // Will be assigned when delivery is created
+                    'start_checkID' => $checkpoint3->checkID,
+                    'end_checkID' => $checkpoint4->checkID
+                ]);
+            }
 
             return response()->json([
                 'status' => 'success',

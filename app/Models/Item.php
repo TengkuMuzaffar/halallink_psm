@@ -25,7 +25,7 @@ class Item extends Model
         'poultryID',
         'userID',
         'locationID',
-        'slaughterhouse_locationID',  // Add this line
+        'slaughterhouse_locationID',
         'measurement_type',
         'item_image',
         'measurement_value',
