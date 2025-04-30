@@ -619,7 +619,6 @@ class ToyyibPayController extends Controller
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to create checkpoints: ' . $e->getMessage(),
-                'order_id' => $order->orderID
             ], 500);
         }
     }

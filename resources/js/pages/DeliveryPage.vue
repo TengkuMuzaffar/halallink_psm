@@ -88,16 +88,21 @@
               <button class="btn btn-sm btn-success me-2" @click="openCreateDeliveryModal">
                 <i class="fas fa-plus"></i>
               </button>
-              <button class="btn btn-sm btn-outline-primary" @click="refreshCreatedDeliveries">
+              <button class="btn btn-sm btn-outline-primary me-2" @click="refreshCreatedDeliveries">
                 <i class="fas fa-sync-alt"></i>
               </button>
             </div>
           </div>
-          <!-- Add selected delivery info -->
+          <!-- Add selected delivery info with deselect button -->
           <div v-if="selectedDeliveryID" class="p-2 bg-light border-bottom">
-            <div class="d-flex align-items-center">
-              <span class="badge bg-success me-2">Selected</span>
-              <span>Delivery #{{ selectedDeliveryID }}</span>
+            <div class="d-flex justify-content-between align-items-center">
+              <div class="d-flex align-items-center">
+                <span class="badge bg-success me-2">Selected</span>
+                <span>Delivery #{{ selectedDeliveryID }}</span>
+              </div>
+              <button class="btn btn-sm btn-outline-danger" @click="deselectDelivery">
+                <i class="fas fa-times"></i>
+              </button>
             </div>
           </div>
           <div class="card-body p-0">

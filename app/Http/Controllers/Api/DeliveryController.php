@@ -34,41 +34,45 @@ class DeliveryController extends Controller
                 'per_page' => $request->input('per_page', 10),
                 'page' => $request->input('page', 1)
             ]);
-            
+
             // Start with orders that are not complete
             $query = Order::where('order_status', '!=', 'complete');
-            
+
             // Get pagination parameters
             $perPage = $request->input('per_page', 10);
             $page = $request->input('page', 1);
-            
-            // Filter by locationID if provided
-            $locationID = $request->input('locationID');
-            
+
+            // Filter by locationID if provided (filter by checkpoint location)
+            $locationIDFilter = $request->input('locationID');
+            // Note: Filtering is applied later after determining relevant checkpoints
+
             // Get orders with their cart items and related data
             $paginatedOrders = $query->with([
-                'cartItems.item.slaughterhouse',
-                'cartItems.item.poultry',
-                'cartItems.item.location',
-                'checkpoints.task', // Include tasks for checkpoints
-                'checkpoints.verifies', // Include verifies for checkpoints
+                'cartItems.item.slaughterhouse', // Eager load slaughterhouse relationship for item
+                'cartItems.item.poultry',       // Eager load poultry relationship for item
+                'cartItems.item.location',      // Eager load supplier location relationship for item
+                'checkpoints.task',             // Include tasks for checkpoints
+                'checkpoints.verifies',         // Include verifies for checkpoints
+                'checkpoints.location',         // Include location details for checkpoints
                 'checkpoints' => function($query) {
-                    $query->whereIn('arrange_number', [1, 2, 3, 4]); // Get all relevant arrange numbers
+                    // Eager load only necessary checkpoints
+                    $query->whereIn('arrange_number', [1, 2, 3, 4])
+                          ->orderBy('arrange_number', 'asc'); // Ensure checkpoints are ordered
                 }
             ])
-            ->orderBy('created_at', 'asc') // Changed from 'desc' to 'asc' to show oldest first
+            ->orderBy('created_at', 'asc') // Show oldest first
             ->paginate($perPage);
-            
+
             // Log order count
             Log::info('Orders fetched', [
                 'total_orders' => $paginatedOrders->total(),
                 'current_page' => $paginatedOrders->currentPage(),
                 'per_page' => $paginatedOrders->perPage()
             ]);
-            
+
             // Initialize the result array
             $groupedData = [];
-            
+
             // Process each order
             foreach ($paginatedOrders as $order) {
                 // Skip orders without cart items
@@ -76,81 +80,22 @@ class DeliveryController extends Controller
                     Log::info('Skipping order with no cart items', ['orderID' => $order->orderID]);
                     continue;
                 }
-                
-                // Get all checkpoints for this order
-                $checkpoints = $order->checkpoints;
-                
-                // Get checkpoints by arrange_number
-                $checkpoint1List = $checkpoints->where('arrange_number', 1);
-                $checkpoint2List = $checkpoints->where('arrange_number', 2);
-                $checkpoint3List = $checkpoints->where('arrange_number', 3);
-                $checkpoint4List = $checkpoints->where('arrange_number', 4);
-                
-                // Determine which checkpoints to display based on tasks
-                $displayCheckpoints = [];
-                $useCheckpoint3And4 = false;
-                
-                // Check if arrange_number 2 has tasks and if they're complete
-                foreach ($checkpoint2List as $cp2) {
-                    $task = $cp2->task; // This is a single task, not a collection
-                    
-                    // Check if task exists and is complete
-                    if ($task && $task->task_status === 'complete') {
-                        // If task in checkpoint 2 is complete, show checkpoints 3 and 4
-                        $useCheckpoint3And4 = true;
-                        $displayCheckpoints = [3, 4];
-                    } else {
-                        // If task doesn't exist or is not complete, show checkpoints 1 and 2
-                        $displayCheckpoints = [1, 2];
-                        break; // Exit the loop as we've made our decision
-                    }
-                }
-                
-                // If no checkpoint2 exists, default to showing checkpoints 1 and 2
-                if ($checkpoint2List->isEmpty()) {
-                    $displayCheckpoints = [1, 2];
-                }
-                
-                // Process each cart item
+
+                // Prepare formatted item details once per order
+                $formattedItems = [];
+                $totalItemsCount = 0;
+                $totalItemsWeight = 0;
                 foreach ($order->cartItems as $cartItem) {
-                    if (!$cartItem->item) {
-                        Log::info('Skipping cart item with no associated item', [
-                            'cartID' => $cartItem->cartID, 
-                            'orderID' => $order->orderID
-                        ]);
-                        continue; // Skip if item doesn't exist
-                    }
-                    
                     $item = $cartItem->item;
-                    
-                    // Determine which locationID to use for grouping
-                    $targetLocationID = null;
-                    if ($useCheckpoint3And4) {
-                        // For arrange_number 3 and 4, use slaughterhouse_locationID
-                        $targetLocationID = $item->slaughterhouse_locationID;
-                    } else {
-                        // For arrange_number 1 and 2, use slaughterhouse_locationID
-                        $targetLocationID = $item->slaughterhouse_locationID;
-                    }
-                    
-                    // If no valid locationID found, skip
-                    if (!$targetLocationID) {
-                        continue;
-                    }
-                    
-                    // If filtering by locationID and it doesn't match, skip
-                    if ($locationID && $targetLocationID != $locationID) {
-                        continue;
-                    }
-                    
-                    // Get location details
-                    $location = Location::find($targetLocationID);
-                    if (!$location) {
-                        continue; // Skip if location not found
-                    }
-                    
-                    // Prepare item data
-                    $itemData = [
+                    if (!$item) continue;
+
+                    $totalItemsCount += $cartItem->quantity;
+                    // Ensure measurement_value is numeric before adding
+                    $itemWeight = is_numeric($item->measurement_value) ? $item->measurement_value : 0;
+                    $itemQuantity = is_numeric($cartItem->quantity) ? $cartItem->quantity : 0;
+                    $totalItemsWeight += ($itemWeight * $itemQuantity);
+
+                    $formattedItems[$item->itemID] = [
                         'itemID' => $item->itemID,
                         'item_name' => $item->poultry ? $item->poultry->poultry_name : 'Unknown',
                         'measurement_type' => $item->measurement_type,
@@ -158,122 +103,201 @@ class DeliveryController extends Controller
                         'price' => $item->price,
                         'quantity' => $cartItem->quantity,
                         'total_price' => $cartItem->price_at_purchase * $cartItem->quantity,
+                        'supplier_locationID' => $item->locationID, // Keep IDs for filtering
+                        'supplier_location_address' => $item->location ? $item->location->company_address : 'Unknown',
+                        'slaughterhouse_locationID' => $item->slaughterhouse_locationID, // Keep IDs for filtering
+                        'slaughterhouse_location_address' => $item->slaughterhouse ? $item->slaughterhouse->company_address : 'N/A'
                     ];
-                    
-                    // Initialize location in groupedData if not exists
-                    if (!isset($groupedData[$targetLocationID])) {
-                        $groupedData[$targetLocationID] = [
-                            'company_address' => $location->company_address,
+                }
+
+                // Get all relevant checkpoints for this order
+                $checkpoints = $order->checkpoints; // Already filtered to 1, 2, 3, 4 and ordered
+
+                // Get checkpoints by arrange_number
+                $checkpoint1 = $checkpoints->firstWhere('arrange_number', 1);
+                $checkpoint2 = $checkpoints->firstWhere('arrange_number', 2);
+                $checkpoint3 = $checkpoints->firstWhere('arrange_number', 3);
+                $checkpoint4 = $checkpoints->firstWhere('arrange_number', 4);
+
+                // Determine which checkpoints to display based on tasks
+                $displayCheckpoints = collect(); // Use a collection
+                $useCheckpoint3And4 = false;
+                $taskAtCheckpoint2 = $checkpoint2 ? $checkpoint2->task : null;
+
+                // Check if task at checkpoint 2 exists and is complete
+                if ($taskAtCheckpoint2 && $taskAtCheckpoint2->task_status === 'complete') {
+                    $useCheckpoint3And4 = true;
+                }
+
+                // Determine which checkpoints to use based on task status
+                if ($useCheckpoint3And4) {
+                    // If slaughter task is complete, use checkpoints 3 and 4
+                    if ($checkpoint3) $displayCheckpoints->push($checkpoint3);
+                    if ($checkpoint4) $displayCheckpoints->push($checkpoint4);
+                } else {
+                    // If task 2 is not complete (or doesn't exist), use 1, 2, and 4
+                    if ($checkpoint1) $displayCheckpoints->push($checkpoint1);
+                    if ($checkpoint2) $displayCheckpoints->push($checkpoint2);
+                    if ($checkpoint4) $displayCheckpoints->push($checkpoint4);
+                }
+
+                 // Fallback if displayCheckpoints is empty but checkpoints exist
+                if ($displayCheckpoints->isEmpty() && $checkpoints->isNotEmpty()) {
+                     Log::warning('DisplayCheckpoints calculation resulted in empty set, defaulting', [
+                         'orderID' => $order->orderID,
+                         'task2_status' => $taskAtCheckpoint2->task_status ?? 'null',
+                         'checkpoints_present' => $checkpoints->pluck('arrange_number')->toArray()
+                     ]);
+                     // Default to showing 1, 2, 4 as per the non-complete case.
+                     if ($checkpoint1) $displayCheckpoints->push($checkpoint1);
+                     if ($checkpoint2) $displayCheckpoints->push($checkpoint2);
+                     if ($checkpoint4) $displayCheckpoints->push($checkpoint4);
+                }
+
+                // Temporary storage for the order's data before assigning to location group
+                $orderDataForLocations = [];
+
+                // Group by the location of the *checkpoints* we are displaying
+                foreach ($displayCheckpoints as $checkpoint) {
+                    // Skip checkpoints that already have a delivery assigned
+                    if ($checkpoint->deliveryID) {
+                        continue;
+                    }
+
+                    // Get checkpoint's location details
+                    $location = $checkpoint->location;
+                    if (!$location) {
+                         Log::warning('Checkpoint missing location relationship', ['checkID' => $checkpoint->checkID]);
+                        continue;
+                    }
+
+                    $currentCheckpointLocationID = $location->locationID;
+                    $currentCheckpointLocationAddress = $location->company_address;
+                    $currentCheckpointLocationType = $location->location_type ?? 'Unknown';
+                    $arrangeNumber = $checkpoint->arrange_number;
+
+                     // Apply the location filter *after* determining displayCheckpoints
+                    if ($locationIDFilter && $currentCheckpointLocationID != $locationIDFilter) {
+                        continue; // Skip this checkpoint if it doesn't match the filter
+                    }
+
+                    // Initialize location group if it doesn't exist
+                    if (!isset($groupedData[$currentCheckpointLocationID])) {
+                        $groupedData[$currentCheckpointLocationID] = [
+                            'company_address' => $currentCheckpointLocationAddress,
+                            'location_type' => $currentCheckpointLocationType,
                             'orders' => []
                         ];
                     }
-                    
-                    // Initialize order in location if not exists
-                    if (!isset($groupedData[$targetLocationID]['orders'][$order->orderID])) {
-                        $groupedData[$targetLocationID]['orders'][$order->orderID] = [
-                            'checkpoints' => [],
-                            'to' => null // Will be set later
+
+                    // Initialize order in this location group if it doesn't exist
+                    if (!isset($groupedData[$currentCheckpointLocationID]['orders'][$order->orderID])) {
+                        $groupedData[$currentCheckpointLocationID]['orders'][$order->orderID] = [
+                            'order_timestamp' => $order->order_timestamp,
+                            'order_status' => $order->order_status,
+                            'total_items_count' => $totalItemsCount, // Add total count
+                            'total_items_weight' => $totalItemsWeight, // Add total weight
+                            'checkpoints' => [], // Checkpoints relevant to this order *at this location*
+                            'to' => null // Will be set by checkpoint 4
                         ];
                     }
-                    
-                    // Add item to the appropriate checkpoints
-                    foreach ($displayCheckpoints as $arrangeNumber) {
-                        $checkpointList = null;
-                        
-                        // Get the appropriate checkpoint list
-                        switch ($arrangeNumber) {
-                            case 1:
-                                $checkpointList = $checkpoint1List;
-                                break;
-                            case 2:
-                                $checkpointList = $checkpoint2List;
-                                break;
-                            case 3:
-                                $checkpointList = $checkpoint3List;
-                                break;
-                            case 4:
-                                $checkpointList = $checkpoint4List;
-                                break;
+
+                    // Determine relevant items for *this* checkpoint
+                    $relevantItems = [];
+                    foreach ($formattedItems as $itemID => $itemData) {
+                        $isRelevant = false;
+                        // Checkpoints 1 (Supplier Pickup) and 3 (Slaughterhouse Pickup) are location-specific
+                        // Checkpoints 2 (Slaughterhouse Dropoff) and 4 (Customer Dropoff) involve the destination
+                        if ($arrangeNumber == 1 && $itemData['supplier_locationID'] == $currentCheckpointLocationID) {
+                            $isRelevant = true; // Item pickup from supplier at this location
+                        } elseif ($arrangeNumber == 2 && $itemData['slaughterhouse_locationID'] == $currentCheckpointLocationID) {
+                            $isRelevant = true; // Item dropoff at slaughterhouse at this location
+                        } elseif ($arrangeNumber == 3 && $itemData['slaughterhouse_locationID'] == $currentCheckpointLocationID) {
+                            $isRelevant = true; // Item pickup from slaughterhouse at this location
+                        } elseif ($arrangeNumber == 4) {
+                            // For the final delivery (checkpoint 4), all items in the order are relevant to the destination.
+                            // The location ($currentCheckpointLocationID) is the customer's location.
+                            $isRelevant = true;
                         }
-                        
-                        if ($checkpointList && $checkpointList->isNotEmpty()) {
-                            foreach ($checkpointList as $checkpoint) {
-                                // Check if this checkpoint is relevant for this item
-                                $isRelevant = false;
-                                
-                                if ($arrangeNumber == 1 && $checkpoint->locationID == $item->locationID) {
-                                    $isRelevant = true;
-                                } else if ($arrangeNumber == 2 && $checkpoint->locationID == $item->slaughterhouse_locationID) {
-                                    $isRelevant = true;
-                                } else if ($arrangeNumber == 3 && $checkpoint->locationID == $item->slaughterhouse_locationID) {
-                                    $isRelevant = true;
-                                } else if ($arrangeNumber == 4 && $checkpoint->locationID == $order->locationID) {
-                                    $isRelevant = true;
-                                }
-                                
-                                if ($isRelevant) {
-                                    // Check if this checkpoint already exists in the order
-                                    $checkpointExists = false;
-                                    foreach ($groupedData[$targetLocationID]['orders'][$order->orderID]['checkpoints'] as &$existingCheckpoint) {
-                                        if ($existingCheckpoint['checkID'] == $checkpoint->checkID) {
-                                            // Add item to existing checkpoint
-                                            $existingCheckpoint['items'][] = $itemData;
-                                            $checkpointExists = true;
-                                            break;
-                                        }
-                                    }
-                                    
-                                    // If checkpoint doesn't exist, create it
-                                    if (!$checkpointExists) {
-                                        $checkpointLocation = Location::find($checkpoint->locationID);
-                                        
-                                        $groupedData[$targetLocationID]['orders'][$order->orderID]['checkpoints'][] = [
-                                            'checkID' => $checkpoint->checkID,
-                                            'arrange_number' => $checkpoint->arrange_number,
-                                            'locationID' => $checkpoint->locationID,
-                                            'company_address' => $checkpointLocation ? $checkpointLocation->company_address : 'Unknown',
-                                            'items' => [$itemData]
-                                        ];
-                                        
-                                        // If this is the last checkpoint (arrange_number 4), set it as the "to" location
-                                        if ($arrangeNumber == 4) {
-                                            $groupedData[$targetLocationID]['orders'][$order->orderID]['to'] = [
-                                                'locationID' => $checkpoint->locationID,
-                                                'company_address' => $checkpointLocation ? $checkpointLocation->company_address : 'Unknown'
-                                            ];
-                                        }
-                                    }
-                                }
-                            }
+
+                        if ($isRelevant) {
+                            $relevantItems[] = $itemData;
                         }
                     }
+
+                    // Prepare checkpoint data
+                    $checkpointData = [
+                        'checkID' => $checkpoint->checkID,
+                        'arrange_number' => $arrangeNumber,
+                        'locationID' => $currentCheckpointLocationID,
+                        'company_address' => $currentCheckpointLocationAddress,
+                        'task' => $checkpoint->task ? [
+                            'taskID' => $checkpoint->task->taskID,
+                            'task_type' => $checkpoint->task->task_type,
+                            'task_status' => $checkpoint->task->task_status
+                        ] : null,
+                        'items' => $relevantItems // Add relevant items here
+                    ];
+
+                    // Add checkpoint to the order within the location group
+                    // Avoid duplicates if multiple loops somehow add the same checkID
+                    $checkpointExists = collect($groupedData[$currentCheckpointLocationID]['orders'][$order->orderID]['checkpoints'])
+                                        ->contains('checkID', $checkpoint->checkID);
+
+                    if (!$checkpointExists) {
+                         $groupedData[$currentCheckpointLocationID]['orders'][$order->orderID]['checkpoints'][] = $checkpointData;
+                    }
+
+                    // If this is the last checkpoint (arrange_number 4), set it as the "to" location for the order
+                    if ($arrangeNumber == 4) {
+                        $groupedData[$currentCheckpointLocationID]['orders'][$order->orderID]['to'] = [
+                            'locationID' => $currentCheckpointLocationID,
+                            'company_address' => $currentCheckpointLocationAddress
+                        ];
+                    }
                 }
+                 // Clean up: If an order was initialized in a location group but ended up with no relevant checkpoints *for that location*, remove it.
+                 foreach ($groupedData as $locID => $locData) {
+                     if (isset($locData['orders'][$order->orderID]) && empty($locData['orders'][$order->orderID]['checkpoints'])) {
+                         unset($groupedData[$locID]['orders'][$order->orderID]);
+                     }
+                 }
             }
-            
-            // Format the response to match what the frontend expects
+
+            // Filter out locations with no orders after processing all orders
+            $filteredGroupedData = array_filter($groupedData, function($locationData) {
+                return !empty($locationData['orders']);
+            });
+
+            // Re-index array keys if necessary, or keep locationID as key
+            $finalData = $filteredGroupedData; // Keep keys as locationIDs
+
+            // Log final data structure keys for debugging
+            Log::info('Delivery index response prepared', ['location_keys' => array_keys($finalData)]);
+
             return response()->json([
-                'success' => true,
-                'data' => $groupedData,
+                'success' => true, // Added success flag based on original code
+                'data' => $finalData,
                 'pagination' => [
+                    'total' => $paginatedOrders->total(),
+                    'per_page' => $paginatedOrders->perPage(),
                     'current_page' => $paginatedOrders->currentPage(),
                     'last_page' => $paginatedOrders->lastPage(),
-                    'per_page' => $paginatedOrders->perPage(),
-                    'total' => $paginatedOrders->total(),
                     'from' => $paginatedOrders->firstItem(),
-                    'to' => $paginatedOrders->lastItem()
+                    'to' => $paginatedOrders->lastItem(),
                 ]
             ]);
+
         } catch (\Exception $e) {
-            Log::error('Error fetching delivery data: ' . $e->getMessage(), [
-                'file' => $e->getFile(),
+            Log::error('Error fetching delivery index: ' . $e->getMessage(), [
+                'file' => $e->getFile(), // Added file and line
                 'line' => $e->getLine(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString() // Log stack trace for detailed debugging
             ]);
-            
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to fetch delivery data',
-                'error' => $e->getMessage()
+                'message' => 'An error occurred while fetching delivery data.', // Generic message
+                'error' => $e->getMessage() // Include error message
             ], 500);
         }
     }

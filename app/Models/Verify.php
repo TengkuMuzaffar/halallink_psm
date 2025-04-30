@@ -12,11 +12,7 @@ class Verify extends Model
     protected $primaryKey = 'verifyID';
 
     protected $fillable = [
-        'verifyID',
         'deliveryID',
-        'checkID',
-        'userID',
-        'vehicleID',
         'verify_status',
         'verify_comment'
     ];
@@ -27,22 +23,6 @@ class Verify extends Model
     public function user()
     {
         return $this->belongsTo(User::class, 'userID', 'userID');
-    }
-
-    /**
-     * Get the checkpoint that owns the verification.
-     */
-    public function checkpoint()
-    {
-        return $this->belongsTo(Checkpoint::class, 'checkID', 'checkID');
-    }
-
-    /**
-     * Get the vehicle associated with the verification.
-     */
-    public function vehicle()
-    {
-        return $this->belongsTo(Vehicle::class, 'vehicleID', 'vehicleID');
     }
 
     /**
@@ -67,22 +47,5 @@ class Verify extends Model
     public function isVerified()
     {
         return $this->verify_status === 'verified';
-    }
-    
-    public static function areCheckpointsVerified($orderID, $arrangeNumbers = [1, 2])
-    {
-        $checkpoints = Checkpoint::where('orderID', $orderID)
-            ->whereIn('arrange_number', $arrangeNumbers)
-            ->pluck('checkID');
-            
-        if ($checkpoints->isEmpty()) {
-            return false;
-        }
-        
-        $verifyCount = self::whereIn('checkID', $checkpoints)
-            ->where('verify_status', 'verified')
-            ->count();
-            
-        return $verifyCount == count($arrangeNumbers);
     }
 }
