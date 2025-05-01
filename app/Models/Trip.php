@@ -14,7 +14,8 @@ class Trip extends Model
     protected $fillable = [
         'deliveryID',
         'start_checkID',
-        'end_checkID'
+        'end_checkID',
+        'orderID'  // Add the new orderID field here
     ];
 
     protected $casts = [
@@ -28,6 +29,14 @@ class Trip extends Model
     public function delivery()
     {
         return $this->belongsTo(Delivery::class, 'deliveryID', 'deliveryID');
+    }
+
+    /**
+     * Get the order associated with the trip.
+     */
+    public function order()
+    {
+        return $this->belongsTo(Order::class, 'orderID', 'orderID');
     }
 
     /**

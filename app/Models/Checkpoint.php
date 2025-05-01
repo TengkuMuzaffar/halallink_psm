@@ -26,7 +26,7 @@ class Checkpoint extends Model
         'locationID',
         'companyID',
         'arrange_number',
-        'deliveryID',
+        // Remove 'deliveryID' since it doesn't exist in the database
     ];
 
     /**
@@ -40,10 +40,13 @@ class Checkpoint extends Model
 
     /**
      * Get the delivery associated with the checkpoint.
+     * Using the Trip model as an intermediary to find deliveries
      */
     public function delivery()
     {
-        return $this->belongsTo(Delivery::class, 'deliveryID', 'deliveryID');
+        // Get delivery through Trip relationship
+        return $this->belongsToMany(Delivery::class, 'trips', 'start_checkID', 'deliveryID')
+            ->orWhere('trips.end_checkID', $this->checkID);
     }
 
     /**

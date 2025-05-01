@@ -584,7 +584,8 @@ class ToyyibPayController extends Controller
                     Trip::create([
                         'deliveryID' => null, // Will be assigned when delivery is created
                         'start_checkID' => $checkpoint1->checkID,
-                        'end_checkID' => $checkpoint2->checkID
+                        'end_checkID' => $checkpoint2->checkID,
+                        'orderID' => $order->orderID // Add the orderID here
                     ]);
                     
                     // Third checkpoint - Same as second
@@ -619,7 +620,8 @@ class ToyyibPayController extends Controller
                 Trip::create([
                     'deliveryID' => null, // Will be assigned when delivery is created
                     'start_checkID' => $checkpoint3->checkID,
-                    'end_checkID' => $checkpoint4->checkID
+                    'end_checkID' => $checkpoint4->checkID,
+                    'orderID' => $order->orderID // Add the orderID here
                 ]);
             }
 

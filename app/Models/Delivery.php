@@ -58,9 +58,26 @@ class Delivery extends Model
     
     /**
      * Get the checkpoints associated with this delivery.
+     * Using the Trip model as an intermediary to find checkpoints
      */
     public function checkpoints()
     {
-        return $this->hasMany(Checkpoint::class, 'deliveryID', 'deliveryID');
+        return $this->hasManyThrough(
+            Checkpoint::class,
+            Trip::class,
+            'deliveryID', // Foreign key on trips table
+            'checkID',    // Foreign key on checkpoints table
+            'deliveryID', // Local key on deliveries table
+            'start_checkID' // Local key on trips table
+        )->union(
+            $this->hasManyThrough(
+                Checkpoint::class,
+                Trip::class,
+                'deliveryID', // Foreign key on trips table
+                'checkID',    // Foreign key on checkpoints table
+                'deliveryID', // Local key on deliveries table
+                'end_checkID' // Local key on trips table
+            )
+        );
     }
 }

@@ -13,6 +13,7 @@ class Verify extends Model
 
     protected $fillable = [
         'deliveryID',
+        'checkID',  // Add checkID to fillable properties
         'verify_status',
         'verify_comment'
     ];
@@ -31,6 +32,14 @@ class Verify extends Model
     public function delivery()
     {
         return $this->belongsTo(Delivery::class, 'deliveryID', 'deliveryID');
+    }
+    
+    /**
+     * Get the checkpoint associated with the verification.
+     */
+    public function checkpoint()
+    {
+        return $this->belongsTo(Checkpoint::class, 'checkID', 'checkID');
     }
     
     /**

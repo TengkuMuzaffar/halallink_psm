@@ -88,7 +88,7 @@
               <button class="btn btn-sm btn-success me-2" @click="openCreateDeliveryModal">
                 <i class="fas fa-plus"></i>
               </button>
-              <button class="btn btn-sm btn-outline-primary me-2" @click="refreshCreatedDeliveries">
+              <button class="btn btn-sm btn-outline-primary" @click="refreshCreatedDeliveries">
                 <i class="fas fa-sync-alt"></i>
               </button>
             </div>
@@ -174,7 +174,10 @@
                       @click="changeCreatedDeliveriesPage(createdDeliveriesPage - 1)">
                 <i class="fas fa-chevron-left"></i>
               </button>
-              <span class="align-self-center mx-2">Page {{ createdDeliveriesPage }}</span>
+              <span class="align-self-center mx-2">
+                Page {{ createdDeliveriesPage }} of {{ createdDeliveriesPagination.last_page }}
+                ({{ createdDeliveriesPagination.total }} total)
+              </span>
               <button class="btn btn-sm btn-outline-secondary ms-2" 
                       :disabled="!hasMoreCreatedDeliveries"
                       @click="changeCreatedDeliveriesPage(createdDeliveriesPage + 1)">
@@ -286,7 +289,7 @@ export default {
       // Properties for created deliveries
       createdDeliveries: {},
       createdDeliveriesPage: 1,
-      createdDeliveriesPerPage: 10,
+      createdDeliveriesPerPage: 3, // Change from 10 to 3
       hasMoreCreatedDeliveries: false,
       selectedDeliveryID: null,
       selectedOrderInfo: null,
@@ -328,6 +331,13 @@ export default {
     openCreateDeliveryModal() {
       // Use the DeliveryFormModal component's method to show the modal
       this.$refs.deliveryFormModal.showModal();
+    },
+    
+    // Add this new method
+    deselectDelivery() {
+      this.selectedDeliveryID = null;
+      // Refresh the delivery assignment data without a selected delivery
+      this.fetchDeliveryAssignmentTrips();
     },
     
     onDeliveryCreated(deliveryData) {
@@ -399,26 +409,26 @@ export default {
       try {
         const response = await deliveryService.getCreatedDeliveries(
           this.createdDeliveriesPage,
-          this.createdDeliveriesPerPage
+          3  // Set to 3 items per page explicitly
         );
-    
-        // Log each property of the response object
-        console.log('Response Success:', response.success);
-        console.log('Response Data:', response.data);
-        console.log('Response Pagination:', response.pagination);
-    
+        
         if (response.success) {
           this.createdDeliveries = response.data;
-          this.hasMoreCreatedDeliveries = response.pagination && 
-                                         response.pagination.current_page < response.pagination.last_page;
+          
+          // Update pagination information
+          this.hasMoreCreatedDeliveries = response.pagination.current_page < response.pagination.last_page;
+          
+          // Store pagination data for reference
+          this.createdDeliveriesPagination = response.pagination;
         } else {
-          console.error('Failed to fetch created deliveries:', response.message);
+          this.error = response.message || 'Failed to fetch created deliveries';
         }
       } catch (error) {
         console.error('Error fetching created deliveries:', error);
+        this.error = 'An error occurred while fetching created deliveries';
       }
     },
-    
+
     selectDelivery(deliveryID) {
       this.selectedDeliveryID = deliveryID;
       // Refresh the delivery assignment data based on selected delivery
