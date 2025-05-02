@@ -106,7 +106,7 @@
             </div>
           </div>
           <div class="card-body p-0">
-            <div v-if="loading" class="p-3 text-center">
+            <div v-if="createdDeliveriesLoading" class="p-3 text-center">
               <div class="spinner-border text-primary" role="status">
                 <span class="visually-hidden">Loading...</span>
               </div>
@@ -193,7 +193,7 @@
         <!-- Update the DeliveryAssignment component -->
         <DeliveryAssignment 
           v-if="activeTab === 'assign'"
-          :loading="loading"
+          :loading="assignDeliveriesLoading"
           :error="error"
           :locations="locations"
           :selectedLocationID="selectedLocationID"
@@ -250,6 +250,8 @@ export default {
     return {
       activeTab: 'assign',
       loading: true,
+      createdDeliveriesLoading: false,  // Add this new loading state
+      assignDeliveriesLoading: false,   // Add this new loading state
       error: null,
       groupedDeliveries: {},
       pagination: {
@@ -298,15 +300,13 @@ export default {
   },
   mounted() {
     this.fetchDeliveryAssignmentTrips();
-    this.fetchLocationsForAssignment();
-
     this.fetchDeliveryStats();
     this.fetchCreatedDeliveries();
   },
   methods: {
     async fetchDeliveryAssignmentTrips() {
       try {
-        this.loading = true;
+        this.assignDeliveriesLoading = true;  // Use the specific loading state
         this.error = null;
         
         const response = await deliveryService.getTrips({
@@ -325,7 +325,7 @@ export default {
         console.error('Error fetching delivery data:', error);
         this.error = 'An unexpected error occurred while loading delivery data';
       } finally {
-        this.loading = false;
+        this.assignDeliveriesLoading = false;  // Reset the specific loading state
       }
     },
     openCreateDeliveryModal() {
@@ -340,32 +340,11 @@ export default {
       this.fetchDeliveryAssignmentTrips();
     },
     
-    onDeliveryCreated(deliveryData) {
-      // Remove the showModal call and just refresh the data
-      this.fetchDeliveryAssignmentTrips();
-      this.fetchDeliveryStats();
-      this.fetchCreatedDeliveries();
-    },
-    
-
-    async fetchLocationsForAssignment() {
-      try {
-        const response = await deliveryService.getLocations();
-        if (response.success) {
-          this.locations = response.data;
-          
-          // Set default location if none selected
-          if (!this.selectedLocationID && this.locations.length > 0) {
-            this.selectedLocationID = this.locations[0].locationID;
-          }
-        } else {
-          console.error('Failed to load locations:', response.message);
-        }
-      } catch (error) {
-        console.error('Error fetching locations:', error);
-      }
-    },
-    
+    onDeliveryCreated() {
+      // Refresh both created deliveries and assignable deliveries
+      this.refreshCreatedDeliveries();
+      this.refreshAssignDeliveries();
+    }, 
     formatDate(dateString) {
       if (!dateString) return '';
       
@@ -383,35 +362,14 @@ export default {
       });
     },
     
-    refreshCreatedDeliveries() {
-      this.fetchCreatedDeliveries();
-    },
-
-    // Add new method for refreshing assign deliveries only
-    refreshAssignDeliveries() {
-      this.fetchDeliveryAssignmentTrips();
-    },
-    
-    async fetchDeliveryStats() {
-      try {
-        const response = await deliveryService.getDeliveryStats();
-        if (response.success) {
-          this.deliveryStats = response.data;
-        } else {
-          console.error('Failed to load delivery stats:', response.message);
-        }
-      } catch (error) {
-        console.error('Error fetching delivery stats:', error);
-      }
-    },
-    
     async fetchCreatedDeliveries() {
       try {
+        this.createdDeliveriesLoading = true;  // Use the specific loading state
         const response = await deliveryService.getCreatedDeliveries(
           this.createdDeliveriesPage,
           3  // Set to 3 items per page explicitly
         );
-        
+        console.log("Deliveries: " + response);
         if (response.success) {
           this.createdDeliveries = response.data;
           
@@ -425,10 +383,17 @@ export default {
         }
       } catch (error) {
         console.error('Error fetching created deliveries:', error);
-        this.error = 'An error occurred while fetching created deliveries';
+        this.error = 'An error occurred while fetching deliveries';
+      } finally {
+        this.createdDeliveriesLoading = false;  // Reset the specific loading state
       }
+      
+      // Also refresh the common stats
+      this.fetchDeliveryStats();
     },
-
+    
+    
+    
     selectDelivery(deliveryID) {
       this.selectedDeliveryID = deliveryID;
       // Refresh the delivery assignment data based on selected delivery
@@ -471,13 +436,70 @@ export default {
     },
     
     refreshData() {
-      // Remove the fetchDeliveryAssignmentTrips() and fetchCreatedDeliveries() calls
-      // Only refresh delivery stats since it's common
+      // Only refresh delivery stats since it's common to all views
       this.fetchDeliveryStats();
       // Reset the selected order info when refreshing data
       this.selectedOrderInfo = null;
     },
     
+    // Method to refresh only created deliveries
+    async refreshCreatedDeliveries() {
+      try {
+        this.createdDeliveriesLoading = true;  // Use the specific loading state
+        const response = await deliveryService.getCreatedDeliveries(
+          this.createdDeliveriesPage,
+          3  // Set to 3 items per page explicitly
+        );
+        
+        if (response.success) {
+          this.createdDeliveries = response.data;
+          
+          // Update pagination information
+          this.hasMoreCreatedDeliveries = response.pagination.current_page < response.pagination.last_page;
+          
+          // Store pagination data for reference
+          this.createdDeliveriesPagination = response.pagination;
+        } else {
+          this.error = response.message || 'Failed to fetch created deliveries';
+        }
+      } catch (error) {
+        console.error('Error fetching created deliveries:', error);
+        this.error = 'An error occurred while fetching deliveries';
+      } finally {
+        this.createdDeliveriesLoading = false;  // Reset the specific loading state
+      }
+      
+      // Also refresh the common stats
+      this.fetchDeliveryStats();
+    },
+
+    // Method to refresh only assign deliveries
+    async refreshAssignDeliveries() {
+      try {
+        this.assignDeliveriesLoading = true;  // Use the specific loading state
+        
+        const response = await deliveryService.getTrips({
+          locationID: this.selectedLocationID,
+          page: this.pagination.current_page,
+          per_page: this.pagination.per_page
+        });
+        
+        if (response.success) {
+          this.groupedDeliveries = response.data;
+          this.pagination = response.pagination;
+        } else {
+          this.error = response.message || 'Failed to load delivery data';
+        }
+      } catch (error) {
+        console.error('Error fetching delivery data:', error);
+        this.error = 'An unexpected error occurred while loading delivery data';
+      } finally {
+        this.assignDeliveriesLoading = false;  // Reset the specific loading state
+      }
+      
+      // Also refresh the common stats
+      this.fetchDeliveryStats();
+    },
     
     changePage(page) {
       if (page < 1 || page > this.pagination.last_page) {
@@ -681,6 +703,20 @@ export default {
       
 
 
+    async fetchDeliveryStats() {
+      try {
+        const response = await deliveryService.getDeliveryStats();
+        
+        if (response.success) {
+          this.deliveryStats = response.data;
+        } else {
+          console.error('Failed to fetch delivery stats:', response.message);
+        }
+      } catch (error) {
+        console.error('Error fetching delivery stats:', error);
+      }
+    },
+    
     async submitAssignment(formData) {
       try {
         this.assignmentLoading = true;

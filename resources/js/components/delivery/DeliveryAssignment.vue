@@ -347,7 +347,7 @@ export default {
     
     getTripType(orderData) {
       if (!orderData) return null;
-      console.dir("Get Trip Type: " + JSON.stringify(orderData,null, 4));
+      // console.dir("Get Trip Type: " + JSON.stringify(orderData,null, 4));
       // Check if we have from and to locations
       if (orderData.from && orderData.to) {
         const fromLocationID = orderData.from.locationID;
