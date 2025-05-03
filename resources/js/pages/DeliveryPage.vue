@@ -314,7 +314,8 @@ export default {
           page: this.pagination.current_page,
           per_page: this.pagination.per_page
         });
-        console.log(response);
+          console.dir("Get Trip: " + JSON.stringify(response,null, 4));
+
         if (response.success) {
           this.groupedDeliveries = response.data;
           this.pagination = response.pagination;
