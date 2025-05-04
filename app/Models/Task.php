@@ -13,6 +13,7 @@ class Task extends Model
     
     protected $fillable = [
         'checkID',
+        'userID',
         'task_type',
         'task_status',
         'start_timestamp',
@@ -27,5 +28,10 @@ class Task extends Model
     public function checkpoint()
     {
         return $this->belongsTo(Checkpoint::class, 'checkID', 'checkID');
+    }
+    
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'userID', 'userID');
     }
 }

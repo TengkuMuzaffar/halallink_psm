@@ -63,7 +63,7 @@ class DeliveryController extends Controller
                 foreach ($trips as $trip) {
                     // Check if end checkpoint has arrange_number 2
                     $endCheckpoint = $trip->endCheckpoint;
-                    
+
                     if ($endCheckpoint && $endCheckpoint->arrange_number == 2) {
                         // This is a phase 1 trip (to slaughterhouse)
                         $phase1Array[] = $trip;
@@ -71,15 +71,8 @@ class DeliveryController extends Controller
                         // Check if there's a task for this checkpoint
                         $task = Task::where('checkID', $endCheckpoint->checkID)->first();
                         
-                        if (!$task) {
-                            // No task created yet, add to display
-                            $displayArray[] = [
-                                'trip' => $trip,
-                                'phase' => 1,
-                                'status' => 'pending_task',
-                                'items' => []
-                            ];
-                        } elseif ($task->task_status == 'complete') {
+                        // Tasks are always created, so we're just checking status
+                        if ($task && $task->task_status == 'complete') {
                             // Task is complete, add to display
                             $displayArray[] = [
                                 'trip' => $trip,
@@ -87,8 +80,15 @@ class DeliveryController extends Controller
                                 'status' => 'task_complete',
                                 'items' => []
                             ];
+                        } else {
+                            // Task exists but is still in progress
+                            $displayArray[] = [
+                                'trip' => $trip,
+                                'phase' => 1,
+                                'status' => 'task_in_progress',
+                                'items' => []
+                            ];
                         }
-                        // If task exists but not complete, don't add to display
                     } else {
                         // This is a phase 2 trip (from slaughterhouse to destination)
                         $phase2Array[] = $trip;
@@ -175,12 +175,15 @@ class DeliveryController extends Controller
             
             foreach ($displayArray as $item) {
                 $trip = $item['trip'];
-                $startCheckpoint = $trip->startCheckpoint;
+                $endCheckpoint = $trip->endCheckpoint;
                 
-                if (!$startCheckpoint) continue;
+                if (!$endCheckpoint) continue;
                 
-                $locationID = $startCheckpoint->locationID;
+                $locationID = $endCheckpoint->locationID;
                 $location = Location::find($locationID);
+                
+                // Skip if not a slaughterhouse location
+                if (!$location || $location->location_type !== 'slaughterhouse') continue;
                 
                 if (!isset($groupedData[$locationID])) {
                     $groupedData[$locationID] = [
@@ -199,24 +202,19 @@ class DeliveryController extends Controller
                     $groupedData[$locationID]['orders'][$orderID] = [
                         'orderID' => $orderID,
                         'status' => $status,
-                        'from' => [
-                            'locationID' => $startCheckpoint->locationID,
-                            'address' => $location ? $location->company_address : 'Unknown'
-                        ],
-                        'to' => null,
                         'items' => [],
                         'trips' => []
                     ];
                 }
                 
-                // Add destination info
-                if ($trip->endCheckpoint) {
-                    $endLocation = $trip->endCheckpoint->location;
-                    $groupedData[$locationID]['orders'][$orderID]['to'] = [
-                        'locationID' => $trip->endCheckpoint->locationID,
-                        'address' => $endLocation ? $endLocation->company_address : 'Unknown'
-                    ];
-                }
+                // // Add destination info
+                // if ($trip->endCheckpoint) {
+                //     $endLocation = $trip->endCheckpoint->location;
+                //     $groupedData[$locationID]['orders'][$orderID]['to'] = [
+                //         'locationID' => $trip->endCheckpoint->locationID,
+                //         'address' => $endLocation ? $endLocation->company_address : 'Unknown'
+                //     ];
+                // }
                 
                 // Add trip info
                 $groupedData[$locationID]['orders'][$orderID]['trips'][] = [
@@ -227,9 +225,22 @@ class DeliveryController extends Controller
                     'end_checkID' => $trip->end_checkID
                 ];
                 
-                // Add items
+                // Fix the redundancy issue with items
+                // Only add items that aren't already in the array
                 foreach ($item['items'] as $itemData) {
-                    $groupedData[$locationID]['orders'][$orderID]['items'][] = $itemData;
+                    // Check if this item already exists in the items array
+                    $itemExists = false;
+                    foreach ($groupedData[$locationID]['orders'][$orderID]['items'] as $existingItem) {
+                        if ($existingItem['itemID'] === $itemData['itemID']) {
+                            $itemExists = true;
+                            break;
+                        }
+                    }
+                    
+                    // Only add the item if it doesn't already exist
+                    if (!$itemExists) {
+                        $groupedData[$locationID]['orders'][$orderID]['items'][] = $itemData;
+                    }
                 }
             }
             
