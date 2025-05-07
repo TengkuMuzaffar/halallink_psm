@@ -15,7 +15,7 @@ class Trip extends Model
         'deliveryID',
         'start_checkID',
         'end_checkID',
-        'orderID'  // Add the new orderID field here
+        'orderID'
     ];
 
     protected $casts = [

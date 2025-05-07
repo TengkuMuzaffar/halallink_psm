@@ -57,8 +57,11 @@ class DeliveryController extends Controller
             foreach ($incompleteOrders as $order) {
                 $orderID = $order->orderID;
                 
-                // Get trips for this order
-                $trips = Trip::where('orderID', $orderID)->with(['startCheckpoint', 'endCheckpoint'])->get();
+                // Get trips for this order that don't have a deliveryID assigned yet
+                $trips = Trip::where('orderID', $orderID)
+                    ->whereNull('deliveryID') // Only get trips without a deliveryID
+                    ->with(['startCheckpoint', 'endCheckpoint'])
+                    ->get();
                 
                 foreach ($trips as $trip) {
                     // Check if end checkpoint has arrange_number 2
@@ -176,19 +179,44 @@ class DeliveryController extends Controller
             foreach ($displayArray as $item) {
                 $trip = $item['trip'];
                 $endCheckpoint = $trip->endCheckpoint;
+                $startCheckpoint = $trip->startCheckpoint;
                 
-                if (!$endCheckpoint) continue;
+                if (!$endCheckpoint || !$startCheckpoint) continue;
+                // Skip if not a slaughterhouse location
+                // Determine which checkpoint to use based on task status
+                $checkpointToUse = null;
+                $locationID = null;
                 
-                $locationID = $endCheckpoint->locationID;
+                // Get the task for the end checkpoint
+                $task = Task::where('checkID', $endCheckpoint->checkID)->first();
+                
+                if ($task) {
+                    if ($task->task_status !== 'complete' && $task->start_timestamp === null) {
+                        // If task is not complete and hasn't started, use end checkpoint
+                        $checkpointToUse = $endCheckpoint;
+                    } else if ($task->task_status === 'complete' && 
+                              $task->start_timestamp !== null && 
+                              $task->finish_timestamp !== null) {
+                        // If task is complete with timestamps, use start checkpoint
+                        $checkpointToUse = $startCheckpoint;
+                    } else {
+                        // Default to end checkpoint for other cases
+                        $checkpointToUse = $endCheckpoint;
+                    }
+                } else {
+                    // If no task found, default to end checkpoint
+                    $checkpointToUse = $endCheckpoint;
+                }
+                
+                $locationID = $checkpointToUse->locationID;
                 $location = Location::find($locationID);
                 
-                // Skip if not a slaughterhouse location
                 if (!$location || $location->location_type !== 'slaughterhouse') continue;
-                
+
                 if (!isset($groupedData[$locationID])) {
                     $groupedData[$locationID] = [
                         'locationID' => $locationID,
-                        'company_address' => $location ? $location->company_address : 'Unknown Location',
+                        'company_address' => $location->company_address ?? 'Unknown Location',
                         'orders' => []
                     ];
                 }
@@ -207,22 +235,21 @@ class DeliveryController extends Controller
                     ];
                 }
                 
-                // // Add destination info
-                // if ($trip->endCheckpoint) {
-                //     $endLocation = $trip->endCheckpoint->location;
-                //     $groupedData[$locationID]['orders'][$orderID]['to'] = [
-                //         'locationID' => $trip->endCheckpoint->locationID,
-                //         'address' => $endLocation ? $endLocation->company_address : 'Unknown'
-                //     ];
-                // }
-                
                 // Add trip info
                 $groupedData[$locationID]['orders'][$orderID]['trips'][] = [
                     'tripID' => $trip->tripID,
                     'phase' => $item['phase'],
                     'status' => $item['status'],
                     'start_checkID' => $trip->start_checkID,
-                    'end_checkID' => $trip->end_checkID
+                    'end_checkID' => $trip->end_checkID,
+                    // Add start location information
+                    'startLocationID' => $startCheckpoint->locationID,
+                    'startLocationName' => $startCheckpoint->location ? $startCheckpoint->location->company_address : 'Unknown',
+                    'startLocationType' => $startCheckpoint->location ? $startCheckpoint->location->location_type : 'Unknown',
+                    // Add end location information
+                    'endLocationID' => $endCheckpoint->locationID,
+                    'endLocationName' => $endCheckpoint->location ? $endCheckpoint->location->company_address : 'Unknown',
+                    'endLocationType' => $endCheckpoint->location ? $endCheckpoint->location->location_type : 'Unknown'
                 ];
                 
                 // Fix the redundancy issue with items
@@ -322,7 +349,7 @@ class DeliveryController extends Controller
      * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\Response
      */
-    public function assignDelivery(Request $request)
+     public function assignDelivery(Request $request)
     {
         try {
             // Log the request data
@@ -330,182 +357,33 @@ class DeliveryController extends Controller
                 'request_data' => $request->all()
             ]);
             
-            // Validate request
+            // Validate request - simplified to just require deliveryID and trips
             $validated = $request->validate([
-                'locationID' => 'required|exists:locations,locationID',
-                'orderID' => 'required|exists:orders,orderID',
-                'userID' => 'required|exists:users,userID',
-                'vehicleID' => 'required|exists:vehicles,vehicleID',
-                'scheduledDate' => 'required|date',
-                // Make fromLocation and toLocation optional
-                'fromLocation' => 'nullable|exists:locations,locationID',
-                'toLocation' => 'nullable|exists:locations,locationID',
+                'deliveryID' => 'required|exists:deliveries,deliveryID',
+                'trips' => 'required|array',
+                'trips.*.tripID' => 'required|exists:trips,tripID'
             ]);
     
             // Begin transaction
             DB::beginTransaction();
     
-            // Get the order with its checkpoints and verifies
-            $order = Order::with(['checkpoints.verifies', 'cartItems.item'])->findOrFail($validated['orderID']);
+            // Get the delivery
+            $delivery = Delivery::findOrFail($validated['deliveryID']);
+            Log::info('Using provided delivery', ['deliveryID' => $delivery->deliveryID]);
             
-            Log::info('Order fetched for delivery assignment', [
-                'orderID' => $order->orderID,
-                'order_status' => $order->order_status,
-                'checkpoints_count' => $order->checkpoints->count(),
-                'cart_items_count' => $order->cartItems->count()
-            ]);
-            
-            // Use provided fromLocation and toLocation if available, otherwise determine from order
-            $fromLocationID = $validated['fromLocation'] ?? $validated['locationID'];
-            
-            // If toLocation is provided, use it, otherwise determine from the first cart item
-            if (isset($validated['toLocation'])) {
-                $toLocationID = $validated['toLocation'];
-            } else {
-                // Get the first cart item to determine the slaughterhouse location
-                $cartItem = $order->cartItems->first();
-                if (!$cartItem) {
-                    Log::warning('No cart items found for order', ['orderID' => $validated['orderID']]);
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'No items found for this order'
-                    ], 404);
-                }
+            // Update the trips with the deliveryID
+            foreach ($validated['trips'] as $tripData) {
+                $trip = Trip::findOrFail($tripData['tripID']);
+                $trip->deliveryID = $delivery->deliveryID;
+                $trip->save();
                 
-                $item = Item::findOrFail($cartItem->itemID);
-                $toLocationID = $item->slaughterhouse_locationID;
-            }
-            
-            Log::info('Using locations for delivery', [
-                'fromLocationID' => $fromLocationID,
-                'toLocationID' => $toLocationID
-            ]);
-            
-            // Rest of the method remains the same...
-    
-            // Check for existing delivery that can be reused (start_timestamp is null)
-            $existingDelivery = Delivery::whereNull('start_timestamp')
-                ->whereHas('verifies', function($query) use ($validated) {
-                    $query->where('userID', $validated['userID'])
-                          ->where('vehicleID', $validated['vehicleID']);
-                })
-                ->first();
-            
-            // Create new delivery if no reusable one exists
-            if (!$existingDelivery) {
-                $delivery = new Delivery();
-                $delivery->scheduled_date = $validated['scheduledDate'];
-                $delivery->start_timestamp = null;
-                $delivery->arrive_timestamp = null;
-                $delivery->save();
-                
-                Log::info('New delivery created', ['deliveryID' => $delivery->deliveryID]);
-            } else {
-                $delivery = $existingDelivery;
-                Log::info('Reusing existing delivery', ['deliveryID' => $delivery->deliveryID]);
-            }
-            
-            // Get checkpoints for this order
-            $checkpoints = Checkpoint::where('orderID', $validated['orderID'])->get();
-            
-            Log::info('Checkpoints for order', [
-                'orderID' => $validated['orderID'],
-                'checkpoints_count' => $checkpoints->count(),
-                'checkpoint_ids' => $checkpoints->pluck('checkID')->toArray(),
-                'arrange_numbers' => $checkpoints->pluck('arrange_number')->toArray()
-            ]);
-            
-            // Determine which checkpoints to use (1-2 or 3-4)
-            $checkpoint1 = $checkpoints->where('arrange_number', 1)->first();
-            $checkpoint2 = $checkpoints->where('arrange_number', 2)->first();
-            $useFirstPair = true; // Default to using checkpoints 1 and 2
-            
-            // Check if checkpoints 1 and 2 are verified
-            if ($checkpoint1 && $checkpoint2) {
-                // Get verifications for checkpoint 1 and 2
-                $checkpoint1Verifies = Verify::where('checkID', $checkpoint1->checkID)
-                    ->where('verify_status', 'verified')
-                    ->count();
-                    
-                $checkpoint2Verifies = Verify::where('checkID', $checkpoint2->checkID)
-                    ->where('verify_status', 'verified')
-                    ->count();
-                
-                Log::info('Checkpoint verification counts', [
-                    'checkpoint1_id' => $checkpoint1->checkID,
-                    'checkpoint1_verified_count' => $checkpoint1Verifies,
-                    'checkpoint2_id' => $checkpoint2->checkID,
-                    'checkpoint2_verified_count' => $checkpoint2Verifies
-                ]);
-                
-                // If both checkpoints are verified, use checkpoints 3 and 4
-                if ($checkpoint1Verifies > 0 && $checkpoint2Verifies > 0) {
-                    $useFirstPair = false;
-                    Log::info('Both checkpoints 1 and 2 are verified, using checkpoints 3 and 4');
-                }
-            }
-            
-            // If not already determined by verification status, check task completion
-            if ($useFirstPair && $checkpoint2) {
-                // Get the task for checkpoint 2
-                $task = Task::where('checkID', $checkpoint2->checkID)->first();
-                
-                // If task exists for checkpoint 2 and is completed, use checkpoints 3 and 4
-                if ($task && $task->finish_timestamp !== null) {
-                    $useFirstPair = false;
-                    Log::info('Checkpoint 2 task is completed, using checkpoints 3 and 4', [
-                        'taskID' => $task->taskID,
-                        'finish_timestamp' => $task->finish_timestamp
-                    ]);
-                }
-            }
-            
-            // Get the appropriate checkpoints based on our decision
-            $arrangeNumbers = $useFirstPair ? [1, 2] : [3, 4];
-            $checkpointsToUpdate = $checkpoints->whereIn('arrange_number', $arrangeNumbers);
-            
-            Log::info('Selected checkpoints for update', [
-                'arrange_numbers' => $arrangeNumbers,
-                'checkpoints_count' => $checkpointsToUpdate->count(),
-                'checkpoint_ids' => $checkpointsToUpdate->pluck('checkID')->toArray()
-            ]);
-            
-            if ($checkpointsToUpdate->count() < 2) {
-                Log::warning('Required checkpoints not found', [
-                    'orderID' => $validated['orderID'],
-                    'arrange_numbers' => $arrangeNumbers,
-                    'checkpoints_found' => $checkpointsToUpdate->count()
-                ]);
-                
-                DB::rollBack();
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Required checkpoints not found for this order'
-                ], 404);
-            }
-            
-            // Update each checkpoint with the deliveryID and create verify records
-            foreach ($checkpointsToUpdate as $checkpoint) {
-                // Update checkpoint with deliveryID
-                $checkpoint->deliveryID = $delivery->deliveryID;
-                $checkpoint->save();
-                
-                // Create verify record for this checkpoint
-                Verify::create([
-                    'userID' => $validated['userID'],
-                    'checkID' => $checkpoint->checkID,
-                    'vehicleID' => $validated['vehicleID'],
-                    'deliveryID' => $delivery->deliveryID,
-                    'verify_status' => 'pending'
+                Log::info('Trip updated with deliveryID', [
+                    'tripID' => $trip->tripID,
+                    'deliveryID' => $delivery->deliveryID
                 ]);
             }
             
-            // Update order status to in-progress if it was pending
-            if ($order->order_status === 'pending') {
-                $order->order_status = 'in-progress';
-                $order->save();
-            }
-            
+            // Commit the transaction
             DB::commit();
             
             return response()->json([
@@ -513,13 +391,19 @@ class DeliveryController extends Controller
                 'message' => 'Delivery assigned successfully',
                 'data' => [
                     'deliveryID' => $delivery->deliveryID,
-                    'checkpoints' => $checkpointsToUpdate->pluck('checkID')
+                    'trips' => $validated['trips']
                 ]
             ]);
             
         } catch (\Exception $e) {
+            // Roll back the transaction in case of error
             DB::rollBack();
-            Log::error('Error assigning delivery: ' . $e->getMessage());
+            
+            Log::error('Error assigning delivery: ' . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
             
             return response()->json([
                 'success' => false,

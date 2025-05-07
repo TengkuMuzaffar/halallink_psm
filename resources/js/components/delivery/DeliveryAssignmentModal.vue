@@ -13,87 +13,10 @@
             </div>
             <p class="mt-2">Processing assignment...</p>
           </div>
-          <form v-else @submit.prevent="validateAndSubmit">
-            <div class="row mb-3">
-              <div class="col-md-6">
-                <div class="form-group mb-3">
-                  <label for="driver" class="form-label">Driver</label>
-                  <select id="driver" v-model="formData.userID" class="form-select" required>
-                    <option value="">Select Driver</option>
-                    <option v-for="driver in drivers" :key="driver.userID" :value="driver.userID">
-                      {{ driver.name }}
-                    </option>
-                  </select>
-                </div>
-              </div>
-              <div class="col-md-6">
-                <div class="form-group mb-3">
-                  <label for="vehicle" class="form-label">Vehicle</label>
-                  <select id="vehicle" v-model="formData.vehicleID" class="form-select" required>
-                    <option value="">Select Vehicle</option>
-                    <option v-for="vehicle in vehicles" :key="vehicle.vehicleID" :value="vehicle.vehicleID">
-                      {{ vehicle.vehicle_plate }} ({{ vehicle.vehicle_type }})
-                    </option>
-                  </select>
-                </div>
-              </div>
-            </div>
-            
-            <div class="form-group mb-3">
-              <label for="scheduledDate" class="form-label">Scheduled Date</label>
-              <input 
-                type="date" 
-                id="scheduledDate" 
-                v-model="formData.scheduledDate" 
-                class="form-control"
-                :min="minDate"
-                required
-              >
-            </div>
-            
-            <div class="row mb-3">
-              <div class="col-md-6">
-                <div class="form-group">
-                  <label class="form-label">From Location</label>
-                  <div class="form-control bg-light">
-                    {{ getLocationName(formData.fromLocation) }}
-                  </div>
-                </div>
-              </div>
-              <div class="col-md-6">
-                <div class="form-group">
-                  <label class="form-label">To Location</label>
-                  <div class="form-control bg-light">
-                    {{ getLocationName(formData.toLocation) }}
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            <div class="form-group mb-3">
-              <label class="form-label">Checkpoints</label>
-              <div class="card">
-                <div class="card-body p-0">
-                  <div v-if="formData.checkIDs && formData.checkIDs.length > 0" class="list-group list-group-flush">
-                    <div v-for="(checkID, index) in formData.checkIDs" :key="index" class="list-group-item">
-                      <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                          <i class="fas fa-check-circle me-2 text-success"></i>
-                          Checkpoint #{{ checkID }}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div v-else class="p-3 text-center text-muted">
-                    No checkpoints selected
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            <!-- Order and Item Information -->
-            <div v-if="orderInfo && orderInfo.items && orderInfo.items.length > 0" class="form-group mb-3">
-              <label class="form-label">Order Information</label>
+          <div v-else>
+            <!-- Order Information -->
+            <div v-if="orderInfo && orderInfo.items && orderInfo.items.length > 0" class="form-group mb-4">
+              <label class="form-label fw-bold">Order Information</label>
               <div class="card">
                 <div class="card-header bg-light">
                   <div class="d-flex justify-content-between align-items-center">
@@ -101,7 +24,9 @@
                       <strong>Order #{{ orderInfo.orderID }}</strong>
                     </div>
                     <div>
-                      <span class="badge bg-primary">{{ getTripType() }}</span>
+                      <span class="badge ms-2" :class="orderInfo.status === 'paid' ? 'bg-warning' : 'bg-secondary'">
+                        {{ orderInfo.status === 'paid' ? 'Pending Delivery' : orderInfo.status }}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -114,6 +39,7 @@
                           <th>Quantity</th>
                           <th>Measurement</th>
                           <th>Price</th>
+                          <th>Total</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -122,11 +48,12 @@
                           <td>{{ item.quantity || 1 }}</td>
                           <td>{{ item.measurement_value || 0 }} {{ item.measurement_type || 'kg' }}</td>
                           <td>RM {{ formatPrice(item.price) }}</td>
+                          <td>RM {{ formatPrice(item.total_price || (item.price * item.quantity)) }}</td>
                         </tr>
                       </tbody>
                       <tfoot v-if="orderInfo.items.length > 0">
                         <tr>
-                          <td colspan="3" class="text-end"><strong>Total:</strong></td>
+                          <td colspan="4" class="text-end"><strong>Total:</strong></td>
                           <td><strong>RM {{ calculateTotal(orderInfo.items) }}</strong></td>
                         </tr>
                       </tfoot>
@@ -136,11 +63,111 @@
               </div>
             </div>
             
-            <div class="form-group mb-3">
-              <label for="notes" class="form-label">Notes (Optional)</label>
-              <textarea id="notes" v-model="formData.notes" class="form-control" rows="3"></textarea>
+            <!-- Trip Information -->
+            <div class="form-group mb-4">
+              <label class="form-label fw-bold">Trip Information</label>
+              <div class="card">
+                <div class="card-header bg-light">
+                  <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                      <span class="badge primary-badge me-2">Delivery #{{ formData.deliveryID || 'New' }}</span>
+                    </div>
+                    <div>
+                      <span class="badge secondary-badge">{{ getTripType() }}</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="card-body">
+                  <!-- Trip Route Information -->
+                  <div v-if="orderInfo && orderInfo.trips && orderInfo.trips.length > 0">
+                    <div class="trip-route-header mb-3">
+                      <strong>Trip Route</strong> ({{ orderInfo.trips.length }} {{ orderInfo.trips.length > 1 ? 'trips' : 'trip' }})
+                    </div>
+                    
+                    <!-- Timeline style trip display -->
+                    <div class="timeline">
+                      <!-- If multiple trips with same end location -->
+                      <div v-if="orderInfo.trips.length > 1 && hasSameEndLocation()">
+                        <!-- Show all starting locations -->
+                        <div v-for="(trip, tripIndex) in orderInfo.trips" :key="tripIndex" class="timeline-item">
+                          <div class="timeline-badge">
+                            <div class="timeline-circle"></div>
+                          </div>
+                          <div class="timeline-panel">
+                            <div class="timeline-heading">
+                              <h6 class="timeline-title">Trip #{{ trip.tripID }}</h6>
+                              <span class="badge status-badge">{{ trip.status }}</span>
+                            </div>
+                            <div class="timeline-body">
+                              <p>{{ trip.startLocationName }}</p>
+                              <p class="location-type">({{ trip.startLocationType }})</p>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <!-- Show final destination -->
+                        <div class="timeline-item">
+                          <div class="timeline-badge">
+                            <div class="timeline-circle"></div>
+                          </div>
+                          <div class="timeline-panel">
+                            <div class="timeline-heading">
+                              <h6 class="timeline-title">Destination</h6>
+                            </div>
+                            <div class="timeline-body">
+                              <p>{{ orderInfo.trips[0].endLocationName }}</p>
+                              <p class="location-type">({{ orderInfo.trips[0].endLocationType }})</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <!-- If single trip or different end locations -->
+                      <div v-else>
+                        <div v-for="(trip, tripIndex) in orderInfo.trips" :key="tripIndex">
+                          <!-- Start location -->
+                          <div class="timeline-item">
+                            <div class="timeline-badge">
+                              <div class="timeline-circle"></div>
+                            </div>
+                            <div class="timeline-panel">
+                              <div class="timeline-heading">
+                                <h6 class="timeline-title">Trip #{{ trip.tripID }}</h6>
+                                <span class="badge status-badge">{{ trip.status }}</span>
+                              </div>
+                              <div class="timeline-body">
+                                <p>{{ trip.startLocationName }}</p>
+                                <p class="location-type">({{ trip.startLocationType }})</p>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <!-- End location -->
+                          <div class="timeline-item">
+                            <div class="timeline-badge">
+                              <div class="timeline-circle"></div>
+                            </div>
+                            <div class="timeline-panel">
+                              <div class="timeline-heading">
+                                <h6 class="timeline-title">Destination</h6>
+                              </div>
+                              <div class="timeline-body">
+                                <p>{{ trip.endLocationName }}</p>
+                                <p class="location-type">({{ trip.endLocationType }})</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div v-else class="text-center text-muted">
+                    <p>No trip information available</p>
+                  </div>
+                </div>
+              </div>
             </div>
-          </form>
+          </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -199,25 +226,31 @@ export default {
         userID: '',
         vehicleID: '',
         scheduledDate: new Date().toISOString().split('T')[0],
-        notes: '',
         locationID: null,
         orderID: null,
         checkIDs: [],
         fromLocation: null,
         toLocation: null,
-        deliveryID: null
+        deliveryID: null,
+        trips: [] // Add trips array to store trip data
       }
     };
   },
-  computed: {
-    minDate() {
-      return new Date().toISOString().split('T')[0];
-    }
-  },
   watch: {
     form: {
-      handler(newVal) {
-        this.formData = { ...this.formData, ...newVal };
+      handler(newForm) {
+        // Copy form data to local formData
+        if (newForm) {
+          this.formData = {
+            ...this.formData,
+            ...newForm
+          };
+          
+          // If orderInfo contains trips, store them in formData
+          if (this.orderInfo && this.orderInfo.trips && this.orderInfo.trips.length > 0) {
+            this.formData.trips = [...this.orderInfo.trips];
+          }
+        }
       },
       deep: true
     }
@@ -229,90 +262,212 @@ export default {
     show() {
       this.modal.show();
     },
-    
     hide() {
       this.modal.hide();
     },
-    
-    getLocationName(locationID) {
-      // This is a simplified version - you might want to fetch location names from a store or service
-      return locationID ? `Location #${locationID}` : 'Not specified';
-    },
-    
     formatPrice(price) {
       return parseFloat(price || 0).toFixed(2);
     },
-    
     calculateTotal(items) {
-      if (!items || !Array.isArray(items)) return '0.00';
-      
+      if (!items || !items.length) return '0.00';
       const total = items.reduce((sum, item) => {
-        const itemPrice = parseFloat(item.price || 0);
-        const quantity = parseInt(item.quantity || 1);
-        return sum + (itemPrice * quantity);
+        return sum + parseFloat(item.total_price || (item.price * item.quantity) || 0);
       }, 0);
-      
-      return total.toFixed(2);
+      return this.formatPrice(total);
     },
-    
     getTripType() {
-      if (!this.formData.checkIDs || this.formData.checkIDs.length === 0) {
-        return 'Unknown Trip';
+      if (!this.orderInfo || !this.orderInfo.trips || this.orderInfo.trips.length === 0) {
+        return 'Unknown';
       }
       
-      // Check if we have arrange_number information in the orderInfo
-      if (this.orderInfo && this.orderInfo.checkpoints) {
-        const checkpoints = this.orderInfo.checkpoints;
-        const hasArrange1or2 = checkpoints.some(cp => cp.arrange_number === 1 || cp.arrange_number === 2);
-        const hasArrange3or4 = checkpoints.some(cp => cp.arrange_number === 3 || cp.arrange_number === 4);
-        
-        if (hasArrange1or2 && !hasArrange3or4) {
-          return 'Broiler to Slaughterhouse';
-        } else if (hasArrange3or4) {
-          return 'Slaughterhouse to Customer';
-        }
+      // Get the first trip to determine type
+      const firstTrip = this.orderInfo.trips[0];
+      
+      if (firstTrip.startLocationType === 'supplier' && firstTrip.endLocationType === 'slaughterhouse') {
+        return 'Supplier to Slaughterhouse';
+      } else if (firstTrip.startLocationType === 'slaughterhouse' && firstTrip.endLocationType === 'distributor') {
+        return 'Slaughterhouse to Distributor';
+      } else if (firstTrip.startLocationType === 'distributor' && firstTrip.endLocationType === 'retailer') {
+        return 'Distributor to Retailer';
+      } else {
+        return `${firstTrip.startLocationType} to ${firstTrip.endLocationType}`;
+      }
+    },
+    hasSameEndLocation() {
+      if (!this.orderInfo || !this.orderInfo.trips || this.orderInfo.trips.length <= 1) {
+        return false;
       }
       
-      // Fallback logic based on checkpoint IDs
-      // This is a simplified version - in a real app, you would fetch checkpoint details
-      return 'Delivery Trip';
+      const firstEndLocation = this.orderInfo.trips[0].endLocationID;
+      return this.orderInfo.trips.every(trip => trip.endLocationID === firstEndLocation);
+    },
+    validateAndSubmit() {
+      // Prepare data for submission - simplified to only include deliveryID and trips
+      const submissionData = {
+        deliveryID: this.formData.deliveryID,
+        trips: this.formData.trips || [] // Include trips array in submission
+      };
+      
+      // Validate required fields
+      if (!submissionData.deliveryID) {
+        this.$emit('validation-error', 'No delivery selected. Please select a delivery first.');
+        return;
+      }
+      
+      if (!submissionData.trips || submissionData.trips.length === 0) {
+        this.$emit('validation-error', 'No trips available to assign.');
+        return;
+      }
+      
+      // Emit submit event with the prepared data
+      this.$emit('submit', submissionData);
+    },
+    // Add a method to set the deliveryID
+    setDeliveryID(deliveryID) {
+      if (deliveryID) {
+        this.formData.deliveryID = deliveryID;
+        console.log('DeliveryID set in modal:', deliveryID);
+      }
     },
     
-    validateAndSubmit() {
-      // Basic validation
-      if (!this.formData.userID) {
-        this.$emit('validation-error', 'Please select a driver');
-        return;
+    // Update the submit method to use the deliveryID
+    async submitForm() {
+      try {
+        this.loading = true;
+        this.error = null;
+        
+        // Ensure we have the deliveryID
+        if (!this.formData.deliveryID) {
+          this.error = 'No delivery selected. Please select a delivery first.';
+          return;
+        }
+        
+        // Prepare the data for submission
+        const submitData = {
+          deliveryID: this.formData.deliveryID,
+          trips: this.orderInfo.trips || []
+        };
+        
+        // Call the service to assign the delivery
+        const response = await deliveryService.assignDelivery(submitData);
+        
+        if (response.success) {
+          // Close the modal
+          this.$emit('assignment-complete', response.data);
+          this.closeModal();
+        } else {
+          this.error = response.message || 'Failed to assign delivery';
+        }
+      } catch (error) {
+        console.error('Error assigning delivery:', error);
+        this.error = error.message || 'An unexpected error occurred';
+      } finally {
+        this.loading = false;
       }
-      
-      if (!this.formData.vehicleID) {
-        this.$emit('validation-error', 'Please select a vehicle');
-        return;
-      }
-      
-      if (!this.formData.scheduledDate) {
-        this.$emit('validation-error', 'Please select a scheduled date');
-        return;
-      }
-      
-      if (!this.formData.fromLocation) {
-        this.$emit('validation-error', 'From location is required');
-        return;
-      }
-      
-      if (!this.formData.toLocation) {
-        this.$emit('validation-error', 'To location is required');
-        return;
-      }
-      
-      if (!this.formData.checkIDs || this.formData.checkIDs.length === 0) {
-        this.$emit('validation-error', 'No checkpoints selected');
-        return;
-      }
-      
-      // Submit the form
-      this.$emit('submit', this.formData);
-    }
+    },
   }
-}
+};
 </script>
+
+<style scoped>
+/* Color theme */
+:root {
+  --primary-color: #123524;
+  --secondary-color: #3E7B27;
+  --text-color: #666;
+}
+
+/* Badge styles */
+.primary-badge {
+  background-color: #123524;
+  color: white;
+}
+
+.secondary-badge {
+  background-color: #3E7B27;
+  color: white;
+}
+
+.status-badge {
+  background-color: #00BCD4;
+  color: white;
+}
+
+/* Timeline styles */
+.timeline {
+  position: relative;
+  padding: 20px 0;
+}
+
+.timeline:before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 15px;
+  width: 2px;
+  background-color: #3E7B27;
+  z-index: 0;
+}
+
+.timeline-item {
+  position: relative;
+  margin-bottom: 30px;
+}
+
+.timeline-item:last-child {
+  margin-bottom: 0;
+}
+
+.timeline-badge {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+
+.timeline-circle {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background-color: #3E7B27;
+  border: 2px solid white;
+}
+
+.timeline-panel {
+  position: relative;
+  margin-left: 45px;
+  padding: 15px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.timeline-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.timeline-title {
+  margin: 0;
+  color: #123524;
+  font-weight: 600;
+}
+
+.timeline-body p {
+  margin-bottom: 5px;
+  color: #666;
+}
+
+.location-type {
+  color: #666;
+  font-size: 0.9em;
+}
+</style>

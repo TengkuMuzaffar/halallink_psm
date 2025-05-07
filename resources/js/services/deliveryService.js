@@ -68,16 +68,113 @@ const deliveryService = {
       }
     });
   },
-  
+
   /**
-   * Assign delivery
-   * @param {Object} data - Assignment data
+   * Update delivery status
+   * @param {Object} data - Status update data
    * @returns {Promise} - API response
    */
-  async assignDelivery(data) {
-    return fetchData('/api/deliveries/assign', {
+  async updateDeliveryStatus(deliveryID, data) {
+    return fetchData(`/api/deliveries/${deliveryID}/status`, {
+      method: 'put',
+      data
+    });
+  },
+  
+  /**
+   * Get delivery details
+   * @param {Number} deliveryID - Delivery ID
+   * @returns {Promise} - API response
+   */
+  async getDeliveryDetails(deliveryID) {
+    return fetchData(`/api/deliveries/${deliveryID}`);
+  },
+  
+  /**
+   * Create a new delivery
+   * @param {Object} data - Delivery data (fromLocation, toLocation, scheduledDate)
+   * @returns {Promise} - API response
+   */
+  async createDelivery(data) {
+    return fetchData('/api/deliveries/create', {
       method: 'post',
       data
+    });
+  },
+  
+  /**
+   * Get specific order information for assignment
+   * @param {Object} params - Parameters including locationID and orderID
+   * @returns {Promise} - Promise with order data
+   */
+  async getOrderForAssignment(params = {}) {
+    const { locationID, orderID } = params;
+    
+    if (!locationID || !orderID) {
+      return {
+        success: false,
+        message: 'Location ID and Order ID are required'
+      };
+    }
+    
+    try {
+      // First get all trips to find the specific order
+      const response = await this.getTrips({ locationID });
+      
+      if (!response.success || !response.data) {
+        return {
+          success: false,
+          message: 'Failed to fetch order data'
+        };
+      }
+      
+      // Find the location data
+      const locationData = response.data.find(loc => loc.locationID == locationID);
+      if (!locationData || !locationData.orders) {
+        return {
+          success: false,
+          message: 'Location or orders not found'
+        };
+      }
+      
+      // Find the specific order
+      const orderData = locationData.orders[orderID];
+      if (!orderData) {
+        return {
+          success: false,
+          message: 'Order not found'
+        };
+      }
+      
+      // Return the order data with success flag
+      return {
+        success: true,
+        data: {
+          locationID,
+          locationAddress: locationData.company_address,
+          orderID,
+          orderData
+        }
+      };
+    } catch (error) {
+      console.error('Error fetching order for assignment:', error);
+      return {
+        success: false,
+        message: 'An error occurred while fetching order data'
+      };
+    }
+  },
+  
+  async assignDelivery(data) {
+    // Ensure we have the minimum required fields
+    const assignmentData = {
+      deliveryID: data.deliveryID,
+      trips: data.trips || []
+    };
+    
+    return fetchData('/api/deliveries/assign', {
+      method: 'post',
+      data: assignmentData
     });
   },
   
@@ -111,6 +208,17 @@ const deliveryService = {
     return fetchData('/api/deliveries/create', {
       method: 'post',
       data
+    });
+  },
+  
+  /**
+   * Get deliveries for execution
+   * @param {Object} params - Query parameters
+   * @returns {Promise} - API response
+   */
+  async getExecutionDeliveries(params = {}) {
+    return fetchData('/api/deliveries/execution', {
+      params
     });
   },
 };

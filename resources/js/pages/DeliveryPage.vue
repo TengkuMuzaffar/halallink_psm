@@ -3,40 +3,7 @@
     <h1 class="mb-4">Delivery Management</h1>
 
     <!-- Delivery Stats -->
-    <div class="row mb-4">
-      <div class="col-md-3 col-sm-6 mb-3">
-        <StatsCard
-          title="Pending Assignment"
-          :count="deliveryStats.pending"
-          icon="fas fa-clock"
-          bgColor="bg-warning"
-        />
-      </div>
-      <div class="col-md-3 col-sm-6 mb-3">
-        <StatsCard
-          title="In Progress"
-          :count="deliveryStats.inProgress"
-          icon="fas fa-truck"
-          bgColor="bg-info"
-        />
-      </div>
-      <div class="col-md-3 col-sm-6 mb-3">
-        <StatsCard
-          title="Completed Today"
-          :count="deliveryStats.completedToday"
-          icon="fas fa-check-circle"
-          bgColor="bg-success"
-        />
-      </div>
-      <div class="col-md-3 col-sm-6 mb-3">
-        <StatsCard
-          title="Issues"
-          :count="deliveryStats.issues"
-          icon="fas fa-exclamation-triangle"
-          bgColor="bg-danger"
-        />
-      </div>
-    </div>
+    <StatsCard :stats="deliveryStats" />
 
     <!-- Tabs Navigation -->
     <div class="row delivery-tabs mb-4">
@@ -72,120 +39,35 @@
       </div>
     </div>
 
-    <!-- <div v-if="error" class="alert alert-danger" role="alert">
-      <i class="fas fa-exclamation-triangle me-2"></i> {{ error }}
-    </div> -->
+    <!-- Display error message for assign tab -->
+    <div v-if="activeTab === 'assign' && assignError" class="alert alert-danger mb-4" role="alert">
+      <i class="fas fa-exclamation-triangle me-2"></i> {{ assignError }}
+    </div>
+
+    <!-- Display error message for execute tab -->
+    <div v-if="activeTab === 'execute' && executeError" class="alert alert-danger mb-4" role="alert">
+      <i class="fas fa-exclamation-triangle me-2"></i> {{ executeError }}
+    </div>
     
     <!-- Two-column layout for Assign tab -->
     <div v-if="activeTab === 'assign'" class="row">
       <!-- Left column: List of created deliveries -->
       <div class="col-md-4">
-        <div class="card">
-          <!-- In the Created Deliveries card header -->
-          <div class="card-header d-flex justify-content-between align-items-center">
-            <h5 class="mb-0">Created Deliveries</h5>
-            <div>
-              <button class="btn btn-sm btn-success me-2" @click="openCreateDeliveryModal">
-                <i class="fas fa-plus"></i>
-              </button>
-              <button class="btn btn-sm btn-outline-primary" @click="refreshCreatedDeliveries">
-                <i class="fas fa-sync-alt"></i>
-              </button>
-            </div>
-          </div>
-          <!-- Add selected delivery info with deselect button -->
-          <div v-if="selectedDeliveryID" class="p-2 bg-light border-bottom">
-            <div class="d-flex justify-content-between align-items-center">
-              <div class="d-flex align-items-center">
-                <span class="badge bg-success me-2">Selected</span>
-                <span>Delivery #{{ selectedDeliveryID }}</span>
-              </div>
-              <button class="btn btn-sm btn-outline-danger" @click="deselectDelivery">
-                <i class="fas fa-times"></i>
-              </button>
-            </div>
-          </div>
-          <div class="card-body p-0">
-            <div v-if="createdDeliveriesLoading" class="p-3 text-center">
-              <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Loading...</span>
-              </div>
-            </div>
-            <div v-else-if="Object.keys(createdDeliveries).length === 0" class="p-3 text-center">
-              <p class="text-muted mb-0">No deliveries found</p>
-            </div>
-            <ul v-else class="list-group list-group-flush">
-              <li v-for="(delivery, index) in createdDeliveries" :key="index" 
-                  class="list-group-item"
-                  :class="{'active': selectedDeliveryID === delivery.deliveryID}">
-                <div class="d-flex justify-content-between align-items-center">
-                  <div class="d-flex align-items-center">
-                    <div class="form-check me-2">
-                      <input class="form-check-input" 
-                             type="radio" 
-                             :id="'delivery-' + delivery.deliveryID" 
-                             name="selectedDelivery" 
-                             :value="delivery.deliveryID"
-                             :checked="selectedDeliveryID === delivery.deliveryID"
-                             @change="selectDelivery(delivery.deliveryID)">
-                      <label class="form-check-label" :for="'delivery-' + delivery.deliveryID">
-                        <span class="visually-hidden">Select Delivery #{{ delivery.deliveryID }}</span>
-                      </label>
-                    </div>
-                    <div>
-                      <div class="fw-bold">Delivery #{{ delivery.deliveryID }}</div>
-                      <div class="small text-muted">
-                        <span v-if="delivery.from">From: {{ getLocationName(delivery.from.locationID) }}</span>
-                        <span v-if="delivery.to"> → To: {{ getLocationName(delivery.to.locationID) }}</span>
-                      </div>
-                      <div class="small">
-                        <span class="badge bg-primary me-1">{{ delivery.status || 'Pending' }} {{ formatDate(delivery.scheduledDate) }}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div>
-                    <i class="fas expand-icon" 
-                       :class="expandedDeliveries[delivery.deliveryID] ? 'fa-chevron-up' : 'fa-chevron-down'"
-                       @click.stop="toggleDeliveryDetails(delivery.deliveryID)"></i>
-                  </div>
-                </div>
-                <!-- Expanded Details Section -->
-                <div v-if="expandedDeliveries[delivery.deliveryID]" class="mt-3 delivery-details">
-                  <div class="card">
-                    <div class="card-body">
-                      <div class="row">
-                        <div class="col-md-6">
-                          <h6>Delivery Information</h6>
-                          <p class="mb-1"><strong>Status:</strong> {{ delivery.status || 'Pending' }}</p>
-                          <p class="mb-1"><strong>Scheduled Date:</strong> {{ formatDate(delivery.scheduledDate) }}</p>
-                          <p class="mb-1"><strong>Driver:</strong> {{ delivery.driver?.fullname || 'Not assigned' }}</p>
-                          <p class="mb-1"><strong>Vehicle:</strong> {{ delivery.vehicle?.vehicle_plate || 'Not assigned' }}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </li>
-            </ul>
-            <!-- Simple pagination for created deliveries -->
-            <div v-if="Object.keys(createdDeliveries).length > 0" class="d-flex justify-content-center p-2">
-              <button class="btn btn-sm btn-outline-secondary me-2" 
-                      :disabled="createdDeliveriesPage <= 1"
-                      @click="changeCreatedDeliveriesPage(createdDeliveriesPage - 1)">
-                <i class="fas fa-chevron-left"></i>
-              </button>
-              <span class="align-self-center mx-2">
-                Page {{ createdDeliveriesPage }} of {{ createdDeliveriesPagination.last_page }}
-                ({{ createdDeliveriesPagination.total }} total)
-              </span>
-              <button class="btn btn-sm btn-outline-secondary ms-2" 
-                      :disabled="!hasMoreCreatedDeliveries"
-                      @click="changeCreatedDeliveriesPage(createdDeliveriesPage + 1)">
-                <i class="fas fa-chevron-right"></i>
-              </button>
-            </div>
-          </div>
-        </div>
+        <CreatedDeliveriesList
+          :deliveries="createdDeliveries"
+          :loading="createdDeliveriesLoading"
+          :selectedDeliveryID="selectedDeliveryID"
+          :expandedDeliveries="expandedDeliveries"
+          :currentPage="createdDeliveriesPage"
+          :pagination="createdDeliveriesPagination"
+          :hasMorePages="hasMoreCreatedDeliveries"
+          @create-delivery="openCreateDeliveryModal"
+          @refresh="refreshCreatedDeliveries"
+          @select="selectDelivery"
+          @deselect="deselectDelivery"
+          @toggle-details="toggleDeliveryDetails"
+          @change-page="changeCreatedDeliveriesPage"
+        />
       </div>
       
       <!-- Right column: DeliveryAssignment component -->
@@ -194,7 +76,7 @@
         <DeliveryAssignment 
           v-if="activeTab === 'assign'"
           :loading="assignDeliveriesLoading"
-          :error="error"
+          :error="assignError"
           :locations="locations"
           :selectedLocationID="selectedLocationID"
           :groupedDeliveries="groupedDeliveries"
@@ -209,6 +91,16 @@
           @refresh="refreshAssignDeliveries"
         />
       </div>
+    </div>
+
+    <!-- Add this section for Execute tab -->
+    <div v-if="activeTab === 'execute'">
+      <DeliveryExecution
+        :loading="executeDeliveriesLoading"
+        :error="executeError"
+        :deliveries="executionDeliveries"
+        @refresh="refreshExecutionDeliveries"
+      />
     </div>
     <!-- Assign Delivery Modal Component -->
     <DeliveryAssignmentModal
@@ -231,11 +123,12 @@
 import { showModal, closeLoading } from '../utils/modal';
 import * as bootstrap from 'bootstrap';
 import deliveryService from '../services/deliveryService';
-import StatsCard from '../components/ui/StatsCard.vue';
+import StatsCard from '../components/delivery/StatsCard.vue'; // Updated import
 import DeliveryAssignment from '../components/delivery/DeliveryAssignment.vue';
 import DeliveryExecution from '../components/delivery/DeliveryExecution.vue';
 import DeliveryAssignmentModal from '../components/delivery/DeliveryAssignmentModal.vue';
 import DeliveryFormModal from '../components/delivery/DeliveryFormModal.vue';
+import CreatedDeliveriesList from '../components/delivery/CreatedDeliveriesList.vue';
 
 export default {
   name: 'DeliveryPage',
@@ -244,20 +137,33 @@ export default {
     DeliveryAssignment,
     DeliveryExecution,
     DeliveryAssignmentModal,
-    DeliveryFormModal
+    DeliveryFormModal,
+    CreatedDeliveriesList
   },
   data() {
     return {
       activeTab: 'assign',
       loading: true,
-      createdDeliveriesLoading: false,  // Add this new loading state
-      assignDeliveriesLoading: false,   // Add this new loading state
-      error: null,
+      createdDeliveriesLoading: false,
+      assignDeliveriesLoading: false,
+      executeDeliveriesLoading: false,
+      // Separate error states for each tab
+      assignError: null,
+      executeError: null,
       groupedDeliveries: {},
+      executionDeliveries: {},
       pagination: {
         current_page: 1,
         last_page: 1,
         per_page: 10,
+        total: 0,
+        from: 0,
+        to: 0
+      },
+      createdDeliveriesPagination: {
+        current_page: 1,
+        last_page: 1,
+        per_page: 3,
         total: 0,
         from: 0,
         to: 0
@@ -274,6 +180,7 @@ export default {
       vehicles: [],
       expandedOrders: {},
       assignmentForm: {
+        deliveryID: null,
         locationID: null,
         orderID: null,
         userID: '',
@@ -295,7 +202,8 @@ export default {
       hasMoreCreatedDeliveries: false,
       selectedDeliveryID: null,
       selectedOrderInfo: null,
-      expandedDeliveries: {} // Add this line to fix the error
+      expandedDeliveries: {}, // Add this line to fix the error
+      deliveryFormModal: null,
     };
   },
   mounted() {
@@ -303,35 +211,45 @@ export default {
     this.fetchDeliveryStats();
     this.fetchCreatedDeliveries();
   },
+  
+  watch: {
+    // Add this watcher to load data when tab changes
+    activeTab(newTab) {
+      if (newTab === 'execute' && Object.keys(this.executionDeliveries).length === 0) {
+        this.refreshExecutionDeliveries();
+      } else if (newTab === 'assign') {
+        // Clear execute error when switching to assign tab
+        this.executeError = null;
+      } else if (newTab === 'execute') {
+        // Clear assign error when switching to execute tab
+        this.assignError = null;
+      }
+    }
+  },
   methods: {
     async fetchDeliveryAssignmentTrips() {
       try {
-        this.assignDeliveriesLoading = true;  // Use the specific loading state
-        this.error = null;
+        this.assignDeliveriesLoading = true;
+        this.assignError = null; // Reset assign error
         
         const response = await deliveryService.getTrips({
           locationID: this.selectedLocationID,
           page: this.pagination.current_page,
           per_page: this.pagination.per_page
         });
-          console.dir("Get Trip: " + JSON.stringify(response,null, 4));
 
         if (response.success) {
           this.groupedDeliveries = response.data;
           this.pagination = response.pagination;
         } else {
-          this.error = response.message || 'Failed to load delivery data';
+          this.assignError = response.message || 'Failed to load delivery data';
         }
       } catch (error) {
         console.error('Error fetching delivery data:', error);
-        this.error = 'An unexpected error occurred while loading delivery data';
+        this.assignError = 'An unexpected error occurred while loading delivery data';
       } finally {
-        this.assignDeliveriesLoading = false;  // Reset the specific loading state
+        this.assignDeliveriesLoading = false;
       }
-    },
-    openCreateDeliveryModal() {
-      // Use the DeliveryFormModal component's method to show the modal
-      this.$refs.deliveryFormModal.showModal();
     },
     
     // Add this new method
@@ -365,31 +283,28 @@ export default {
     
     async fetchCreatedDeliveries() {
       try {
-        this.createdDeliveriesLoading = true;  // Use the specific loading state
+        this.createdDeliveriesLoading = true;
+        this.assignError = null; // Reset assign error
+        
         const response = await deliveryService.getCreatedDeliveries(
           this.createdDeliveriesPage,
-          3  // Set to 3 items per page explicitly
+          3
         );
-        console.log("Deliveries: " + response);
+        
         if (response.success) {
           this.createdDeliveries = response.data;
-          
-          // Update pagination information
           this.hasMoreCreatedDeliveries = response.pagination.current_page < response.pagination.last_page;
-          
-          // Store pagination data for reference
           this.createdDeliveriesPagination = response.pagination;
         } else {
-          this.error = response.message || 'Failed to fetch created deliveries';
+          this.assignError = response.message || 'Failed to fetch created deliveries';
         }
       } catch (error) {
         console.error('Error fetching created deliveries:', error);
-        this.error = 'An error occurred while fetching deliveries';
+        this.assignError = 'An error occurred while fetching deliveries';
       } finally {
-        this.createdDeliveriesLoading = false;  // Reset the specific loading state
+        this.createdDeliveriesLoading = false;
       }
       
-      // Also refresh the common stats
       this.fetchDeliveryStats();
     },
     
@@ -441,43 +356,46 @@ export default {
       this.fetchDeliveryStats();
       // Reset the selected order info when refreshing data
       this.selectedOrderInfo = null;
+      
+      // Add this condition to refresh execution deliveries when on that tab
+      if (this.activeTab === 'execute') {
+        this.refreshExecutionDeliveries();
+      }
     },
     
     // Method to refresh only created deliveries
     async refreshCreatedDeliveries() {
       try {
-        this.createdDeliveriesLoading = true;  // Use the specific loading state
+        this.createdDeliveriesLoading = true;
+        this.assignError = null; // Reset assign error
+        
         const response = await deliveryService.getCreatedDeliveries(
           this.createdDeliveriesPage,
-          3  // Set to 3 items per page explicitly
+          3
         );
         
         if (response.success) {
           this.createdDeliveries = response.data;
-          
-          // Update pagination information
           this.hasMoreCreatedDeliveries = response.pagination.current_page < response.pagination.last_page;
-          
-          // Store pagination data for reference
           this.createdDeliveriesPagination = response.pagination;
         } else {
-          this.error = response.message || 'Failed to fetch created deliveries';
+          this.assignError = response.message || 'Failed to fetch created deliveries';
         }
       } catch (error) {
         console.error('Error fetching created deliveries:', error);
-        this.error = 'An error occurred while fetching deliveries';
+        this.assignError = 'An error occurred while fetching deliveries';
       } finally {
-        this.createdDeliveriesLoading = false;  // Reset the specific loading state
+        this.createdDeliveriesLoading = false;
       }
       
-      // Also refresh the common stats
       this.fetchDeliveryStats();
     },
 
     // Method to refresh only assign deliveries
     async refreshAssignDeliveries() {
       try {
-        this.assignDeliveriesLoading = true;  // Use the specific loading state
+        this.assignDeliveriesLoading = true;
+        this.assignError = null; // Reset assign error
         
         const response = await deliveryService.getTrips({
           locationID: this.selectedLocationID,
@@ -489,16 +407,15 @@ export default {
           this.groupedDeliveries = response.data;
           this.pagination = response.pagination;
         } else {
-          this.error = response.message || 'Failed to load delivery data';
+          this.assignError = response.message || 'Failed to load delivery data';
         }
       } catch (error) {
         console.error('Error fetching delivery data:', error);
-        this.error = 'An unexpected error occurred while loading delivery data';
+        this.assignError = 'An unexpected error occurred while loading delivery data';
       } finally {
-        this.assignDeliveriesLoading = false;  // Reset the specific loading state
+        this.assignDeliveriesLoading = false;
       }
       
-      // Also refresh the common stats
       this.fetchDeliveryStats();
     },
     
@@ -578,96 +495,141 @@ export default {
       const key = `${locationID}-${orderID}`;
       return !!this.expandedOrders[key];
     },
+    getOrderInfo(locationID, orderID) {
+      if (!this.groupedDeliveries[locationID] || !this.groupedDeliveries[locationID].orders[orderID]) {
+        return null;
+      }
+      return this.groupedDeliveries[locationID].orders[orderID];
+    },
     
-    assignDelivery(locationID, orderID) {
-      // Get the order data for this order
-      const orderData = this.groupedDeliveries[locationID]?.orders[orderID];
-      
-      if (!orderData) {
-        console.error('Order data not found for', locationID, orderID);
-        return;
+    // Add this new method
+    getLocationInfo(locationID, orderID) {
+      const orderInfo = this.getOrderInfo(locationID, orderID);
+      if (!orderInfo) {
+        return {
+          from: null,
+          to: null
+        };
       }
       
-      console.log('Order data:', orderData);
-      
-      // Set the selected order info for the modal
-      this.selectedOrderInfo = {
-        orderID: orderID,
-        items: orderData.items || [],
-        checkpoints: []
+      return {
+        from: orderInfo.from || null,
+        to: orderInfo.to || null
       };
+    },
+    async assignDelivery(locationID, orderID) {
+      console.log('assignDelivery called with:', { locationID, orderID });
+      console.log('groupedDeliveries structure:', JSON.stringify(this.groupedDeliveries, null, 2));
+      console.log('Selected location data:', this.groupedDeliveries[locationID]);
       
-      // If we have checkpoints in the order data, add them to the selectedOrderInfo
-      if (orderData.checkpoints) {
-        this.selectedOrderInfo.checkpoints = orderData.checkpoints;
-      } else {
-        // Try to determine the trip type based on the items and their locations
-        const fromLocation = orderData.from?.locationID;
-        const toLocation = orderData.to?.locationID;
+      try {
+        // Reset the assignment form
+        this.assignmentForm = {
+          locationID: locationID,
+          orderID: orderID,
+          deliveryID: this.selectedDeliveryID,
+          scheduledDate: new Date().toISOString().split('T')[0],
+          checkIDs: [],
+          fromLocation: null,
+          toLocation: null
+        };
         
-        // Create synthetic checkpoints based on from/to locations
-        if (fromLocation && toLocation) {
-          // Check if this is likely a broiler to slaughterhouse trip (arrange_number 1-2)
-          // or a slaughterhouse to customer trip (arrange_number 3-4)
-          const isBroilerToSlaughterhouse = orderData.items?.some(item => 
-            item.locationID === fromLocation && item.slaughterhouse_locationID === toLocation
-          );
+        console.log('Assignment form initialized:', this.assignmentForm);
+        
+        // Instead of using getLocationInfo which doesn't exist, directly set location info
+        this.locationInfo = {
+          from: null,
+          to: null
+        };
+        
+        // Try to get location info from the grouped deliveries if available
+        if (this.groupedDeliveries[locationID]) {
+          const locationData = this.groupedDeliveries[locationID];
+          console.log('Location data found:', locationData);
           
-          if (isBroilerToSlaughterhouse) {
-            this.selectedOrderInfo.checkpoints = [
-              { arrange_number: 1, locationID: fromLocation },
-              { arrange_number: 2, locationID: toLocation }
-            ];
+          // Find the order in the location's orders
+          if (locationData.orders && locationData.orders[orderID]) {
+            const orderData = locationData.orders[orderID];
+            console.log('Order data found:', orderData);
+            
+            // Set the location info
+            this.locationInfo = {
+              from: orderData.from || locationData.from || null,
+              to: orderData.to || locationData.to || null
+            };
+            
+            // Set the order info
+            this.selectedOrderInfo = orderData;
           } else {
-            this.selectedOrderInfo.checkpoints = [
-              { arrange_number: 3, locationID: fromLocation },
-              { arrange_number: 4, locationID: toLocation }
-            ];
+            console.log('Order not found in location data');
           }
+        } else {
+          console.log('Location not found in groupedDeliveries');
         }
+        
+        console.log('Final locationInfo:', this.locationInfo);
+        console.log('Final selectedOrderInfo:', this.selectedOrderInfo);
+        
+        // Show the modal
+        this.$refs.assignmentModal.show();
+      } catch (error) {
+        console.error('Error in assignDelivery:', error);
+        
+        // Show error modal
+        showModal({
+          type: 'error',
+          title: 'Error',
+          message: error?.message || 'An error occurred while preparing the assignment',
+          buttons: [{ label: 'OK', type: 'primary', dismiss: true }]
+        });
+      }
+    },
+    
+    // Add this new method
+    getLocationInfo(locationID, orderID) {
+      const orderInfo = this.getOrderInfo(locationID, orderID);
+      if (!orderInfo) {
+        return {
+          from: null,
+          to: null
+        };
       }
       
-      // Extract checkIDs from items - handle both data structures
-      let checkIDs = [];
-      
-      if (orderData.items && Array.isArray(orderData.items)) {
-        // New structure: orderData has an items array property
-        checkIDs = orderData.items
-          .filter(item => item.checkID)
-          .map(item => item.checkID);
-      } else if (Array.isArray(orderData)) {
-        // Old structure: orderData is directly an array of items
-        checkIDs = orderData
-          .filter(item => item.checkID)
-          .map(item => item.checkID);
-      } else {
-        console.warn('Unable to extract checkIDs from order data:', orderData);
-      }
-      
-      // Get the fromLocationID and toLocationID directly from the orderData
-      let fromLocationID = null;
-      let toLocationID = null;
-      
-      // Check if orderData has from and to properties with locationID
-      if (orderData.from && orderData.from.locationID) {
-        fromLocationID = orderData.from.locationID;
-      }
-      
-      if (orderData.to && orderData.to.locationID) {
-        toLocationID = orderData.to.locationID;
-      }
-      
-      // Create the item object with all necessary data
-      const item = {
-        locationID,
-        orderID,
-        checkIDs,
-        fromLocationID,
-        toLocationID
+      return {
+        from: orderInfo.from || null,
+        to: orderInfo.to || null
       };
-      
-      // Call openAssignmentModal with the item
-      this.openAssignmentModal(item);
+    },
+    
+    async submitAssignment(formData) {
+      try {
+        this.assignmentLoading = true;
+        
+        // Ensure deliveryID is included if selected
+        if (this.selectedDeliveryID) {
+          formData.deliveryID = this.selectedDeliveryID;
+        }
+        
+        const response = await deliveryService.assignDelivery(formData);
+        
+        if (response.success) {
+          // Show success message
+          this.$toast.success('Delivery assigned successfully');
+          
+          // Hide the modal
+          this.$refs.assignmentModal.hide();
+          
+          // Refresh the data
+          this.refreshAssignDeliveries();
+        } else {
+          this.$toast.error(response.message || 'Failed to assign delivery');
+        }
+      } catch (error) {
+        console.error('Error assigning delivery:', error);
+        this.$toast.error('An error occurred while assigning the delivery');
+      } finally {
+        this.assignmentLoading = false;
+      }
     },
     
     handleValidationError(message) {
@@ -700,10 +662,6 @@ export default {
         });
       }
     },
-
-      
-
-
     async fetchDeliveryStats() {
       try {
         const response = await deliveryService.getDeliveryStats();
@@ -718,12 +676,54 @@ export default {
       }
     },
     
-    async submitAssignment(formData) {
+    async refreshExecutionDeliveries() {
       try {
-        this.assignmentLoading = true;
+        this.executeDeliveriesLoading = true;
+        const response = await deliveryService.getExecutionDeliveries();
+        if (response.success) {
+          this.executionDeliveries = response.data;
+        } else {
+          this.error = response.message || 'Failed to load execution deliveries';
+        }
+      } catch (error) {
+        console.error('Error fetching execution deliveries:', error);
+        this.error = 'An error occurred while loading execution deliveries';
+      } finally {
+        this.executeDeliveriesLoading = false;
+      }
+    },
+    
+    async submitAssignment(formData) {
+      this.assignmentLoading = true;
+      
+      try {
+        console.log('Submitting assignment with data:', formData);
         
-        // Include from and to location information in the request
-        const response = await deliveryService.assignDelivery(formData);
+        // Prepare the data for the API call
+        const assignmentData = {
+          locationID: formData.locationID,
+          orderID: formData.orderID,
+          userID: formData.userID,
+          vehicleID: formData.vehicleID,
+          scheduledDate: formData.scheduledDate,
+          deliveryID: formData.deliveryID || null
+        };
+        
+        // If trips are available, include them
+        if (formData.trips && formData.trips.length > 0) {
+          assignmentData.trips = formData.trips;
+        }
+        
+        // Include fromLocation and toLocation if available
+        if (formData.fromLocation) {
+          assignmentData.fromLocation = formData.fromLocation;
+        }
+        
+        if (formData.toLocation) {
+          assignmentData.toLocation = formData.toLocation;
+        }
+        
+        const response = await deliveryService.assignDelivery(assignmentData);
         
         if (response.success) {
           // Reset the selected order info
@@ -768,46 +768,32 @@ export default {
         this.assignmentLoading = false;
       }
     },
-    
-    async openAssignmentModal(item) {
-      try {
-        console.log('Opening assignment modal for item:', item);
-        
-        // Get the location data directly from the item
-        const fromLocation = item.fromLocationID || item.locationID;
-        const toLocation = item.toLocationID;
-        
-        // Set the initial form data
-        this.assignmentForm = {
-          locationID: item.locationID,
-          orderID: item.orderID,
-          userID: '',
-          vehicleID: '',
-          scheduledDate: new Date().toISOString().split('T')[0],
-          checkIDs: item.checkIDs || [],
-          // Add from and to location directly from the item
-          fromLocation: fromLocation,
-          toLocation: toLocation,
-          deliveryID: this.selectedDeliveryID
-        };
-        
-        // We still set locationInfo for backward compatibility
-        this.locationInfo = {
-          from: { locationID: fromLocation },
-          to: { locationID: toLocation }
-        };
-        
-        // Show the modal
-        this.$refs.assignmentModal.show();
-      } catch (error) {
-        console.error('Error preparing assignment modal:', error);
-        showModal({
-          type: 'danger',
-          title: 'Error',
-          message: 'Failed to prepare assignment modal'
-        });
+    openCreateDeliveryModal() {
+      const modalElement = document.getElementById('deliveryFormModal');
+      if (modalElement) {
+        const bsModal = new bootstrap.Modal(modalElement);
+        bsModal.show();
+      } else {
+        console.error('Modal element not found with ID: deliveryFormModal');
       }
-    }
+    },
+    openAssignmentModal(orderInfo) {
+      // Store the selected order info
+      this.selectedOrderInfo = orderInfo;
+      
+      // Get the modal component and set the deliveryID
+      const assignmentModal = this.$refs.assignmentModal;
+      if (assignmentModal) {
+        assignmentModal.setDeliveryID(this.selectedDeliveryID);
+      }
+      
+      // Open the modal
+      const modalElement = document.getElementById('assignmentModal');
+      if (modalElement) {
+        const bsModal = new bootstrap.Modal(modalElement);
+        bsModal.show();
+      }
+    },
   }
 }
 </script>

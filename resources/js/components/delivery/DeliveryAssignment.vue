@@ -347,8 +347,19 @@ export default {
     
     getTripType(orderData) {
       if (!orderData) return null;
-      // console.dir("Get Trip Type: " + JSON.stringify(orderData,null, 4));
-      // Check if we have from and to locations
+      
+      // Check if we have trips with phase information
+      if (orderData.trips && orderData.trips.length > 0) {
+        const trip = orderData.trips[0]; // Use the first trip to determine type
+        
+        if (trip.phase === 1) {
+          return 'Supplier to Slaughterhouse';
+        } else if (trip.phase === 2) {
+          return 'Slaughterhouse to Customer';
+        }
+      }
+      
+      // If we have from and to locations
       if (orderData.from && orderData.to) {
         const fromLocationID = orderData.from.locationID;
         const toLocationID = orderData.to.locationID;
