@@ -52,7 +52,7 @@
     <!-- Two-column layout for Assign tab -->
     <div v-if="activeTab === 'assign'" class="row">
       <!-- Left column: List of created deliveries -->
-      <div class="col-md-4">
+      <div class="col-lg-4 col-md-12 mb-4">
         <CreatedDeliveriesList
           :deliveries="createdDeliveries"
           :loading="createdDeliveriesLoading"
@@ -71,7 +71,7 @@
       </div>
       
       <!-- Right column: DeliveryAssignment component -->
-      <div class="col-md-8">
+      <div class="col-lg-8 col-md-12">
         <!-- Update the DeliveryAssignment component -->
         <DeliveryAssignment 
           v-if="activeTab === 'assign'"

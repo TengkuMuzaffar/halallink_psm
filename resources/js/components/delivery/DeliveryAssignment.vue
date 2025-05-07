@@ -1,41 +1,19 @@
 <template>
   <div class="delivery-assignment">
     <div class="card">
-      <div class="card-header d-flex justify-content-between align-items-center">
+      <div class="card-header d-flex justify-content-between align-items-center theme-header">
         <h5 class="mb-0">Assign Deliveries</h5>
         <div class="d-flex">
-          <button class="btn btn-sm btn-outline-primary me-2" @click="$emit('refresh')">
+          <button class="btn btn-sm btn-outline-primary theme-btn-outline" @click="$emit('refresh')">
             <i class="fas fa-sync-alt"></i>
           </button>
-          <div class="location-filter-container">
-            <select 
-              class="form-select form-select-sm" 
-              v-model="localSelectedLocationID"
-              @change="$emit('change-location', localSelectedLocationID)"
-            >
-              <option value="">All Locations</option>
-              <optgroup label="Origin Locations">
-                <option v-for="location in fromLocations" :key="'from-'+location.locationID" :value="location.locationID">
-                  <i class="fas fa-arrow-right"></i> From: {{ location.company_address }}
-                </option>
-              </optgroup>
-              <optgroup label="Destination Locations">
-                <option v-for="location in toLocations" :key="'to-'+location.locationID" :value="location.locationID">
-                  <i class="fas fa-arrow-left"></i> To: {{ location.company_address }}
-                </option>
-              </optgroup>
-            </select>
-            <div class="location-filter-icon">
-              <i class="fas fa-map-marker-alt"></i>
-            </div>
-          </div>
         </div>
       </div>
       
       <div class="card-body p-0">
         <!-- Loading, error and empty states remain unchanged -->
         <div v-if="loading" class="p-4 text-center">
-          <div class="spinner-border text-primary" role="status">
+          <div class="spinner-border theme-spinner" role="status">
             <span class="visually-hidden">Loading...</span>
           </div>
           <p class="mt-2 text-muted">Loading delivery data...</p>
@@ -48,7 +26,7 @@
         </div>
         
         <div v-else-if="Object.keys(groupedDeliveries).length === 0" class="p-4 text-center">
-          <div class="alert alert-info mb-0">
+          <div class="alert theme-alert-info mb-0">
             <i class="fas fa-info-circle me-2"></i> No deliveries found for the selected criteria.
           </div>
         </div>
@@ -56,9 +34,9 @@
         <div v-else>
           <!-- Delivery Groups by Location -->
           <div v-for="(locationData, locationID) in groupedDeliveries" :key="locationID" class="location-group">
-            <div class="location-header p-3 border-bottom bg-light">
+            <div class="location-header p-3 border-bottom theme-location-header">
               <h5 class="mb-0">
-                <i class="fas fa-map-marker-alt me-2 text-primary"></i>
+                <i class="fas fa-map-marker-alt me-2 theme-icon"></i>
                 {{ getLocationName(locationID) || locationData.company_address || 'Unknown Location' }}
               </h5>
             </div>
@@ -70,7 +48,7 @@
             
             <div v-else class="order-list">
               <div v-for="(orderData, orderID) in locationData.orders" :key="orderID" class="order-item border-bottom">
-                <div class="order-header p-3 d-flex justify-content-between align-items-center" 
+                <div class="order-header p-3 d-flex justify-content-between align-items-center flex-wrap" 
                      @click="$emit('toggle-details', locationID, orderID)">
                   <div>
                     <h6 class="mb-1">Order #{{ orderID }}</h6>
@@ -79,41 +57,31 @@
                         {{ orderData.items.length }} items | 
                         {{ calculateTotalMeasurement(orderData.items) }} kg
                       </span>
-                      <!-- Removed the From/To location display div -->
-                      <!-- 
-                      <div class="ms-2 d-flex align-items-center" v-if="orderData.from && orderData.to">
-                        <span class="badge bg-secondary me-1">From:</span>
-                        <span class="me-2">{{ getLocationAddress(orderData.from) }}</span>
-                        <i class="fas fa-arrow-right mx-1"></i>
-                        <span class="badge bg-secondary me-1">To:</span>
-                        <span>{{ getLocationAddress(orderData.to) }}</span>
-                      </div> 
-                      -->
                     </div>
                   </div>
-                  <div class="d-flex align-items-center">
-                    <span class="badge bg-primary me-2">
+                  <div class="d-flex align-items-center order-actions mt-2 mt-sm-0">
+                    <span class="badge theme-badge-primary me-2">
                       {{ orderData.status || 'Pending' }}
                     </span>
-                    <span class="badge bg-info me-3" v-if="getTripType(orderData)">
+                    <span class="badge theme-badge-secondary me-2" v-if="getTripType(orderData)">
                       {{ getTripType(orderData) }}
                     </span>
                     <button 
-                      class="btn btn-sm btn-primary"
+                      class="btn btn-sm theme-btn-primary"
                       :disabled="!selectedDeliveryID"
                       @click.stop="$emit('assign-delivery', locationID, orderID)"
                     >
-                      <i class="fas fa-truck me-1"></i> Assign
+                      <i class="fas fa-truck me-1 d-none d-sm-inline"></i> Assign
                     </button>
-                    <i class="fas" :class="isOrderExpanded(locationID, orderID) ? 'fa-chevron-up ms-3' : 'fa-chevron-down ms-3'"></i>
+                    <i class="fas ms-2 theme-icon" :class="isOrderExpanded(locationID, orderID) ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
                   </div>
                 </div>
                 
                 <!-- Order Details (Expanded) - Only showing items -->
-                <div v-if="isOrderExpanded(locationID, orderID)" class="order-details p-3 bg-light">
+                <div v-if="isOrderExpanded(locationID, orderID)" class="order-details p-3 theme-details-bg">
                   <!-- Order Items -->
                   <div class="card mb-0">
-                    <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                    <div class="card-header theme-card-header d-flex justify-content-between align-items-center">
                       <div>
                         <i class="fas fa-box me-2"></i> Order Items
                       </div>
@@ -123,7 +91,7 @@
                     </div>
                     <div class="card-body p-0">
                       <div class="table-responsive">
-                        <table class="table table-striped table-hover mb-0">
+                        <table class="table table-striped table-hover mb-0 theme-table">
                           <thead>
                             <tr>
                               <th>Item</th>
@@ -143,7 +111,7 @@
                             </tr>
                           </tbody>
                           <tfoot>
-                            <tr class="fw-bold">
+                            <tr class="fw-bold theme-table-footer">
                               <td colspan="4" class="text-end">Total:</td>
                               <td>RM {{ formatPrice(calculateOrderTotal(orderData.items)) }}</td>
                             </tr>
@@ -161,7 +129,7 @@
         <!-- Pagination -->
         <div v-if="pagination && pagination.last_page > 1" class="d-flex justify-content-center p-3">
           <nav aria-label="Page navigation">
-            <ul class="pagination mb-0">
+            <ul class="pagination mb-0 theme-pagination">
               <li class="page-item" :class="{ disabled: pagination.current_page === 1 }">
                 <a class="page-link" href="#" @click.prevent="$emit('change-page', pagination.current_page - 1)">
                   <i class="fas fa-chevron-left"></i>
@@ -235,23 +203,6 @@ export default {
     return {
       localSelectedLocationID: this.selectedLocationID
     };
-  },
-  computed: {
-    // Filter locations into from/to categories
-    fromLocations() {
-      return this.locations.filter(location => 
-        location.location_type === 'farm' || 
-        location.location_type === 'slaughterhouse' || 
-        location.location_type === 'processing'
-      );
-    },
-    toLocations() {
-      return this.locations.filter(location => 
-        location.location_type === 'distribution' || 
-        location.location_type === 'retail' || 
-        location.location_type === 'customer'
-      );
-    }
   },
   watch: {
     selectedLocationID(newVal) {
@@ -421,13 +372,14 @@ export default {
 </script>
 
 <style scoped>
+/* Base styles */
 .location-header {
   background-color: #f8f9fa;
   border-bottom: 1px solid #dee2e6;
 }
 
 .order-item:hover {
-  background-color: rgba(0, 0, 0, 0.02);
+  background-color: rgba(62, 123, 39, 0.05);
 }
 
 .order-header {
@@ -438,7 +390,159 @@ export default {
   background-color: #f8f9fa;
 }
 
-/* New styles for the location filter */
+/* Theme colors */
+.theme-header {
+  background-color: #123524;
+  color: #EFE3C2;
+  border-bottom: none;
+}
+
+.theme-btn-outline {
+  color: #EFE3C2;
+  border-color: #EFE3C2;
+  background-color: transparent;
+}
+
+.theme-btn-outline:hover {
+  color: #123524;
+  background-color: #EFE3C2;
+  border-color: #EFE3C2;
+}
+
+.theme-btn-primary {
+  background-color: #123524;
+  border-color: #123524;
+  color: #EFE3C2;
+}
+
+.theme-btn-primary:hover {
+  background-color: #0a1f16;
+  border-color: #0a1f16;
+  color: #EFE3C2;
+}
+
+.theme-btn-primary:disabled {
+  background-color: rgba(18, 53, 36, 0.65);
+  border-color: rgba(18, 53, 36, 0.65);
+}
+
+.theme-badge-primary {
+  background-color: #123524;
+  color: #EFE3C2;
+}
+
+.theme-badge-secondary {
+  background-color: #3E7B27;
+  color: #EFE3C2;
+}
+
+.theme-icon {
+  color: #3E7B27;
+}
+
+.theme-location-header {
+  background-color: rgba(18, 53, 36, 0.1);
+  border-bottom: 1px solid rgba(18, 53, 36, 0.2);
+  color: #123524;
+}
+
+.theme-details-bg {
+  background-color: rgba(239, 227, 194, 0.3);
+}
+
+.theme-card-header {
+  background-color: #3E7B27;
+  color: #EFE3C2;
+  border-bottom: none;
+}
+
+.theme-alert-info {
+  background-color: rgba(239, 227, 194, 0.5);
+  color: #123524;
+  border-color: rgba(18, 53, 36, 0.2);
+}
+
+.theme-spinner {
+  color: #3E7B27;
+}
+
+/* Table styles */
+.theme-table thead {
+  background-color: rgba(18, 53, 36, 0.1);
+}
+
+.theme-table thead th {
+  color: #123524;
+  border-bottom: 2px solid #3E7B27;
+}
+
+.theme-table tbody tr:nth-child(odd) {
+  background-color: rgba(239, 227, 194, 0.2);
+}
+
+.theme-table tbody tr:nth-child(even) {
+  background-color: rgba(239, 227, 194, 0.1);
+}
+
+.theme-table-footer {
+  background-color: rgba(18, 53, 36, 0.1);
+  color: #123524;
+}
+
+/* Pagination styles */
+.theme-pagination .page-link {
+  color: #123524;
+  border-color: rgba(18, 53, 36, 0.2);
+}
+
+.theme-pagination .page-item.active .page-link {
+  background-color: #123524;
+  border-color: #123524;
+  color: #EFE3C2;
+}
+
+.theme-pagination .page-item.disabled .page-link {
+  color: rgba(18, 53, 36, 0.5);
+}
+
+.theme-pagination .page-link:hover {
+  background-color: rgba(18, 53, 36, 0.1);
+  color: #123524;
+}
+
+/* Responsive styles for order actions */
+.order-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 576px) {
+  .order-actions {
+    margin-top: 0.5rem;
+    width: 100%;
+    justify-content: flex-end;
+  }
+  
+  .order-actions .badge {
+    font-size: 0.7rem;
+  }
+  
+  .order-actions .btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+  }
+}
+
+/* Table responsive styles */
+@media (max-width: 768px) {
+  .table th, .table td {
+    padding: 0.5rem;
+    font-size: 0.85rem;
+  }
+}
+
+/* Location filter styles - keeping for reference but not using */
 .location-filter-container {
   position: relative;
   min-width: 220px;
@@ -446,8 +550,7 @@ export default {
 
 .location-filter-container select {
   padding-left: 30px;
-  /* appearance: auto; */ /* Remove or comment out this line */
-  width: 100%; /* Keep this for responsiveness */
+  width: 100%;
 }
 
 .location-filter-icon {
@@ -459,18 +562,18 @@ export default {
   pointer-events: none;
 }
 
-/* Style for optgroup */
-::v-deep optgroup {
+/* Style for optgroup - keeping for reference but not using */
+:deep(optgroup) {
   font-weight: bold;
-  color: #495057;
-  background-color: #f8f9fa;
+  color: #123524;
+  background-color: rgba(239, 227, 194, 0.5);
 }
 
-::v-deep option {
+:deep(option) {
   padding: 8px 12px;
 }
 
-::v-deep option:hover {
-  background-color: #e9ecef;
+:deep(option:hover) {
+  background-color: rgba(18, 53, 36, 0.1);
 }
 </style>

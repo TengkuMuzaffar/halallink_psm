@@ -173,7 +173,7 @@
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
           <button 
             type="button" 
-            class="btn btn-primary" 
+            class="btn theme-btn-primary" 
             @click="validateAndSubmit"
             :disabled="loading"
           >
@@ -373,7 +373,8 @@ export default {
 /* Color theme */
 :root {
   --primary-color: #123524;
-  --secondary-color: #3E7B27;
+  --secondary-color: #EFE3C2;
+  --accent-color: #3E7B27;
   --text-color: #666;
 }
 
@@ -391,6 +392,31 @@ export default {
 .status-badge {
   background-color: #00BCD4;
   color: white;
+}
+
+/* Button theme */
+.theme-btn-primary {
+  background-color: #123524;
+  border-color: #123524;
+  color: #EFE3C2;
+  transition: all 0.3s ease;
+}
+
+.theme-btn-primary:hover {
+  background-color: #0a1f16;
+  border-color: #0a1f16;
+  color: #EFE3C2;
+}
+
+.theme-btn-primary:focus {
+  box-shadow: 0 0 0 0.25rem rgba(18, 53, 36, 0.25);
+  color: #EFE3C2;
+}
+
+.theme-btn-primary:disabled {
+  background-color: rgba(18, 53, 36, 0.6);
+  border-color: rgba(18, 53, 36, 0.6);
+  color: rgba(239, 227, 194, 0.7);
 }
 
 /* Timeline styles */

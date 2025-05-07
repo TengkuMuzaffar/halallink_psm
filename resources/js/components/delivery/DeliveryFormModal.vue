@@ -1,27 +1,27 @@
 <template>
   <div class="modal fade" id="deliveryFormModal" tabindex="-1" aria-labelledby="deliveryFormModalLabel" aria-hidden="true">
     <div class="modal-dialog">
-      <div class="modal-content">
-        <div class="modal-header">
+      <div class="modal-content theme-modal">
+        <div class="modal-header theme-header">
           <h5 class="modal-title" id="deliveryFormModalLabel">Create Delivery</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          <button type="button" class="btn-close theme-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
-        <div class="modal-body">
+        <div class="modal-body theme-body">
           <div v-if="loading" class="text-center p-4">
-            <div class="spinner-border text-primary" role="status">
+            <div class="spinner-border theme-spinner" role="status">
               <span class="visually-hidden">Loading...</span>
             </div>
-            <p class="mt-2">Processing...</p>
+            <p class="mt-2 theme-text">Processing...</p>
           </div>
           <form v-else @submit.prevent="validateAndSubmit">
             <!-- Scheduled Date -->
             <div class="form-group mb-3">
-              <label for="scheduled_date" class="form-label">Scheduled Date</label>
+              <label for="scheduled_date" class="form-label theme-label">Scheduled Date</label>
               <input 
                 type="date" 
                 id="scheduled_date" 
                 v-model="formData.scheduled_date" 
-                class="form-control"
+                class="form-control theme-input"
                 :min="minDate"
                 @change="onDateChange"
                 required
@@ -33,8 +33,8 @@
             
             <!-- Driver Selection -->
             <div class="form-group mb-3">
-              <label for="driver" class="form-label">Driver</label>
-              <select id="driver" v-model="formData.userID" class="form-select" :disabled="!formData.scheduled_date" required>
+              <label for="driver" class="form-label theme-label">Driver</label>
+              <select id="driver" v-model="formData.userID" class="form-select theme-select" :disabled="!formData.scheduled_date" required>
                 <option value="">Select Driver</option>
                 <option v-for="driver in drivers" 
                         :key="driver.userID" 
@@ -52,8 +52,8 @@
             
             <!-- Vehicle Selection -->
             <div class="form-group mb-3">
-              <label for="vehicle" class="form-label">Vehicle</label>
-              <select id="vehicle" v-model="formData.vehicleID" class="form-select" :disabled="!formData.scheduled_date" required>
+              <label for="vehicle" class="form-label theme-label">Vehicle</label>
+              <select id="vehicle" v-model="formData.vehicleID" class="form-select theme-select" :disabled="!formData.scheduled_date" required>
                 <option value="">Select Vehicle</option>
                 <option v-for="vehicle in vehicles" 
                         :key="vehicle.vehicleID" 
@@ -70,11 +70,11 @@
             </div>
           </form>
         </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <div class="modal-footer theme-footer">
+          <button type="button" class="btn theme-btn-secondary" data-bs-dismiss="modal">Cancel</button>
           <button 
             type="button" 
-            class="btn btn-primary" 
+            class="btn theme-btn-primary" 
             @click="validateAndSubmit"
             :disabled="loading || !isFormValid"
           >
@@ -274,12 +274,131 @@ export default {
   max-width: 500px;
 }
 
-.form-label {
-  font-weight: 500;
+/* Theme colors */
+.theme-modal {
+  --primary-color: #123524;
+  --secondary-color: #EFE3C2;
+  --accent-color: #3E7B27;
+  --text-color: #333;
+  --light-text: #666;
+  --border-color: rgba(18, 53, 36, 0.2);
+  --light-bg: rgba(239, 227, 194, 0.2);
+  --lighter-bg: rgba(239, 227, 194, 0.1);
+  
+  border: none;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+  background-color: #fff;
 }
 
-.form-select, .form-control {
+/* Header */
+.theme-header {
+  background-color: var(--primary-color);
+  color: var(--secondary-color);
+  border-bottom: none;
+}
+
+.theme-close {
+  color: var(--secondary-color);
+  opacity: 0.8;
+  filter: invert(1) brightness(1.5);
+}
+
+.theme-close:hover {
+  opacity: 1;
+}
+
+/* Body */
+.theme-body {
+  background-color: #fff;
+  color: var(--text-color);
+}
+
+.theme-text {
+  color: var(--text-color);
+}
+
+.theme-spinner {
+  color: var(--accent-color);
+}
+
+/* Footer */
+.theme-footer {
+  background-color: var(--light-bg);
+  border-top: 1px solid var(--border-color);
+}
+
+/* Form elements */
+.theme-label {
+  font-weight: 500;
+  color: var(--primary-color);
+}
+
+.theme-input, .theme-select {
   padding: 0.5rem 0.75rem;
   border-radius: 0.375rem;
+  border-color: var(--border-color);
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.theme-input:focus, .theme-select:focus {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 0.25rem rgba(62, 123, 39, 0.25);
+}
+
+.theme-input:disabled, .theme-select:disabled {
+  background-color: var(--lighter-bg);
+  opacity: 0.7;
+}
+
+/* Buttons */
+.theme-btn-primary {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+  color: var(--secondary-color);
+  transition: all 0.3s ease;
+}
+
+.theme-btn-primary:hover {
+  background-color: #0a1f16;
+  border-color: #0a1f16;
+  color: var(--secondary-color);
+}
+
+.theme-btn-primary:focus {
+  box-shadow: 0 0 0 0.25rem rgba(18, 53, 36, 0.25);
+  color: var(--secondary-color);
+}
+
+.theme-btn-primary:disabled {
+  background-color: rgba(18, 53, 36, 0.6);
+  border-color: rgba(18, 53, 36, 0.6);
+  color: rgba(239, 227, 194, 0.7);
+}
+
+.theme-btn-secondary {
+  background-color: #6c757d;
+  border-color: #6c757d;
+  color: white;
+  transition: all 0.3s ease;
+}
+
+.theme-btn-secondary:hover {
+  background-color: #5a6268;
+  border-color: #5a6268;
+  color: white;
+}
+
+.theme-btn-secondary:focus {
+  box-shadow: 0 0 0 0.25rem rgba(108, 117, 125, 0.25);
+}
+
+/* Error states */
+.text-danger {
+  color: #dc3545 !important;
+}
+
+/* Hover effects for interactive elements */
+.theme-input:hover:not(:disabled), .theme-select:hover:not(:disabled) {
+  border-color: var(--accent-color);
 }
 </style>
