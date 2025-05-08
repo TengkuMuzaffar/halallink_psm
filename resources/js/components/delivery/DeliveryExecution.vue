@@ -128,10 +128,8 @@ export default {
       drivers: [],
       selectedDelivery: null,
       qrCodeUrl: '',
-      columns: [ // Define columns for the ResponsiveTable
+      columns: [ // Updated columns to match the requested structure
         { key: 'deliveryID', label: 'ID', sortable: true, class: 'text-nowrap' },
-        { key: 'from_address', label: 'From', sortable: true },
-        { key: 'to_address', label: 'To', sortable: true },
         { key: 'driver_name', label: 'Driver', sortable: true },
         { key: 'vehicle_plate', label: 'Vehicle', sortable: true, class: 'text-nowrap' },
         { key: 'scheduledDateDisplay', label: 'Scheduled', sortable: true, class: 'text-nowrap' },
@@ -144,33 +142,55 @@ export default {
       let deliveriesArray = Object.values(this.deliveries);
       
       if (this.statusFilter) {
-        deliveriesArray = deliveriesArray.filter(d => d.status === this.statusFilter);
+        deliveriesArray = deliveriesArray.filter(d => {
+          if (this.statusFilter === 'pending') {
+            return !d.start_timestamp && !d.arrive_timestamp;
+          } else if (this.statusFilter === 'in_progress') {
+            return d.start_timestamp && !d.arrive_timestamp;
+          } else if (this.statusFilter === 'completed') {
+            return d.arrive_timestamp;
+          } else if (this.statusFilter === 'failed') {
+            return d.status === 'failed';
+          }
+          return d.status === this.statusFilter;
+        });
       }
       
       if (this.dateFilter) {
         deliveriesArray = deliveriesArray.filter(d => {
-          // Ensure d.scheduledDate is valid before creating a Date object
-          if (!d.scheduledDate) return false;
-          const deliveryDate = new Date(d.scheduledDate).toISOString().split('T')[0];
+          // Ensure d.scheduled_date is valid before creating a Date object
+          if (!d.scheduled_date) return false;
+          const deliveryDate = new Date(d.scheduled_date).toISOString().split('T')[0];
           return deliveryDate === this.dateFilter;
         });
       }
       
       if (this.driverFilter) {
-        deliveriesArray = deliveriesArray.filter(d => d.driver?.userID === this.driverFilter);
+        deliveriesArray = deliveriesArray.filter(d => d.userID === this.driverFilter);
       }
       
       // Map deliveries to include properties expected by the columns
-      return deliveriesArray.map(d => ({
-        ...d, // Spread original delivery object in case slots need more data
-        deliveryID: d.deliveryID,
-        from_address: d.from?.company_address || 'N/A',
-        to_address: d.to?.company_address || 'N/A',
-        driver_name: d.driver?.name || 'N/A',
-        vehicle_plate: d.vehicle?.vehicle_plate || 'N/A',
-        scheduledDateDisplay: this.formatDate(d.scheduledDate), // Use your existing formatDate method
-        // 'status' is already on 'd' and will be handled by the #status slot
-      }));
+      return deliveriesArray.map(d => {
+        // Determine status based on timestamps
+        let status = 'pending';
+        if (d.arrive_timestamp) {
+          status = 'completed';
+        } else if (d.start_timestamp) {
+          status = 'in_progress';
+        } else if (d.status) {
+          status = d.status;
+        }
+        
+        return {
+          ...d, // Spread original delivery object in case slots need more data
+          deliveryID: d.deliveryID,
+          driver_name: d.driver_name || 'N/A',
+          vehicle_plate: d.vehicle_plate || 'N/A',
+          scheduledDate: d.scheduled_date,
+          scheduledDateDisplay: this.formatDate(d.scheduled_date),
+          status: status
+        };
+      });
     }
   },
   mounted() {
@@ -180,6 +200,7 @@ export default {
     async fetchDrivers() {
       try {
         const response = await fetchData('/api/users/drivers');
+        console.log("Driver Execution"+response);
         if (response.success) {
           this.drivers = response.data;
         }
@@ -212,7 +233,7 @@ export default {
     },
     
     getThemeStatusClass(status) {
-      switch (status?.toLowerCase()) {
+      switch (status) {
         case 'completed':
           return 'theme-badge-success';
         case 'in_progress':
@@ -229,18 +250,148 @@ export default {
     viewDelivery(delivery) {
       this.selectedDelivery = delivery;
       
+      // Build trips HTML content
+      let tripsContent = '';
+      
+      if (delivery.trips && Object.keys(delivery.trips).length > 0) {
+        tripsContent = `
+          <div class="mt-4">
+            <h6 class="mb-3">Trip Details</h6>
+            <div class="accordion" id="tripsAccordion">
+        `;
+        
+        Object.entries(delivery.trips).forEach(([tripID, trip], index) => {
+          const startLocation = trip.start_location ? trip.start_location.company_address : 'N/A';
+          const endLocation = trip.end_location ? trip.end_location.company_address : 'N/A';
+          
+          tripsContent += `
+            <div class="accordion-item">
+              <h2 class="accordion-header" id="trip-heading-${tripID}">
+                <button class="accordion-button ${index > 0 ? 'collapsed' : ''}" type="button" data-bs-toggle="collapse" 
+                  data-bs-target="#trip-collapse-${tripID}" aria-expanded="${index === 0 ? 'true' : 'false'}" 
+                  aria-controls="trip-collapse-${tripID}">
+                  Trip #${tripID}: ${startLocation} → ${endLocation}
+                </button>
+              </h2>
+              <div id="trip-collapse-${tripID}" class="accordion-collapse collapse ${index === 0 ? 'show' : ''}" 
+                aria-labelledby="trip-heading-${tripID}" data-bs-parent="#tripsAccordion">
+                <div class="accordion-body">
+                  <div class="mb-3">
+                    <strong>From:</strong> ${startLocation}<br>
+                    <strong>To:</strong> ${endLocation}
+                  </div>
+          `;
+          
+          // Add items if available
+          if (trip.items && Object.keys(trip.items).length > 0) {
+            tripsContent += `
+              <div class="mb-3">
+                <h6 class="mb-2">Items</h6>
+                <div class="table-responsive">
+                  <table class="table table-sm table-bordered">
+                    <thead>
+                      <tr>
+                        <th>Item ID</th>
+                        <th>Measurement</th>
+                        <th>Quantity</th>
+                        <th>Price</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            Object.values(trip.items).forEach(item => {
+              tripsContent += `
+                <tr>
+                  <td>${item.itemID}</td>
+                  <td>${item.measurement_value} ${item.measurement_type}</td>
+                  <td>${item.quantity}</td>
+                  <td>RM ${item.price_at_purchase || item.price}</td>
+                </tr>
+              `;
+            });
+            
+            tripsContent += `
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            `;
+          } else {
+            tripsContent += `<p>No items found for this trip.</p>`;
+          }
+          
+          // Add verifications if available
+          if (trip.verifies && Object.keys(trip.verifies).length > 0) {
+            tripsContent += `
+              <div>
+                <h6 class="mb-2">Verifications</h6>
+                <div class="table-responsive">
+                  <table class="table table-sm table-bordered">
+                    <thead>
+                      <tr>
+                        <th>Verify ID</th>
+                        <th>Status</th>
+                        <th>Comment</th>
+                        <th>Date</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            Object.values(trip.verifies).forEach(verify => {
+              const verifyDate = verify.created_at ? new Date(verify.created_at).toLocaleString() : 'N/A';
+              tripsContent += `
+                <tr>
+                  <td>${verify.verifyID}</td>
+                  <td>${verify.verify_status || 'Pending'}</td>
+                  <td>${verify.verify_comment || 'No comment'}</td>
+                  <td>${verifyDate}</td>
+                </tr>
+              `;
+            });
+            
+            tripsContent += `
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            `;
+          } else {
+            tripsContent += `<p>No verifications found for this trip.</p>`;
+          }
+          
+          tripsContent += `
+                </div>
+              </div>
+            </div>
+          `;
+        });
+        
+        tripsContent += `
+            </div>
+          </div>
+        `;
+      } else {
+        tripsContent = `<p class="mt-3">No trips found for this delivery.</p>`;
+      }
+      
       modalUtil.showModal({
         type: 'info',
         title: `Delivery Details - #${delivery.deliveryID}`,
         message: `
           <div>
-            <p><strong>From:</strong> ${delivery.from?.company_address || 'N/A'}</p>
-            <p><strong>To:</strong> ${delivery.to?.company_address || 'N/A'}</p>
-            <p><strong>Driver:</strong> ${delivery.driver?.name || 'N/A'}</p>
-            <p><strong>Vehicle:</strong> ${delivery.vehicle?.vehicle_plate || 'N/A'}</p>
-            <p><strong>Scheduled Date:</strong> ${this.formatDate(delivery.scheduledDate)}</p>
-            <p><strong>Status:</strong> ${delivery.status || 'Pending'}</p>
-            <p><strong>Notes:</strong> ${delivery.notes || 'No notes'}</p>
+            <div class="row">
+              <div class="col-md-6">
+                <p><strong>Driver:</strong> ${delivery.driver_name || 'N/A'}</p>
+                <p><strong>Vehicle:</strong> ${delivery.vehicle_plate || 'N/A'}</p>
+              </div>
+              <div class="col-md-6">
+                <p><strong>Scheduled Date:</strong> ${this.formatDate(delivery.scheduled_date)}</p>
+                <p><strong>Status:</strong> ${delivery.status || 'Pending'}</p>
+              </div>
+            </div>
+            ${tripsContent}
           </div>
         `,
         buttons: [
@@ -389,6 +540,29 @@ export default {
         console.error('Error updating delivery status:', error);
         modalUtil.showDanger('Error', error.message || 'An unexpected error occurred');
       }
+    }
+  },
+  watch: {
+    statusFilter() {
+      this.$emit('filter-changed', {
+        status: this.statusFilter,
+        date: this.dateFilter,
+        driver: this.driverFilter
+      });
+    },
+    dateFilter() {
+      this.$emit('filter-changed', {
+        status: this.statusFilter,
+        date: this.dateFilter,
+        driver: this.driverFilter
+      });
+    },
+    driverFilter() {
+      this.$emit('filter-changed', {
+        status: this.statusFilter,
+        date: this.dateFilter,
+        driver: this.driverFilter
+      });
     }
   }
 }

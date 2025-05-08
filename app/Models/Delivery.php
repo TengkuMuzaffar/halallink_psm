@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Delivery extends Model
 {
+    use HasFactory;
+
     protected $primaryKey = 'deliveryID';
-    
+
     protected $fillable = [
         'userID',
         'vehicleID',
@@ -15,69 +18,36 @@ class Delivery extends Model
         'start_timestamp',
         'arrive_timestamp'
     ];
-    
+
     protected $casts = [
+        'scheduled_date' => 'date',
         'start_timestamp' => 'datetime',
         'arrive_timestamp' => 'datetime',
-        'scheduled_date' => 'date'
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime'
     ];
 
+    /**
+     * Get the user associated with the delivery.
+     */
     public function user()
     {
         return $this->belongsTo(User::class, 'userID', 'userID');
     }
 
+    /**
+     * Get the vehicle associated with the delivery.
+     */
     public function vehicle()
     {
         return $this->belongsTo(Vehicle::class, 'vehicleID', 'vehicleID');
     }
-    
-    /**
-     * Check if delivery is completed
-     */
-    public function isCompleted()
-    {
-        return $this->arrive_timestamp !== null;
-    }
 
     /**
-     * Check if delivery is in progress
+     * Get the trips associated with the delivery.
      */
-    public function isInProgress()
+    public function trips()
     {
-        return $this->start_timestamp !== null && $this->arrive_timestamp === null;
-    }
-    
-    /**
-     * Get the verifications associated with this delivery.
-     */
-    public function verifies()
-    {
-        return $this->hasMany(Verify::class, 'deliveryID', 'deliveryID');
-    }
-    
-    /**
-     * Get the checkpoints associated with this delivery.
-     * Using the Trip model as an intermediary to find checkpoints
-     */
-    public function checkpoints()
-    {
-        return $this->hasManyThrough(
-            Checkpoint::class,
-            Trip::class,
-            'deliveryID', // Foreign key on trips table
-            'checkID',    // Foreign key on checkpoints table
-            'deliveryID', // Local key on deliveries table
-            'start_checkID' // Local key on trips table
-        )->union(
-            $this->hasManyThrough(
-                Checkpoint::class,
-                Trip::class,
-                'deliveryID', // Foreign key on trips table
-                'checkID',    // Foreign key on checkpoints table
-                'deliveryID', // Local key on deliveries table
-                'end_checkID' // Local key on trips table
-            )
-        );
+        return $this->hasMany(Trip::class, 'deliveryID', 'deliveryID');
     }
 }

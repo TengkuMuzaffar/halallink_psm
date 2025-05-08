@@ -2,9 +2,9 @@
   <div class="modal fade" id="assignmentModal" tabindex="-1" aria-labelledby="assignmentModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
       <div class="modal-content">
-        <div class="modal-header">
+        <div class="modal-header theme-header">
           <h5 class="modal-title" id="assignmentModalLabel">Assign Delivery</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          <button type="button" class="btn-close theme-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
           <div v-if="loading" class="text-center p-4">
@@ -371,6 +371,8 @@ export default {
 
 <style scoped>
 /* Color theme */
+/* It's generally better to define CSS variables on a component's root element or a specific class like .theme-modal 
+   rather than :root in scoped styles, but we'll add specific styles for the header below. */
 :root {
   --primary-color: #123524;
   --secondary-color: #EFE3C2;
@@ -418,6 +420,33 @@ export default {
   border-color: rgba(18, 53, 36, 0.6);
   color: rgba(239, 227, 194, 0.7);
 }
+
+/* NEW STYLES FOR MODAL HEADER */
+.theme-header {
+  background-color: #123524;
+  color: #EFE3C2;
+  border-bottom: none; /* To match the style of DeliveryFormModal */
+}
+
+.theme-header .modal-title {
+  color: #EFE3C2; /* Ensure the title text color is explicitly set */
+}
+
+.theme-close {
+  /* For Bootstrap 5's SVG close button, filter is used to change color */
+  filter: invert(1) brightness(1.5) sepia(1) hue-rotate(180deg) saturate(5); /* Adjusted to make it appear as #EFE3C2 */
+  /* A simpler filter if the above is too complex or doesn't render #EFE3C2 well:
+     filter: brightness(0) invert(1); then adjust opacity or use background-image with SVG fill.
+     Given #EFE3C2 is a light color, making the default dark 'X' light:
+  */
+   filter: brightness(0) saturate(100%) invert(91%) sepia(15%) saturate(548%) hue-rotate(349deg) brightness(99%) contrast(91%); /* This filter aims for #EFE3C2 */
+
+}
+
+.theme-close:hover {
+  opacity: 1;
+}
+/* END NEW STYLES FOR MODAL HEADER */
 
 /* Timeline styles */
 .timeline {

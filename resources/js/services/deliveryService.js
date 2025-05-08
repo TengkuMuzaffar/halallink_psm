@@ -217,7 +217,7 @@ const deliveryService = {
    * @returns {Promise} - API response
    */
   async getExecutionDeliveries(params = {}) {
-    return fetchData('/api/deliveries/execution', {
+    return fetchData('/api/deliveries/get/execution', {
       params
     });
   },

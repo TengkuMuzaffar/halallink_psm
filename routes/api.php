@@ -122,6 +122,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/deliveries/assign', [App\Http\Controllers\Api\DeliveryController::class, 'assignDelivery']);
         Route::put('/deliveries/{deliveryID}/status', [App\Http\Controllers\Api\DeliveryController::class, 'updateDeliveryStatus']);
         
+        // Add the new route for execution deliveries
+        Route::get('/deliveries/get/execution', [App\Http\Controllers\Api\ExecuteDeliveriesController::class, 'index']);
+        
         // Location routes for delivery
         Route::get('/locations', [App\Http\Controllers\Api\LocationController::class, 'index']);
         Route::get('/users/get/drivers', [App\Http\Controllers\Api\DeliveryController::class, 'getDrivers']);

@@ -40,14 +40,14 @@
     </div>
 
     <!-- Display error message for assign tab -->
-    <div v-if="activeTab === 'assign' && assignError" class="alert alert-danger mb-4" role="alert">
+    <!-- <div v-if="activeTab === 'assign' && assignError" class="alert alert-danger mb-4" role="alert">
       <i class="fas fa-exclamation-triangle me-2"></i> {{ assignError }}
-    </div>
+    </div> -->
 
     <!-- Display error message for execute tab -->
-    <div v-if="activeTab === 'execute' && executeError" class="alert alert-danger mb-4" role="alert">
+    <!-- <div v-if="activeTab === 'execute' && executeError" class="alert alert-danger mb-4" role="alert">
       <i class="fas fa-exclamation-triangle me-2"></i> {{ executeError }}
-    </div>
+    </div> -->
     
     <!-- Two-column layout for Assign tab -->
     <div v-if="activeTab === 'assign'" class="row">
@@ -95,11 +95,13 @@
 
     <!-- Add this section for Execute tab -->
     <div v-if="activeTab === 'execute'">
-      <DeliveryExecution
+      <DeliveryExecution 
+        v-if="activeTab === 'execute'"
+        :deliveries="executionDeliveries"
         :loading="executeDeliveriesLoading"
         :error="executeError"
-        :deliveries="executionDeliveries"
         @refresh="refreshExecutionDeliveries"
+        @filter-changed="handleExecutionFilterChange"
       />
     </div>
     <!-- Assign Delivery Modal Component -->
@@ -679,20 +681,26 @@ export default {
     async refreshExecutionDeliveries() {
       try {
         this.executeDeliveriesLoading = true;
+        this.executeError = null; // Reset error before fetching
+        
         const response = await deliveryService.getExecutionDeliveries();
+        
         if (response.success) {
           this.executionDeliveries = response.data;
         } else {
-          this.error = response.message || 'Failed to load execution deliveries';
+          this.executeError = response.message || 'Failed to load execution deliveries';
         }
       } catch (error) {
         console.error('Error fetching execution deliveries:', error);
-        this.error = 'An error occurred while loading execution deliveries';
+        this.executeError = 'An error occurred while loading execution deliveries. Please try again later.';
       } finally {
         this.executeDeliveriesLoading = false;
       }
     },
     
+    handleExecutionFilterChange(filters) {
+      this.refreshExecutionDeliveries(filters);
+    },
     async submitAssignment(formData) {
       this.assignmentLoading = true;
       
