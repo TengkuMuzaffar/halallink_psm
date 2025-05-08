@@ -46,8 +46,23 @@ class Delivery extends Model
     /**
      * Get the trips associated with the delivery.
      */
-    public function trips()
+    public function verifies()
+    {
+        return $this->hasMany(Verify::class, 'deliveryID', 'deliveryID');
+    }
+    
+    /**
+     * Get the checkpoints associated with this delivery.
+     * Using the Trip model as an intermediary to find checkpoints
+     */
+    public function checkpoints()
     {
         return $this->hasMany(Trip::class, 'deliveryID', 'deliveryID');
     }
+    
+    public function trips()
+    {
+        return $this->belongsTo(Trip::class, 'deliveryID', 'deliveryID');
+    }
+
 }
