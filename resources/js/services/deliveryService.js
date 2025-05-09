@@ -221,6 +221,20 @@ const deliveryService = {
       params
     });
   },
+  
+  /**
+   * Start a delivery
+   * @param {Number} deliveryID - Delivery ID
+   * @returns {Promise} - API response
+   */
+  async startDelivery(deliveryID) {
+    return fetchData(`/api/deliveries/${deliveryID}/start`, {
+      method: 'post',
+      data: {
+        start_timestamp: new Date().toISOString()
+      }
+    });
+  },
 };
 
 export default deliveryService;

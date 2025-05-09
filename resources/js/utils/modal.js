@@ -120,7 +120,8 @@ export const showModal = (options) => {
     buttons = [{ label: 'Close', type: 'secondary', dismiss: true }],
     onShown = null,
     onHidden = null,
-    customModalBody = null
+    customModalBody = null,
+    size = null // Add new option 'size'
   } = options;
 
   // Generate unique ID for this modal
@@ -146,7 +147,7 @@ export const showModal = (options) => {
   // Create modal HTML with centered content and animated icon
   const modalHTML = `
     <div class="modal fade" id="${modalId}" tabindex="-1" aria-labelledby="${modalId}-label" aria-modal="true" role="dialog">
-      <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-dialog modal-dialog-centered${size ? ' modal-' + size : ''}">
         <div class="modal-content">
           <div class="modal-header ${modalType.headerClass} justify-content-center">
             <h5 class="modal-title" id="${modalId}-label">

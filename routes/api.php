@@ -125,6 +125,9 @@ Route::middleware('auth:sanctum')->group(function () {
         // Add the new route for execution deliveries
         Route::get('/deliveries/get/execution', [App\Http\Controllers\Api\ExecuteDeliveriesController::class, 'index']);
         
+        // Add new route for starting a delivery
+        Route::post('/deliveries/{deliveryID}/start', [App\Http\Controllers\Api\ExecuteDeliveriesController::class, 'startDelivery']);
+        
         // Location routes for delivery
         Route::get('/locations', [App\Http\Controllers\Api\LocationController::class, 'index']);
         Route::get('/users/get/drivers', [App\Http\Controllers\Api\DeliveryController::class, 'getDrivers']);

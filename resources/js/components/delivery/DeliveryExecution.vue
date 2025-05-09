@@ -57,7 +57,7 @@
             :columns="columns"
             :items="filteredDeliveries"
             :loading="loading"
-            :has-actions="true"
+            :has-actions="false"
             item-key="deliveryID"
           >
             <!-- Status column slot -->
@@ -93,6 +93,14 @@
         </div>
       </div>
     </div>
+    
+    <!-- Add the ExecuteModalDelivery component -->
+    <ExecuteModalDelivery 
+      :loading="modalLoading" 
+      :delivery="selectedDelivery"
+      ref="executeModal"
+      @start-delivery="startDelivery"
+    />
   </div>
 </template>
 
@@ -100,304 +108,191 @@
 import { fetchData } from '../../utils/api';
 import * as modalUtil from '../../utils/modal';
 import ResponsiveTable from '../ui/ResponsiveTable.vue';
+import ExecuteModalDelivery from './ExecuteModalDelivery.vue';
+import deliveryService from '../../services/deliveryService';
 
 export default {
   name: 'DeliveryExecution',
   components: {
-    ResponsiveTable
+    ResponsiveTable,
+    ExecuteModalDelivery
   },
   props: {
-    loading: {
-      type: Boolean,
-      default: false
-    },
-    error: {
-      type: String,
-      default: null
-    },
     deliveries: {
-      type: Object,
-      default: () => ({})
+      type: [Array, Object],
+      default: () => []
+    },
+    drivers: {
+      type: Array,
+      default: () => []
     }
   },
   data() {
     return {
+      loading: false,
+      modalLoading: false,
+      error: null,
+      selectedDelivery: null,
       statusFilter: '',
       dateFilter: '',
       driverFilter: '',
-      drivers: [],
-      selectedDelivery: null,
-      qrCodeUrl: '',
-      columns: [ // Updated columns to match the requested structure
-        { key: 'deliveryID', label: 'ID', sortable: true, class: 'text-nowrap' },
-        { key: 'driver_name', label: 'Driver', sortable: true },
-        { key: 'vehicle_plate', label: 'Vehicle', sortable: true, class: 'text-nowrap' },
-        { key: 'scheduledDateDisplay', label: 'Scheduled', sortable: true, class: 'text-nowrap' },
-        { key: 'status', label: 'Status', sortable: true }, // This will use your existing #status slot
+      columns: [
+        { key: 'deliveryID', label: 'ID', sortable: true },
+        { key: 'driver.fullname', label: 'Driver', sortable: true },
+        { key: 'vehicle.vehicle_plate', label: 'Vehicle', sortable: true },
+        { key: 'status', label: 'Status', sortable: true },
+        { key: 'actions', label: 'Actions', sortable: false }
       ]
     };
   },
   computed: {
     filteredDeliveries() {
-      let deliveriesArray = Object.values(this.deliveries);
       
-      if (this.statusFilter) {
-        deliveriesArray = deliveriesArray.filter(d => {
-          if (this.statusFilter === 'pending') {
-            return !d.start_timestamp && !d.arrive_timestamp;
-          } else if (this.statusFilter === 'in_progress') {
-            return d.start_timestamp && !d.arrive_timestamp;
-          } else if (this.statusFilter === 'completed') {
-            return d.arrive_timestamp;
-          } else if (this.statusFilter === 'failed') {
-            return d.status === 'failed';
-          }
-          return d.status === this.statusFilter;
-        });
+      if (!this.deliveries) {
+        console.log('Deliveries is null or undefined');
+        return [];
       }
       
-      if (this.dateFilter) {
-        deliveriesArray = deliveriesArray.filter(d => {
-          // Ensure d.scheduled_date is valid before creating a Date object
-          if (!d.scheduled_date) return false;
-          const deliveryDate = new Date(d.scheduled_date).toISOString().split('T')[0];
-          return deliveryDate === this.dateFilter;
-        });
-      }
-      
-      if (this.driverFilter) {
-        deliveriesArray = deliveriesArray.filter(d => d.userID === this.driverFilter);
-      }
-      
-      // Map deliveries to include properties expected by the columns
-      return deliveriesArray.map(d => {
-        // Determine status based on timestamps
-        let status = 'pending';
-        if (d.arrive_timestamp) {
-          status = 'completed';
-        } else if (d.start_timestamp) {
-          status = 'in_progress';
-        } else if (d.status) {
-          status = d.status;
+      // Check if it's an object but not an array
+      if (typeof this.deliveries === 'object' && !Array.isArray(this.deliveries)) {
+        // Handle empty object case
+        if (Object.keys(this.deliveries).length === 0) {
+          return [];
         }
         
-        return {
-          ...d, // Spread original delivery object in case slots need more data
-          deliveryID: d.deliveryID,
-          driver_name: d.driver_name || 'N/A',
-          vehicle_plate: d.vehicle_plate || 'N/A',
-          scheduledDate: d.scheduled_date,
-          scheduledDateDisplay: this.formatDate(d.scheduled_date),
-          status: status
-        };
-      });
+        // Convert object to array
+        const deliveriesArray = Object.values(this.deliveries);
+        console.log('Converted object to array:', deliveriesArray);
+        return this.applyFilters(deliveriesArray);
+      }
+      
+      // Handle array case
+      if (Array.isArray(this.deliveries)) {
+        return this.applyFilters(this.deliveries);
+      }
+      
+      // Fallback for any other case
+      console.log('Deliveries is in an unexpected format');
+      return [];
     }
   },
-  mounted() {
-    this.fetchDrivers();
-  },
   methods: {
-    async fetchDrivers() {
-      try {
-        const response = await fetchData('/api/users/drivers');
-        console.log("Driver Execution"+response);
-        if (response.success) {
-          this.drivers = response.data;
+    viewDelivery(delivery) {
+      // Transform the delivery object to match the expected format in the modal
+      this.modalLoading = true;
+      
+      // Create a copy of the delivery to avoid modifying the original
+      const transformedDelivery = { ...delivery };
+      
+      // Transform routes from object to array if it's an object
+      if (transformedDelivery.routes && typeof transformedDelivery.routes === 'object' && !Array.isArray(transformedDelivery.routes)) {
+        transformedDelivery.routes = Object.values(transformedDelivery.routes).map(route => {
+          // Add routeID if not present
+          if (!route.routeID && route.start_location && route.end_location) {
+            route.routeID = `${route.start_location.locationID}-${route.end_location.locationID}`;
+          }
+          
+          // Transform start_location
+          if (route.start_location) {
+            route.start_location.address = route.start_location.company_address;
+            
+            // Transform checkpoints to items if needed
+            if (route.start_location.checkpoints && Array.isArray(route.start_location.checkpoints)) {
+              route.start_location.items = {};
+              route.start_location.checkpoints.forEach(checkpoint => {
+                if (checkpoint.items) {
+                  Object.assign(route.start_location.items, checkpoint.items);
+                }
+              });
+            }
+          }
+          
+          // Transform end_location
+          if (route.end_location) {
+            route.end_location.address = route.end_location.company_address;
+            
+            // Transform checkpoints to items if needed
+            if (route.end_location.checkpoints && Array.isArray(route.end_location.checkpoints)) {
+              route.end_location.items = {};
+              route.end_location.checkpoints.forEach(checkpoint => {
+                if (checkpoint.items) {
+                  Object.assign(route.end_location.items, checkpoint.items);
+                }
+              });
+            }
+          }
+          
+          return route;
+        });
+      }
+      
+      // Set the transformed delivery
+      this.selectedDelivery = transformedDelivery;
+      
+      // Show the modal
+      this.$nextTick(() => {
+        this.modalLoading = false;
+        this.$refs.executeModal.showModal();
+      });
+    },
+     // Add this new method to apply filters
+    applyFilters(deliveriesArray) {
+      return deliveriesArray.filter(delivery => {
+        // Status filter
+        if (this.statusFilter && delivery.status !== this.statusFilter) {
+          return false;
         }
-      } catch (error) {
-        console.error('Error fetching drivers:', error);
-      }
+        
+        // Date filter
+        if (this.dateFilter) {
+          const deliveryDate = new Date(delivery.scheduled_date).toISOString().split('T')[0];
+          if (deliveryDate !== this.dateFilter) {
+            return false;
+          }
+        }
+        
+        // Driver filter
+        if (this.driverFilter && delivery.userID !== this.driverFilter) {
+          return false;
+        }
+        
+        return true;
+      });
     },
-    
-    formatDate(dateString) {
-      if (!dateString) return 'N/A';
-
-      const date = new Date(dateString);
-      // Customize date format as needed, e.g., toLocaleDateString or a specific format
-      return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
-    },
-    
-    getStatusClass(status) {
-      switch (status?.toLowerCase()) {
-        case 'completed':
-          return 'bg-success';
-        case 'in_progress':
-          return 'bg-info';
-        case 'pending':
-          return 'bg-warning';
-        case 'failed':
-          return 'bg-danger';
-        default:
-          return 'bg-secondary';
-      }
+    // Add the missing startDelivery method
+    startDelivery(deliveryID) {
+      // Implement your logic to start the delivery
+      console.log('Starting delivery:', deliveryID);
+      
+      // Example implementation:
+      this.loading = true;
+      deliveryService.startDelivery(deliveryID)
+        .then(response => {
+          // Handle success
+          this.$emit('refresh'); // Refresh the list
+        })
+        .catch(error => {
+          // Handle error
+          console.error('Error starting delivery:', error);
+        })
+        .finally(() => {
+          this.loading = false;
+        });
     },
     
     getThemeStatusClass(status) {
       switch (status) {
-        case 'completed':
-          return 'theme-badge-success';
-        case 'in_progress':
-          return 'theme-badge-info';
         case 'pending':
-          return 'theme-badge-warning';
+          return 'bg-warning text-dark';
+        case 'in_progress':
+          return 'bg-info text-white';
+        case 'completed':
+          return 'bg-success text-white';
         case 'failed':
-          return 'theme-badge-danger';
+          return 'bg-danger text-white';
         default:
-          return 'theme-badge-secondary';
+          return 'bg-secondary text-white';
       }
-    },
-    
-    viewDelivery(delivery) {
-      this.selectedDelivery = delivery;
-      
-      // Build trips HTML content
-      let tripsContent = '';
-      
-      if (delivery.trips && Object.keys(delivery.trips).length > 0) {
-        tripsContent = `
-          <div class="mt-4">
-            <h6 class="mb-3">Trip Details</h6>
-            <div class="accordion" id="tripsAccordion">
-        `;
-        
-        Object.entries(delivery.trips).forEach(([tripID, trip], index) => {
-          const startLocation = trip.start_location ? trip.start_location.company_address : 'N/A';
-          const endLocation = trip.end_location ? trip.end_location.company_address : 'N/A';
-          
-          tripsContent += `
-            <div class="accordion-item">
-              <h2 class="accordion-header" id="trip-heading-${tripID}">
-                <button class="accordion-button ${index > 0 ? 'collapsed' : ''}" type="button" data-bs-toggle="collapse" 
-                  data-bs-target="#trip-collapse-${tripID}" aria-expanded="${index === 0 ? 'true' : 'false'}" 
-                  aria-controls="trip-collapse-${tripID}">
-                  Trip #${tripID}: ${startLocation} → ${endLocation}
-                </button>
-              </h2>
-              <div id="trip-collapse-${tripID}" class="accordion-collapse collapse ${index === 0 ? 'show' : ''}" 
-                aria-labelledby="trip-heading-${tripID}" data-bs-parent="#tripsAccordion">
-                <div class="accordion-body">
-                  <div class="mb-3">
-                    <strong>From:</strong> ${startLocation}<br>
-                    <strong>To:</strong> ${endLocation}
-                  </div>
-          `;
-          
-          // Add items if available
-          if (trip.items && Object.keys(trip.items).length > 0) {
-            tripsContent += `
-              <div class="mb-3">
-                <h6 class="mb-2">Items</h6>
-                <div class="table-responsive">
-                  <table class="table table-sm table-bordered">
-                    <thead>
-                      <tr>
-                        <th>Item ID</th>
-                        <th>Measurement</th>
-                        <th>Quantity</th>
-                        <th>Price</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-            `;
-            
-            Object.values(trip.items).forEach(item => {
-              tripsContent += `
-                <tr>
-                  <td>${item.itemID}</td>
-                  <td>${item.measurement_value} ${item.measurement_type}</td>
-                  <td>${item.quantity}</td>
-                  <td>RM ${item.price_at_purchase || item.price}</td>
-                </tr>
-              `;
-            });
-            
-            tripsContent += `
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            `;
-          } else {
-            tripsContent += `<p>No items found for this trip.</p>`;
-          }
-          
-          // Add verifications if available
-          if (trip.verifies && Object.keys(trip.verifies).length > 0) {
-            tripsContent += `
-              <div>
-                <h6 class="mb-2">Verifications</h6>
-                <div class="table-responsive">
-                  <table class="table table-sm table-bordered">
-                    <thead>
-                      <tr>
-                        <th>Verify ID</th>
-                        <th>Status</th>
-                        <th>Comment</th>
-                        <th>Date</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-            `;
-            
-            Object.values(trip.verifies).forEach(verify => {
-              const verifyDate = verify.created_at ? new Date(verify.created_at).toLocaleString() : 'N/A';
-              tripsContent += `
-                <tr>
-                  <td>${verify.verifyID}</td>
-                  <td>${verify.verify_status || 'Pending'}</td>
-                  <td>${verify.verify_comment || 'No comment'}</td>
-                  <td>${verifyDate}</td>
-                </tr>
-              `;
-            });
-            
-            tripsContent += `
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            `;
-          } else {
-            tripsContent += `<p>No verifications found for this trip.</p>`;
-          }
-          
-          tripsContent += `
-                </div>
-              </div>
-            </div>
-          `;
-        });
-        
-        tripsContent += `
-            </div>
-          </div>
-        `;
-      } else {
-        tripsContent = `<p class="mt-3">No trips found for this delivery.</p>`;
-      }
-      
-      modalUtil.showModal({
-        type: 'info',
-        title: `Delivery Details - #${delivery.deliveryID}`,
-        message: `
-          <div>
-            <div class="row">
-              <div class="col-md-6">
-                <p><strong>Driver:</strong> ${delivery.driver_name || 'N/A'}</p>
-                <p><strong>Vehicle:</strong> ${delivery.vehicle_plate || 'N/A'}</p>
-              </div>
-              <div class="col-md-6">
-                <p><strong>Scheduled Date:</strong> ${this.formatDate(delivery.scheduled_date)}</p>
-                <p><strong>Status:</strong> ${delivery.status || 'Pending'}</p>
-              </div>
-            </div>
-            ${tripsContent}
-          </div>
-        `,
-        buttons: [
-          { label: 'Close', type: 'secondary', dismiss: true }
-        ]
-      });
     },
     
     generateQRCode(delivery) {

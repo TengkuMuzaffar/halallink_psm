@@ -520,9 +520,9 @@ export default {
       };
     },
     async assignDelivery(locationID, orderID) {
-      console.log('assignDelivery called with:', { locationID, orderID });
-      console.log('groupedDeliveries structure:', JSON.stringify(this.groupedDeliveries, null, 2));
-      console.log('Selected location data:', this.groupedDeliveries[locationID]);
+      // console.log('assignDelivery called with:', { locationID, orderID });
+      // console.log('groupedDeliveries structure:', JSON.stringify(this.groupedDeliveries, null, 2));
+      // console.log('Selected location data:', this.groupedDeliveries[locationID]);
       
       try {
         // Reset the assignment form
@@ -603,32 +603,47 @@ export default {
       };
     },
     
-    async submitAssignment(formData) {
+    async submitAssignment(data) {
       try {
         this.assignmentLoading = true;
-        
-        // Ensure deliveryID is included if selected
-        if (this.selectedDeliveryID) {
-          formData.deliveryID = this.selectedDeliveryID;
-        }
-        
-        const response = await deliveryService.assignDelivery(formData);
+        const response = await deliveryService.assignDelivery(data);
         
         if (response.success) {
-          // Show success message
-          this.$toast.success('Delivery assigned successfully');
+          // this.selectedDeliveryID = null;
+          this.selectedOrderInfo = null;
           
-          // Hide the modal
-          this.$refs.assignmentModal.hide();
-          
-          // Refresh the data
-          this.refreshAssignDeliveries();
+          // Use showModal instead of modalUtil.showSuccess
+          showModal({
+            type: 'success',
+            title: 'Success',
+            message: response.message || 'Delivery assigned successfully',
+            buttons: [
+              { 
+                label: 'OK', 
+                type: 'success', 
+                dismiss: true,
+                onClick: () => {
+                  this.fetchDeliveryAssignmentTrips();
+                  this.fetchDeliveryStats();
+                  this.fetchCreatedDeliveries();
+                }
+              }
+            ]
+          });
         } else {
-          this.$toast.error(response.message || 'Failed to assign delivery');
+          showModal({
+            type: 'danger',
+            title: 'Error',
+            message: response.message || 'Failed to assign delivery'
+          });
         }
       } catch (error) {
         console.error('Error assigning delivery:', error);
-        this.$toast.error('An error occurred while assigning the delivery');
+        showModal({
+          type: 'danger',
+          title: 'Error',
+          message: error.message || 'An unexpected error occurred'
+        });
       } finally {
         this.assignmentLoading = false;
       }
@@ -684,9 +699,10 @@ export default {
         this.executeError = null; // Reset error before fetching
         
         const response = await deliveryService.getExecutionDeliveries();
-        
+        console.log('execution deliveries structure:', JSON.stringify(response, null, 2));
+
         if (response.success) {
-          this.executionDeliveries = response.data;
+          this.executionDeliveries =  Object.values(response.data);
         } else {
           this.executeError = response.message || 'Failed to load execution deliveries';
         }

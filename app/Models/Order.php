@@ -96,6 +96,14 @@ class Order extends Model
     }
 
     /**
+     * Alias for cartItems() relationship.
+     */
+    public function carts()
+    {
+        return $this->hasMany(Cart::class, 'orderID', 'orderID');
+    }
+
+    /**
      * Get the items through cart.
      */
     public function items()

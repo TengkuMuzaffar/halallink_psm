@@ -314,12 +314,10 @@ export default {
         return;
       }
       
-      if (!submissionData.trips || submissionData.trips.length === 0) {
-        this.$emit('validation-error', 'No trips available to assign.');
-        return;
-      }
+      // Hide modal before emitting submit
+      this.hide();
       
-      // Emit submit event with the prepared data
+      // Emit submit event with data
       this.$emit('submit', submissionData);
     },
     // Add a method to set the deliveryID

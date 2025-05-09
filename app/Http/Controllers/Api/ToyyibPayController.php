@@ -550,7 +550,6 @@ class ToyyibPayController extends Controller
             
             // Create checkpoints for each unique supplier
             foreach ($itemsBySupplier as $companyID => $items) {
-                // Create first checkpoint for supplier (only once per supplier)
                 $firstItem = $items->first();
                 
                 // First checkpoint - Supplier location
@@ -558,18 +557,20 @@ class ToyyibPayController extends Controller
                     'orderID' => $order->orderID,
                     'companyID' => $companyID,
                     'locationID' => $firstItem->item->locationID,
-                    'arrange_number' => 1
+                    'arrange_number' => 1,
+                    'item_record' => $items->filter(function($cartItem) use ($firstItem) {
+                        // Only include items from this supplier location
+                        return $cartItem->item->locationID === $firstItem->item->locationID;
+                    })->pluck('itemID')->toArray()
                 ]);
                 
                 $checkpoints[] = $checkpoint1;
                 $supplierCheckpoints[$companyID] = $checkpoint1;
                 
-                // Group items by slaughterhouse location to avoid duplicates
+                // Group items by slaughterhouse location
                 $itemsBySlaughterhouse = $items->groupBy('item.slaughterhouse_locationID');
                 
-                // Create checkpoints for each unique slaughterhouse location
                 foreach ($itemsBySlaughterhouse as $slaughterhouseLocationID => $slaughterhouseItems) {
-                    // Skip if no slaughterhouse is defined
                     if (!$slaughterhouseLocationID || !$slaughterhouseItems->first()->item->slaughterhouse) {
                         continue;
                     }
@@ -577,12 +578,13 @@ class ToyyibPayController extends Controller
                     $slaughterhouseItem = $slaughterhouseItems->first();
                     $slaughterhouseCompanyID = $slaughterhouseItem->item->slaughterhouse->company->companyID;
                     
-                    // Second checkpoint - Slaughterhouse
+                    // Second checkpoint - Slaughterhouse (receiving from supplier)
                     $checkpoint2 = Checkpoint::create([
                         'orderID' => $order->orderID,
                         'companyID' => $slaughterhouseCompanyID,
                         'locationID' => $slaughterhouseLocationID,
-                        'arrange_number' => 2
+                        'arrange_number' => 2,
+                        'item_record' => $slaughterhouseItems->pluck('itemID')->toArray()
                     ]);
                     
                     $task = Task::create([
@@ -595,32 +597,34 @@ class ToyyibPayController extends Controller
                     
                     $checkpoints[] = $checkpoint2;
                     
-                    // Create Trip for arrange_number 1 to 2 (Supplier to Slaughterhouse)
+                    // Create Trip for arrange_number 1 to 2
                     Trip::create([
-                        'deliveryID' => null, // Will be assigned when delivery is created
+                        'deliveryID' => null,
                         'start_checkID' => $checkpoint1->checkID,
                         'end_checkID' => $checkpoint2->checkID,
-                        'orderID' => $order->orderID // Add the orderID here
+                        'orderID' => $order->orderID
                     ]);
                     
-                    // Third checkpoint - Same as second
+                    // Third checkpoint - Slaughterhouse (sending to customer)
                     $checkpoint3 = Checkpoint::create([
                         'orderID' => $order->orderID,
                         'companyID' => $slaughterhouseCompanyID,
                         'locationID' => $slaughterhouseLocationID,
-                        'arrange_number' => 3
+                        'arrange_number' => 3,
+                        'item_record' => $slaughterhouseItems->pluck('itemID')->toArray()
                     ]);
                     
                     $checkpoints[] = $checkpoint3;
                 }
             }
             
-            // Fourth checkpoint - Customer's company
+            // Fourth checkpoint - Customer's company (includes all items)
             $checkpoint4 = Checkpoint::create([
                 'orderID' => $order->orderID,
                 'companyID' => $order->user->company->companyID,
                 'locationID' => $order->locationID,
-                'arrange_number' => 4
+                'arrange_number' => 4,
+                'item_record' => $cartItems->pluck('itemID')->toArray() // All items for the order
             ]);
             
             $checkpoints[] = $checkpoint4;

@@ -107,57 +107,39 @@ class DeliveryController extends Controller
                 }
             }
             
-            // Now process items for each trip in the display array
+            // Now process items for each trip in the display array using end checkpoint's item_record
             foreach ($displayArray as &$displayItem) {
                 $trip = $displayItem['trip'];
-                $orderID = $trip->orderID;
-                $startCheckID = $trip->start_checkID;
-                $endCheckID = $trip->end_checkID;
+                $endCheckpoint = $trip->endCheckpoint;
                 
-                // Get cart items for this order
-                $cartItems = Cart::where('orderID', $orderID)
-                    ->with(['item.poultry', 'item.location', 'item.slaughterhouse'])
+                if (!$endCheckpoint || !$endCheckpoint->item_record) continue;
+                
+                // Get items from the end checkpoint's item_record
+                $items = Item::whereIn('itemID', $endCheckpoint->item_record)
+                    ->with(['poultry', 'location', 'slaughterhouse'])
                     ->get();
                 
-                foreach ($cartItems as $cartItem) {
-                    $item = $cartItem->item;
+                foreach ($items as $item) {
+                    // Get cart item for quantity and price information
+                    $cartItem = Cart::where('orderID', $trip->orderID)
+                        ->where('itemID', $item->itemID)
+                        ->first();
+                        
+                    if (!$cartItem) continue;
                     
-                    if (!$item) continue;
-                    
-                    // For phase 1: match items where locationID = start_checkID's locationID
-                    // For phase 2: match items where slaughterhouse_locationID = start_checkID's locationID
-                    
-                    $startCheckpoint = Checkpoint::find($startCheckID);
-                    $endCheckpoint = Checkpoint::find($endCheckID);
-                    
-                    if (!$startCheckpoint || !$endCheckpoint) continue;
-                    
-                    $matchCondition = false;
-                    
-                    if ($displayItem['phase'] == 1) {
-                        // Phase 1: supplier to slaughterhouse
-                        $matchCondition = $item->locationID == $startCheckpoint->locationID &&
-                                         $item->slaughterhouse_locationID == $endCheckpoint->locationID;
-                    } else {
-                        // Phase 2: slaughterhouse to destination
-                        $matchCondition = $item->slaughterhouse_locationID == $startCheckpoint->locationID;
-                    }
-                    
-                    if ($matchCondition) {
-                        $displayItem['items'][] = [
-                            'itemID' => $item->itemID,
-                            'item_name' => $item->poultry ? $item->poultry->poultry_name : 'Unknown',
-                            'measurement_type' => $item->measurement_type,
-                            'measurement_value' => $item->measurement_value,
-                            'price' => $item->price,
-                            'quantity' => $cartItem->quantity,
-                            'total_price' => $cartItem->price_at_purchase * $cartItem->quantity,
-                            'supplier_locationID' => $item->locationID,
-                            'supplier_location_address' => $item->location ? $item->location->company_address : 'Unknown',
-                            'slaughterhouse_locationID' => $item->slaughterhouse_locationID,
-                            'slaughterhouse_location_address' => $item->slaughterhouse ? $item->slaughterhouse->company_address : 'N/A'
-                        ];
-                    }
+                    $displayItem['items'][] = [
+                        'itemID' => $item->itemID,
+                        'item_name' => $item->poultry ? $item->poultry->poultry_name : 'Unknown',
+                        'measurement_type' => $item->measurement_type,
+                        'measurement_value' => $item->measurement_value,
+                        'price' => $item->price,
+                        'quantity' => $cartItem->quantity,
+                        'total_price' => $cartItem->price_at_purchase * $cartItem->quantity,
+                        'supplier_locationID' => $item->locationID,
+                        'supplier_location_address' => $item->location ? $item->location->company_address : 'Unknown',
+                        'slaughterhouse_locationID' => $item->slaughterhouse_locationID,
+                        'slaughterhouse_location_address' => $item->slaughterhouse ? $item->slaughterhouse->company_address : 'N/A'
+                    ];
                 }
             }
             

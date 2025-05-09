@@ -26,16 +26,12 @@ class Checkpoint extends Model
         'locationID',
         'companyID',
         'arrange_number',
-        // Remove 'deliveryID' since it doesn't exist in the database
+        'item_record'
     ];
 
-    /**
-     * The attributes that should be cast.
-     *
-     * @var array
-     */
     protected $casts = [
         'arrange_number' => 'integer',
+        'item_record' => 'array'
     ];
 
     /**
