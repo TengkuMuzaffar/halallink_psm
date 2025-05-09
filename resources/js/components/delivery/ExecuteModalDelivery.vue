@@ -31,15 +31,20 @@
                   </div>
                 </div>
                 <div class="card-body">
-                  <div class="row">
-                    <div class="col-md-6">
-                      <p class="mb-2"><strong>Scheduled Date:</strong> {{ formatDate(delivery?.scheduled_date) }}</p>
-                      <p class="mb-2"><strong>Driver:</strong> {{ delivery?.driver_name || delivery?.user?.name || 'N/A' }}</p>
+                  <div class="row g-3">
+                    <div class="col-md-6 col-lg-4">
+                      <p class="mb-2"><strong>Scheduled Date:</strong></p>
+                      <p class="text-truncate">{{ formatDate(delivery?.scheduled_date) }}</p>
                     </div>
-                    <div class="col-md-6">
-                      <p class="mb-2"><strong>Vehicle:</strong> {{ delivery?.vehicle_plate || delivery?.vehicle?.plate_number || 'N/A' }}</p>
-                      <p class="mb-2"><strong>Status:</strong> {{ delivery?.status || 'Pending' }}</p>
+                    <div class="col-md-6 col-lg-4">
+                      <p class="mb-2"><strong>Driver:</strong></p>
+                      <p class="text-truncate">{{ delivery?.fullname || delivery?.driver?.fullname || 'N/A' }}</p>
                     </div>
+                    <div class="col-md-6 col-lg-4">
+                      <p class="mb-2"><strong>Vehicle:</strong></p>
+                      <p class="text-truncate">{{ delivery?.vehicle_plate || delivery?.vehicle?.vehicle_plate || 'N/A' }}</p>
+                    </div>
+                    <!-- Removed redundant status display -->
                   </div>
                 </div>
               </div>
@@ -86,6 +91,15 @@
                               >
                                 <i class="fas fa-play me-1"></i> Start
                               </button>
+                              
+                              <!-- QR Code Scanner - Only show for in-progress deliveries -->
+                              <button 
+                                v-if="delivery.status === 'in_progress'" 
+                                class="btn btn-sm btn-primary ms-2"
+                                @click="scanQRCode(route.routeID, 'start')"
+                              >
+                                <i class="fas fa-qrcode me-1"></i> Scan QR
+                              </button>
                             </div>
                             <div class="timeline-body">
                               <p>{{ route.start_location.address }}</p>
@@ -105,7 +119,7 @@
                                             <th>Item ID</th>
                                             <th>Name</th>
                                             <th>Quantity</th>
-                                            <th>Measurement</th>
+                                            <th>Order ID</th>
                                           </tr>
                                         </thead>
                                         <tbody>
@@ -113,7 +127,7 @@
                                             <td>{{ item.itemID }}</td>
                                             <td>{{ item.item_name || 'Unknown Item' }}</td>
                                             <td>{{ item.quantity || 1 }}</td>
-                                            <td>{{ item.measurement_value || 0 }} {{ item.measurement_type || 'kg' }}</td>
+                                            <td>{{ item.orderID || 'N/A' }}</td>
                                           </tr>
                                         </tbody>
                                       </table>
@@ -137,6 +151,15 @@
                               <button class="btn btn-sm btn-link" @click="toggleLocationItems(route.routeID, 'end')">
                                 <i class="fas" :class="isLocationExpanded(route.routeID, 'end') ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
                               </button>
+                              
+                              <!-- QR Code Scanner - Only show for in-progress deliveries -->
+                              <button 
+                                v-if="delivery.status === 'in_progress'" 
+                                class="btn btn-sm btn-primary ms-2"
+                                @click="scanQRCode(route.routeID, 'end')"
+                              >
+                                <i class="fas fa-qrcode me-1"></i> Scan QR
+                              </button>
                             </div>
                             <div class="timeline-body">
                               <p>{{ route.end_location.address }}</p>
@@ -156,7 +179,7 @@
                                             <th>Item ID</th>
                                             <th>Name</th>
                                             <th>Quantity</th>
-                                            <th>Measurement</th>
+                                            <th>Order ID</th>
                                           </tr>
                                         </thead>
                                         <tbody>
@@ -164,7 +187,7 @@
                                             <td>{{ item.itemID }}</td>
                                             <td>{{ item.item_name || 'Unknown Item' }}</td>
                                             <td>{{ item.quantity || 1 }}</td>
-                                            <td>{{ item.measurement_value || 0 }} {{ item.measurement_type || 'kg' }}</td>
+                                            <td>{{ item.orderID || 'N/A' }}</td>
                                           </tr>
                                         </tbody>
                                       </table>
@@ -209,7 +232,7 @@ export default {
       default: () => null
     }
   },
-  emits: ['start-delivery'],
+  emits: ['start-delivery', 'scan-qr-code'],
   data() {
     return {
       modal: null,
@@ -295,7 +318,7 @@ export default {
             Object.entries(checkpoint.items).forEach(([itemID, item]) => {
               items.push({
                 itemID,
-                ...item
+                ...item  // This should already include orderID if it exists
               });
             });
           }
@@ -318,7 +341,20 @@ export default {
     
     startDelivery(deliveryID) {
       this.$emit('start-delivery', deliveryID);
-    }
+    },
+    
+    scanQRCode(routeID, locationType) {
+      // Implement QR code scanning functionality
+      console.log(`Scanning QR code for route ${routeID}, location type: ${locationType}`);
+      
+      // You can implement a modal with QR scanner here
+      // For example:
+      this.$emit('scan-qr-code', {
+        routeID: routeID,
+        locationType: locationType,
+        deliveryID: this.delivery.deliveryID
+      });
+    },
   }
 };
 </script>
@@ -447,5 +483,38 @@ export default {
 
 .theme-close {
   filter: invert(1) brightness(1.5);
+}
+
+/* Responsive fixes */
+.text-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.row.g-3 {
+  --bs-gutter-y: 1rem;
+}
+
+@media (max-width: 767.98px) {
+  .timeline-panel {
+    padding: 10px;
+  }
+  
+  .timeline-heading {
+    flex-wrap: wrap;
+  }
+  
+  .timeline-title {
+    width: 100%;
+    margin-bottom: 5px;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 991.98px) {
+  .card-body .row > div {
+    margin-bottom: 10px;
+  }
 }
 </style>

@@ -194,7 +194,8 @@ class ExecuteDeliveriesController extends Controller
                             if ($item) {
                                 $startCheckpointData['items'][$itemID] = [
                                     'item_name' => $item->poultry ? $item->poultry->poultry_name : 'Unknown',
-                                    'quantity' => $quantity
+                                    'quantity' => $quantity,
+                                    'orderID' => $orderID // Add orderID to start location items
                                 ];
                             }
                         }
@@ -244,7 +245,8 @@ class ExecuteDeliveriesController extends Controller
                             if ($item) {
                                 $endCheckpointData['items'][$itemID] = [
                                     'item_name' => $item->poultry ? $item->poultry->poultry_name : 'Unknown',
-                                    'quantity' => $quantity
+                                    'quantity' => $quantity,
+                                    'orderID' => $endCheckpoint->orderID // Add orderID from checkpoint
                                 ];
                             }
                         }
