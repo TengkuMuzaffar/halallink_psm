@@ -13,7 +13,7 @@ class Verify extends Model
 
     protected $fillable = [
         'deliveryID',
-        'checkID',  // Add checkID to fillable properties
+        'checkID',
         'verify_status',
         'verify_comment'
     ];

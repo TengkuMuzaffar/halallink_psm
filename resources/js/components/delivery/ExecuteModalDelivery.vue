@@ -66,47 +66,49 @@
                 </div>
                 <div class="card-body">
                   <!-- Routes Information -->
-                  <div v-if="delivery && delivery.routes && delivery.routes.length > 0">
+                  <div v-if="delivery && delivery.routes && Object.keys(delivery.routes).length > 0">
                     <!-- Timeline style routes display -->
                     <div class="timeline">
-                      <div v-for="(route, routeIndex) in delivery.routes" :key="routeIndex" class="route-group mb-4">
-                        <!-- Start Location -->
-                        <div class="timeline-item">
+                      <div v-for="(route, routeIndex) in Object.entries(delivery.routes)" :key="routeIndex" class="route-group mb-4">
+                        <!-- Start Locations - Loop through all start locations -->
+                        <div v-for="(startLocation, startLocationID) in route[1].start_locations" :key="startLocationID" class="timeline-item">
                           <div class="timeline-badge">
                             <div class="timeline-circle"></div>
                           </div>
                           <div class="timeline-panel">
                             <div class="timeline-heading">
-                              <h6 class="timeline-title">Start Location</h6>
-                              <span class="badge status-badge">{{ route.start_location.status || 'Pending' }}</span>
-                              <button class="btn btn-sm btn-link" @click="toggleLocationItems(route.routeID, 'start')">
-                                <i class="fas" :class="isLocationExpanded(route.routeID, 'start') ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                              <h6 class="timeline-title">Start Location #{{ startLocationID }}</h6>
+                              <span class="badge" :class="getStatusBadgeClass(startLocation.location_status)">
+                                {{ startLocation.location_status || 'Pending' }}
+                              </span>
+                              <button class="btn btn-sm btn-link" @click="toggleLocationItems(route[0], `start-${startLocationID}`)">
+                                <i class="fas" :class="isLocationExpanded(route[0], `start-${startLocationID}`) ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
                               </button>
                               
                               <!-- Start Button - Only show for first route with pending status -->
                               <button 
-                                v-if="routeIndex === 0 && delivery.status === 'pending'" 
+                                v-if="routeIndex === 0 && startLocationID === Object.keys(route[1].start_locations)[0] && delivery.status === 'pending'" 
                                 class="btn btn-sm btn-success ms-2"
-                                @click="startDelivery(delivery.deliveryID)"
+                                @click="startDeliveryAndRefresh(delivery.deliveryID)"
                               >
                                 <i class="fas fa-play me-1"></i> Start
                               </button>
                               
-                              <!-- QR Code Scanner - Only show for in-progress deliveries -->
+                              <!-- QR Code Scanner - Only show if this location can be scanned -->
                               <button 
-                                v-if="delivery.status === 'in_progress'" 
+                                v-if="canScanLocation(route[1], 'start', startLocationID)" 
                                 class="btn btn-sm btn-primary ms-2"
-                                @click="scanQRCode(route.routeID, 'start')"
+                                @click="scanQRCode(startLocation.checkpoints)"
                               >
                                 <i class="fas fa-qrcode me-1"></i> Scan QR
                               </button>
                             </div>
                             <div class="timeline-body">
-                              <p>{{ route.start_location.address }}</p>
-                              <p class="location-type">({{ route.start_location.type || 'N/A' }})</p>
+                              <p>{{ startLocation.company_address }}</p>
+                              <p class="location-type">(Location ID: {{ startLocation.locationID }})</p>
                               
                               <!-- Expanded Items Section for Start Location -->
-                              <div v-if="isLocationExpanded(route.routeID, 'start')" class="location-items mt-3">
+                              <div v-if="isLocationExpanded(route[0], `start-${startLocationID}`)" class="location-items mt-3">
                                 <div class="card">
                                   <div class="card-header bg-light">
                                     <strong>Items</strong>
@@ -123,12 +125,16 @@
                                           </tr>
                                         </thead>
                                         <tbody>
-                                          <tr v-for="(item, itemIndex) in getLocationItems(route, 'start')" :key="itemIndex">
-                                            <td>{{ item.itemID }}</td>
-                                            <td>{{ item.item_name || 'Unknown Item' }}</td>
-                                            <td>{{ item.quantity || 1 }}</td>
-                                            <td>{{ item.orderID || 'N/A' }}</td>
-                                          </tr>
+                                          <template v-for="(checkpoint, checkpointIndex) in startLocation.checkpoints" :key="checkpointIndex">
+                                            <template v-for="(itemData, itemID) in checkpoint.items" :key="`${checkpointIndex}-${itemID}`">
+                                              <tr>
+                                                <td>{{ itemID }}</td>
+                                                <td>{{ itemData.item_name || 'Unknown Item' }}</td>
+                                                <td>{{ itemData.quantity || 1 }}</td>
+                                                <td>{{ itemData.orderID || 'N/A' }}</td>
+                                              </tr>
+                                            </template>
+                                          </template>
                                         </tbody>
                                       </table>
                                     </div>
@@ -139,34 +145,36 @@
                           </div>
                         </div>
                         
-                        <!-- End Location -->
-                        <div class="timeline-item">
+                        <!-- End Locations - Loop through all end locations -->
+                        <div v-for="(endLocation, endLocationID) in route[1].end_locations" :key="endLocationID" class="timeline-item">
                           <div class="timeline-badge">
                             <div class="timeline-circle"></div>
                           </div>
                           <div class="timeline-panel">
                             <div class="timeline-heading">
-                              <h6 class="timeline-title">End Location</h6>
-                              <span class="badge status-badge">{{ route.end_location.status || 'Pending' }}</span>
-                              <button class="btn btn-sm btn-link" @click="toggleLocationItems(route.routeID, 'end')">
-                                <i class="fas" :class="isLocationExpanded(route.routeID, 'end') ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                              <h6 class="timeline-title">End Location #{{ endLocationID }}</h6>
+                              <span class="badge" :class="getStatusBadgeClass(endLocation.location_status)">
+                                {{ endLocation.location_status || 'Pending' }}
+                              </span>
+                              <button class="btn btn-sm btn-link" @click="toggleLocationItems(route[0], `end-${endLocationID}`)">
+                                <i class="fas" :class="isLocationExpanded(route[0], `end-${endLocationID}`) ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
                               </button>
                               
-                              <!-- QR Code Scanner - Only show for in-progress deliveries -->
+                              <!-- QR Code Scanner - Only show if this location can be scanned -->
                               <button 
-                                v-if="delivery.status === 'in_progress'" 
+                                v-if="canScanLocation(route[1], 'end', endLocationID)" 
                                 class="btn btn-sm btn-primary ms-2"
-                                @click="scanQRCode(route.routeID, 'end')"
+                                @click="scanQRCode(endLocation.checkpoints)"
                               >
                                 <i class="fas fa-qrcode me-1"></i> Scan QR
                               </button>
                             </div>
                             <div class="timeline-body">
-                              <p>{{ route.end_location.address }}</p>
-                              <p class="location-type">({{ route.end_location.type || 'N/A' }})</p>
+                              <p>{{ endLocation.company_address }}</p>
+                              <p class="location-type">(Location ID: {{ endLocation.locationID }})</p>
                               
                               <!-- Expanded Items Section for End Location -->
-                              <div v-if="isLocationExpanded(route.routeID, 'end')" class="location-items mt-3">
+                              <div v-if="isLocationExpanded(route[0], `end-${endLocationID}`)" class="location-items mt-3">
                                 <div class="card">
                                   <div class="card-header bg-light">
                                     <strong>Items</strong>
@@ -183,12 +191,16 @@
                                           </tr>
                                         </thead>
                                         <tbody>
-                                          <tr v-for="(item, itemIndex) in getLocationItems(route, 'end')" :key="itemIndex">
-                                            <td>{{ item.itemID }}</td>
-                                            <td>{{ item.item_name || 'Unknown Item' }}</td>
-                                            <td>{{ item.quantity || 1 }}</td>
-                                            <td>{{ item.orderID || 'N/A' }}</td>
-                                          </tr>
+                                          <template v-for="(checkpoint, checkpointIndex) in endLocation.checkpoints" :key="checkpointIndex">
+                                            <template v-for="(itemData, itemID) in checkpoint.items" :key="`${checkpointIndex}-${itemID}`">
+                                              <tr>
+                                                <td>{{ itemID }}</td>
+                                                <td>{{ itemData.item_name || 'Unknown Item' }}</td>
+                                                <td>{{ itemData.quantity || 1 }}</td>
+                                                <td>{{ itemData.orderID || 'N/A' }}</td>
+                                              </tr>
+                                            </template>
+                                          </template>
                                         </tbody>
                                       </table>
                                     </div>
@@ -232,7 +244,7 @@ export default {
       default: () => null
     }
   },
-  emits: ['start-delivery', 'scan-qr-code'],
+  emits: ['start-delivery', 'scan-qr-code', 'refresh'],
   data() {
     return {
       modal: null,
@@ -246,152 +258,159 @@ export default {
       }
       this.modal.show();
     },
-    
     hideModal() {
       if (this.modal) {
         this.modal.hide();
       }
     },
-    
+    getRoutesCount() {
+      if (!this.delivery || !this.delivery.routes) return 0;
+      return Object.keys(this.delivery.routes).length;
+    },
+    startDeliveryAndRefresh(deliveryID) {
+      // Emit the start-delivery event to the parent component
+      this.$emit('start-delivery', deliveryID);
+      
+      // Hide the modal after starting the delivery
+      this.hideModal();
+      
+      // Emit a refresh event to the parent component to refresh the table
+      this.$emit('refresh');
+    },
+    getStatusBadgeClass(status) {
+      if (!status) return 'bg-secondary';
+      
+      switch(status.toLowerCase()) {
+        case 'complete':
+          return 'bg-success';
+        case 'in_progress':
+          return 'bg-warning';
+        case 'pending':
+        default:
+          return 'bg-secondary';
+      }
+    },
     formatDate(dateString) {
       if (!dateString) return 'N/A';
       
       const date = new Date(dateString);
+      if (isNaN(date.getTime())) return dateString;
+      
       return date.toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'short',
         day: 'numeric'
       });
     },
-    
-    getStatusBadgeClass(status) {
-      switch (status) {
-        case 'pending':
-          return 'bg-warning text-dark';
-        case 'in_progress':
-          return 'bg-info text-white';
-        case 'completed':
-          return 'bg-success text-white';
-        case 'failed':
-          return 'bg-danger text-white';
-        default:
-          return 'bg-secondary text-white';
-      }
-    },
-    
-    getRoutesCount() {
-      if (!this.delivery || !this.delivery.routes) return 0;
-      
-      // Handle both array and object formats
-      if (Array.isArray(this.delivery.routes)) {
-        return this.delivery.routes.length;
-      } else if (typeof this.delivery.routes === 'object') {
-        return Object.keys(this.delivery.routes).length;
+    toggleLocationItems(routeID, locationKey) {
+      if (!this.expandedLocations[routeID]) {
+        this.expandedLocations[routeID] = {};
       }
       
-      return 0;
-    },
-    
-    // Add a method to safely access items
-    getLocationItems(route, locationType) {
-      const location = route[`${locationType}_location`];
-      if (!location) return [];
+      this.expandedLocations[routeID][locationKey] = !this.expandedLocations[routeID][locationKey];
       
-      // If items is already an array, return it
-      if (location.items && Array.isArray(location.items)) {
-        return location.items;
-      }
-      
-      // If items is an object, convert to array
-      if (location.items && typeof location.items === 'object') {
-        return Object.entries(location.items).map(([itemID, item]) => ({
-          itemID,
-          ...item
-        }));
-      }
-      
-      // If no items but checkpoints exist, extract items from checkpoints
-      if (location.checkpoints && Array.isArray(location.checkpoints)) {
-        const items = [];
-        location.checkpoints.forEach(checkpoint => {
-          if (checkpoint.items) {
-            Object.entries(checkpoint.items).forEach(([itemID, item]) => {
-              items.push({
-                itemID,
-                ...item  // This should already include orderID if it exists
-              });
-            });
-          }
-        });
-        return items;
-      }
-      
-      return [];
-    },
-    toggleLocationItems(routeID, locationType) {
-      const key = `${routeID}-${locationType}`;
-      this.expandedLocations[key] = !this.expandedLocations[key];
+      // Force re-render
       this.$forceUpdate();
     },
-    
-    isLocationExpanded(routeID, locationType) {
-      const key = `${routeID}-${locationType}`;
-      return !!this.expandedLocations[key];
+    isLocationExpanded(routeID, locationKey) {
+      return this.expandedLocations[routeID] && this.expandedLocations[routeID][locationKey];
     },
-    
-    startDelivery(deliveryID) {
-      this.$emit('start-delivery', deliveryID);
-    },
-    
-    scanQRCode(routeID, locationType) {
-      // Implement QR code scanning functionality
-      console.log(`Scanning QR code for route ${routeID}, location type: ${locationType}`);
+    /** 
+     * Determine if a location can be scanned 
+     * A location can be scanned if all previous locations are complete 
+     */
+    canScanLocation(route, locationType, locationID) {
+      // For start locations 
+      if (locationType === 'start') { 
+        // Get all start location IDs as an array 
+        const startLocationIDs = Object.keys(route.start_locations); 
+        const currentIndex = startLocationIDs.indexOf(locationID.toString()); 
+        
+        // If it's the first location, always allow scanning 
+        if (currentIndex === 0) return true; 
+        
+        // Check if all previous locations are complete 
+        for (let i = 0; i < currentIndex; i++) { 
+          const prevLocationID = startLocationIDs[i]; 
+          if (route.start_locations[prevLocationID].location_status !== 'complete') { 
+            return false; 
+          } 
+        } 
+        return true; 
+      } 
       
-      // You can implement a modal with QR scanner here
-      // For example:
-      this.$emit('scan-qr-code', {
-        routeID: routeID,
-        locationType: locationType,
-        deliveryID: this.delivery.deliveryID
-      });
+      // For end locations, all start locations must be complete 
+      if (locationType === 'end') { 
+        // Check if all start locations are complete 
+        for (const startLocationID in route.start_locations) { 
+          if (route.start_locations[startLocationID].location_status !== 'complete') { 
+            return false; 
+          } 
+        } 
+        
+        // Get all end location IDs as an array 
+        const endLocationIDs = Object.keys(route.end_locations); 
+        const currentIndex = endLocationIDs.indexOf(locationID.toString()); 
+        
+        // If it's the first end location, allow scanning 
+        if (currentIndex === 0) return true; 
+        
+        // Check if all previous end locations are complete 
+        for (let i = 0; i < currentIndex; i++) { 
+          const prevLocationID = endLocationIDs[i]; 
+          if (route.end_locations[prevLocationID].location_status !== 'complete') { 
+            return false; 
+          } 
+        } 
+        return true; 
+      } 
+      
+      return false; 
     },
+    /**
+     * Handle QR code scanning
+     */
+    scanQRCode(checkpoints) { 
+      // Extract checkpoint IDs 
+      const checkpointIDs = checkpoints.map(cp => cp.checkID); 
+      
+      // Encode the checkpoint array as JSON
+      const checkpointParam = encodeURIComponent(JSON.stringify(checkpointIDs));
+      
+      // Open QR scanner page with checkpoint IDs 
+      const qrScannerUrl = `/qr-scanner?checkpoints=${checkpointParam}&deliveryID=${this.delivery.deliveryID}`; 
+      
+      // Open in new window/tab or redirect based on your preference
+      window.open(qrScannerUrl, '_blank'); 
+      
+      // Alternatively, use router to navigate to QR scanner page
+      // this.$router.push(qrScannerUrl);
+    }
   }
 };
 </script>
 
 <style scoped>
-/* Timeline styling */
 .timeline {
   position: relative;
   padding: 20px 0;
-  margin-bottom: 20px;
-}
-
-.timeline:before {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 20px;
-  width: 3px;
-  background-color: #3E7B27;
-  margin-left: -1.5px;
 }
 
 .timeline-item {
-  margin-bottom: 20px;
   position: relative;
+  margin-bottom: 30px;
 }
 
 .timeline-badge {
-  width: 40px;
-  height: 40px;
   position: absolute;
   top: 0;
   left: 0;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   text-align: center;
-  z-index: 1;
+  background-color: #f8f9fa;
+  border: 1px solid rgba(18, 53, 36, 0.2);
 }
 
 .timeline-circle {
@@ -491,30 +510,5 @@ export default {
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 100%;
-}
-
-.row.g-3 {
-  --bs-gutter-y: 1rem;
-}
-
-@media (max-width: 767.98px) {
-  .timeline-panel {
-    padding: 10px;
-  }
-  
-  .timeline-heading {
-    flex-wrap: wrap;
-  }
-  
-  .timeline-title {
-    width: 100%;
-    margin-bottom: 5px;
-  }
-}
-
-@media (min-width: 768px) and (max-width: 991.98px) {
-  .card-body .row > div {
-    margin-bottom: 10px;
-  }
 }
 </style>

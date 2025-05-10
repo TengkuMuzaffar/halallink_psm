@@ -100,6 +100,7 @@
       :delivery="selectedDelivery"
       ref="executeModal"
       @start-delivery="startDelivery"
+      @refresh="$emit('refresh')"
     />
   </div>
 </template>
