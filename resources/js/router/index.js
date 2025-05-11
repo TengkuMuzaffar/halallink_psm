@@ -131,12 +131,13 @@ const routes = [
         }
       },
       {
-        path: '/items',
+        path: 'items',
         name: 'ItemManagement',
         component: ItemManagement,
         meta: {
           requiresAuth: true,
-          title: 'Item Management'
+          title: 'Item Management',
+          requiresCompanyType: 'broiler'
         }
       },
       {
@@ -181,20 +182,13 @@ const routes = [
       },
     ]
   },
-  
+  {
+    path: '/unauthorized',
+    name: 'Unauthorized',
+    component: Unauthorized,
+    meta: { requiresAuth: false }
+  },
  
-
-  // Remove duplicate companies route
-  // {
-  // path: 'companies',
-  // name: 'CompanyManagement',
-  // component: CompanyManagement,
-  // meta: {
-  //   requiresAuth: true,
-  //   requiresRole: 'admin',
-  //   requiresCompanyType: 'admin'
-  // }
-  // }
 ];
 
 const router = createRouter({
