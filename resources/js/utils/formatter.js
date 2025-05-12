@@ -168,3 +168,24 @@ export default {
   formatName,
   formatFileSize
 };
+
+// Add the missing capitalizeFirstLetter function
+export function capitalizeFirstLetter(string) {
+  if (!string) return '';
+  return string.charAt(0).toUpperCase() + string.toLowerCase().slice(1);
+}
+
+
+export function formatDateTime(dateString) {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  return date.toLocaleString('en-MY', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
+// Add any other formatter functions you need

@@ -1,6 +1,6 @@
 <template>
   <div class="modal fade" id="executeModal" tabindex="-1" aria-labelledby="executeModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
       <div class="modal-content">
         <div class="modal-header theme-header">
           <h5 class="modal-title" id="executeModalLabel">Delivery Details</h5>
@@ -77,31 +77,62 @@
                           </div>
                           <div class="timeline-panel">
                             <div class="timeline-heading">
-                              <h6 class="timeline-title">Start Location #{{ startLocationID }}</h6>
-                              <span class="badge" :class="getStatusBadgeClass(startLocation.location_status)">
-                                {{ startLocation.location_status || 'Pending' }}
-                              </span>
-                              <button class="btn btn-sm btn-link" @click="toggleLocationItems(route[0], `start-${startLocationID}`)">
-                                <i class="fas" :class="isLocationExpanded(route[0], `start-${startLocationID}`) ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
-                              </button>
-                              
-                              <!-- Start Button - Only show for first route with pending status -->
-                              <button 
-                                v-if="routeIndex === 0 && startLocationID === Object.keys(route[1].start_locations)[0] && delivery.status === 'pending'" 
-                                class="btn btn-sm btn-success ms-2"
-                                @click="startDeliveryAndRefresh(delivery.deliveryID)"
-                              >
-                                <i class="fas fa-play me-1"></i> Start
-                              </button>
-                              
-                              <!-- QR Code Scanner - Only show if this location can be scanned -->
-                              <button 
-                                v-if="canScanLocation(route[1], 'start', startLocationID)" 
-                                class="btn btn-sm btn-primary ms-2"
-                                @click="scanQRCode(startLocation.checkpoints)"
-                              >
-                                <i class="fas fa-qrcode me-1"></i> Scan QR
-                              </button>
+                              <div class="d-flex flex-wrap align-items-start gap-2 w-100">
+                                <div class="location-header-content">
+                                  <div class="d-flex flex-wrap align-items-center gap-2">
+                                    <h6 class="timeline-title mb-0">Start Location #{{ startLocationID }}</h6>
+                                    <span class="badge" :class="getStatusBadgeClass(startLocation.location_status)">
+                                      {{ startLocation.location_status || 'Pending' }}
+                                    </span>
+                                  </div>
+                                  <div class="location-actions mt-2 d-md-none">
+                                    <div class="d-flex gap-2">
+                                      <button class="btn btn-sm btn-link p-1" @click="toggleLocationItems(route[0], `start-${startLocationID}`)">
+                                        <i class="fas" :class="isLocationExpanded(route[0], `start-${startLocationID}`) ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                                      </button>
+                                      
+                                      <button 
+                                        v-if="routeIndex === 0 && startLocationID === Object.keys(route[1].start_locations)[0] && delivery.status === 'pending'" 
+                                        class="btn btn-sm btn-success"
+                                        @click="startDeliveryAndRefresh(delivery.deliveryID)"
+                                      >
+                                        <i class="fas fa-play me-1"></i> <span class="d-none d-sm-inline">Start</span>
+                                      </button>
+                                      
+                                      <button 
+                                        v-if="canScanLocation(route[1], 'start', startLocationID)" 
+                                        class="btn btn-sm btn-primary"
+                                        @click="scanQRCode(startLocation.checkpoints)"
+                                      >
+                                        <i class="fas fa-qrcode me-1"></i> <span class="d-none d-sm-inline">Scan QR</span>
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div class="ms-auto location-actions d-none d-md-block">
+                                  <div class="d-flex gap-2">
+                                    <button class="btn btn-sm btn-link p-1" @click="toggleLocationItems(route[0], `start-${startLocationID}`)">
+                                      <i class="fas" :class="isLocationExpanded(route[0], `start-${startLocationID}`) ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                                    </button>
+                                    
+                                    <button 
+                                      v-if="routeIndex === 0 && startLocationID === Object.keys(route[1].start_locations)[0] && delivery.status === 'pending'" 
+                                      class="btn btn-sm btn-success"
+                                      @click="startDeliveryAndRefresh(delivery.deliveryID)"
+                                    >
+                                      <i class="fas fa-play me-1"></i> <span>Start</span>
+                                    </button>
+                                    
+                                    <button 
+                                      v-if="canScanLocation(route[1], 'start', startLocationID)" 
+                                      class="btn btn-sm btn-primary"
+                                      @click="scanQRCode(startLocation.checkpoints)"
+                                    >
+                                      <i class="fas fa-qrcode me-1"></i> <span>Scan QR</span>
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
                             </div>
                             <div class="timeline-body">
                               <p>{{ startLocation.company_address }}</p>
@@ -163,7 +194,7 @@
                               <!-- QR Code Scanner - Only show if this location can be scanned -->
                               <button 
                                 v-if="canScanLocation(route[1], 'end', endLocationID)" 
-                                class="btn btn-sm btn-primary ms-2"
+                                class="btn btn-sm btn-primary"
                                 @click="scanQRCode(endLocation.checkpoints)"
                               >
                                 <i class="fas fa-qrcode me-1"></i> Scan QR
@@ -221,7 +252,7 @@
             </div>
           </div>
         </div>
-        <div class="modal-footer">
+        <div class="modal-footer theme-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
         </div>
       </div>
@@ -473,7 +504,11 @@ export default {
   background-color: #3E7B27;
   color: white;
 }
-
+/* Modal footer styling */
+.theme-footer {
+  background-color: rgba(239, 227, 194, 0.1);
+  border-top: 1px solid var(--border-color);
+}
 /* Button styling */
 .btn-link {
   color: #3E7B27;
@@ -510,5 +545,168 @@ export default {
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 100%;
+}
+
+/* Responsive Design Improvements */
+@media (max-width: 767px) {
+  .modal-dialog {
+    margin: 0.5rem;
+  }
+  
+  .timeline-panel {
+    margin-left: 45px;
+    padding: 10px;
+  }
+  
+  .timeline-badge {
+    width: 30px;
+    height: 30px;
+  }
+  
+  .timeline-circle {
+    width: 12px;
+    height: 12px;
+    margin: 9px;
+  }
+  
+  .timeline-title {
+    font-size: 0.9rem;
+  }
+  
+  .badge {
+    font-size: 0.75rem;
+  }
+  
+  .btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+  }
+  
+  .location-type {
+    font-size: 0.8rem;
+  }
+  
+  .table {
+    font-size: 0.8rem;
+  }
+  
+  .table td, .table th {
+    padding: 0.5rem;
+  }
+  
+  .card-body {
+    padding: 0.75rem;
+  }
+  
+  .form-group {
+    margin-bottom: 1rem;
+  }
+}
+
+/* Small screen optimizations */
+@media (max-width: 575px) {
+  .modal-dialog {
+    margin: 0;
+    max-height: 100vh;
+  }
+  
+  .modal-content {
+    border-radius: 0;
+    min-height: 100vh;
+  }
+  
+  .timeline-panel {
+    margin-left: 35px;
+    padding: 8px;
+  }
+  
+  .timeline-badge {
+    width: 24px;
+    height: 24px;
+  }
+  
+  .timeline-circle {
+    width: 10px;
+    height: 10px;
+    margin: 7px;
+  }
+  
+  .card {
+    border-radius: 0;
+  }
+  
+  .table-responsive {
+    margin: 0 -0.75rem;
+  }
+  
+  .table td, .table th {
+    padding: 0.4rem;
+    font-size: 0.75rem;
+  }
+  
+  /* Improve button spacing on mobile */
+  .d-flex.flex-wrap.gap-2 {
+    gap: 0.25rem !important;
+  }
+  
+  /* Make buttons more compact on mobile */
+  .btn-sm {
+    padding: 0.2rem 0.4rem;
+    font-size: 0.7rem;
+  }
+}
+
+/* Medium screen optimizations */
+@media (min-width: 576px) and (max-width: 991px) {
+  .timeline-panel {
+    margin-left: 50px;
+  }
+  
+  .card-body {
+    padding: 1rem;
+  }
+  
+  .table td, .table th {
+    padding: 0.6rem;
+  }
+}
+
+/* Improve table responsiveness */
+.table-responsive {
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+}
+
+/* Improve button wrapping */
+.btn-group-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* Improve text truncation */
+.text-truncate {
+  max-width: 100%;
+}
+
+/* Improve modal scrolling */
+.modal-dialog-scrollable {
+  max-height: calc(100vh - 1rem);
+}
+
+/* Improve timeline spacing */
+.timeline-item:last-child {
+  margin-bottom: 0;
+}
+
+/* Improve card margins on mobile */
+@media (max-width: 575px) {
+  .card {
+    margin-bottom: 0.5rem;
+  }
+  
+  .form-group.mb-4 {
+    margin-bottom: 0.75rem !important;
+  }
 }
 </style>

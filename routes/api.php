@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\PoultryController;
 use App\Http\Controllers\Api\MarketplaceController;
 use App\Http\Controllers\Api\ToyyibPayController;
 use App\Http\Controllers\Api\PaymentController;
+use App\Http\Controllers\Api\OrderController; // Add this line
 
 // Public routes
 Route::post('/login', [AuthController::class, 'login']);
@@ -62,6 +63,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/dashboard/stats', [DashboardController::class, 'getStats']);
 
     // Admin company type routes - accessible by both admin and employee roles
+    // If 'admin' company type should be the only one, it remains as is.
+    // If it needs to be admin OR another_type, it would be: Route::middleware('role.company:both,admin,another_type')
     Route::middleware('role.company:both,admin')->group(function () {
         // Company routes
         Route::get('/companies', [CompanyController::class, 'index']);
@@ -81,6 +84,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/poultries/all/stats', [PoultryController::class, 'getStats']);
     });
     
+    // Broiler company type routes
     Route::middleware('role.company:both,broiler')->group(function () {
         // Specific routes should come before wildcard routes
         Route::get('/items/stats', [ItemController::class, 'getItemStats']);
@@ -95,6 +99,18 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/items/{id}', [ItemController::class, 'destroy']);
     });
 
+ 
+    Route::middleware('role.company:both,sme,broiler')->group(function () {
+        Route::get('/orders/stats', [OrderController::class, 'getStats']);
+        Route::get('/orders', [OrderController::class, 'index']);
+        Route::get('/orders/{order}', [OrderController::class, 'show']);
+        Route::post('/orders', [OrderController::class, 'store']);
+        Route::put('/orders/{order}', [OrderController::class, 'update']);
+
+    });
+
+
+    // SME company type routes
     Route::middleware('role.company:both,sme')->group(function () {
         // Add these routes if they don't exist
         Route::get('/marketplace/items', [MarketplaceController::class, 'getItems']);
@@ -128,6 +144,9 @@ Route::middleware('auth:sanctum')->group(function () {
         // Add new route for starting a delivery
         Route::post('/deliveries/{deliveryID}/start', [App\Http\Controllers\Api\ExecuteDeliveriesController::class, 'startDelivery']);
         
+        // Add new route for QR code processing
+        Route::post('/qrcode/process', [App\Http\Controllers\Api\QRcodeController::class, 'processQRCode']);
+        Route::get('/qrcode/process/{orderID}/{locationID}', [App\Http\Controllers\Api\QRcodeController::class, 'processQRCode']);
         // Location routes for delivery
         Route::get('/locations', [App\Http\Controllers\Api\LocationController::class, 'index']);
         Route::get('/users/get/drivers', [App\Http\Controllers\Api\DeliveryController::class, 'getDrivers']);
@@ -143,7 +162,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::apiResource('employees', EmployeeController::class);
         Route::patch('/employees/{id}/status', [EmployeeController::class, 'updateStatus']);
     });
-});
+}); // Ensure this is the closing bracket for Route::middleware('auth:sanctum')->group
 
 
 

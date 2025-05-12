@@ -23,6 +23,7 @@ const Marketplace = () => import('../pages/MarketplacePage.vue');
 const PaymentStatus = () => import('../pages/PaymentStatusPage.vue');
 const VehicleManagement = () => import('../pages/VehicleManagement.vue');
 const DeliveryPage = () => import('../pages/DeliveryPage.vue'); // Import the new page
+const OrderManagement = () =>  import('../pages/OrderManagementPage.vue');
 
 const routes = [
   {
@@ -169,7 +170,6 @@ const routes = [
           title: 'Payment Status' 
         }
       },
-      // Add the new delivery route
       {
         path: '/deliveries',
         name: 'DeliveryManagement',
@@ -178,6 +178,17 @@ const routes = [
           requiresAuth: true,
           requiresCompanyType: 'logistic', // Assuming logistic role/company handles this
           title: 'Delivery Management'
+        }
+      },
+      {
+        path: 'orders',
+        name: 'OrderManagement',
+        component: OrderManagement,
+        meta: { 
+          requiresAuth: true, 
+          requiresCompanyType: 'broiler', // For frontend route guard if you have one
+          title: 'Order Management'
+
         }
       },
     ]
