@@ -24,6 +24,314 @@ class OrderController extends Controller
     public function index(Request $request)
     {
         try {
+            // Get authenticated user and company
+            $user = Auth::user();
+            $companyID = $user->companyID;
+            
+            // Get company information
+            $company = Company::find($companyID);
+            if (!$company) {
+                return response()->json(['message' => 'Company not found'], 404);
+            }
+            
+            // Get pagination parameters
+            $perPage = $request->input('per_page', 10);
+            $page = $request->input('page', 1);
+            
+            // Get locations belonging to the company
+            $locations = Location::where('companyID', $companyID)->get();
+            $locationIDs = $locations->pluck('locationID')->toArray();
+            
+            // Initialize array for organizing data
+            $groupedData = [];
+            
+            // Process each location
+            foreach ($locations as $location) {
+                $locationID = $location->locationID;
+                
+                // Get checkpoints for this location
+                $checkpoints = Checkpoint::where('locationID', $locationID)
+                    ->with(['order', 'verifies'])
+                    ->get();
+                
+                // Skip if no checkpoints found
+                if ($checkpoints->isEmpty()) {
+                    continue;
+                }
+                
+                // Initialize location data structure
+                $groupedData[$locationID] = [
+                    'locationID' => $locationID,
+                    'company_address' => $location->company_address ?? 'Unknown Location',
+                    'location_type' => $location->location_type ?? 'Unknown Type',
+                    'orders' => []
+                ];
+                
+                // Group checkpoints by order
+                $orderCheckpoints = [];
+                foreach ($checkpoints as $checkpoint) {
+                    if (!$checkpoint->orderID) continue;
+                    
+                    $orderID = $checkpoint->orderID;
+                    if (!isset($orderCheckpoints[$orderID])) {
+                        $orderCheckpoints[$orderID] = [];
+                    }
+                    
+                    $orderCheckpoints[$orderID][] = $checkpoint;
+                }
+                
+                // Process each order
+                foreach ($orderCheckpoints as $orderID => $checkpointList) {
+                    $order = Order::with(['user'])->find($orderID); // Removed payment from eager loading
+                    if (!$order) continue;
+                    
+                    // Initialize order data - removed payment and items array
+                    $orderData = [
+                        'orderID' => $orderID,
+                        'order_status' => $order->order_status,
+                        'created_at' => $order->created_at,
+                        'user' => $order->user,
+                        'checkpoints' => []
+                    ];
+                    
+                    // Process checkpoints for this order
+                    foreach ($checkpointList as $checkpoint) {
+                        // Determine checkpoint status based on verifies
+                        $checkpointStatus = 'pending';
+                        
+                        if (!$checkpoint->verifies || $checkpoint->verifies->isEmpty()) {
+                            $checkpointStatus = 'pending';
+                        } else {
+                            $hasIncomplete = false;
+                            foreach ($checkpoint->verifies as $verify) {
+                                if ($verify->verify_status !== 'complete') {
+                                    $hasIncomplete = true;
+                                    break;
+                                }
+                            }
+                            
+                            if ($hasIncomplete) {
+                                $checkpointStatus = 'processing';
+                            } else {
+                                $checkpointStatus = 'complete';
+                            }
+                        }
+                        
+                        // Get items from checkpoint's item_record
+                        $checkpointItems = [];
+                        if ($checkpoint->item_record) {
+                            $itemIDs = is_array($checkpoint->item_record) 
+                                ? $checkpoint->item_record 
+                                : json_decode($checkpoint->item_record, true);
+                            
+                            if (is_array($itemIDs)) {
+                                // Get cart items for this order
+                                $cartItems = Cart::where('orderID', $orderID)
+                                    ->whereIn('itemID', $itemIDs)
+                                    ->get();
+                                
+                                foreach ($cartItems as $cartItem) {
+                                    $item = Item::with(['poultry', 'location', 'slaughterhouse'])
+                                        ->find($cartItem->itemID);
+                                    
+                                    if ($item) {
+                                        $checkpointItems[] = [
+                                            'itemID' => $item->itemID,
+                                            'item_name' => $item->poultry ? $item->poultry->poultry_name : 'Unknown',
+                                            'measurement_type' => $item->measurement_type,
+                                            'measurement_value' => $item->measurement_value,
+                                            'price' => $item->price,
+                                            'quantity' => $cartItem->quantity,
+                                            'price_at_purchase' => $cartItem->price_at_purchase,
+                                            'total_price' => $cartItem->price_at_purchase * $cartItem->quantity,
+                                            'supplier_locationID' => $item->locationID,
+                                            'supplier_location_address' => $item->location ? $item->location->company_address : 'Unknown',
+                                            'slaughterhouse_locationID' => $item->slaughterhouse_locationID,
+                                            'slaughterhouse_location_address' => $item->slaughterhouse ? $item->slaughterhouse->company_address : 'N/A'
+                                        ];
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Add checkpoint data
+                        $orderData['checkpoints'][] = [
+                            'checkID' => $checkpoint->checkID,
+                            'checkpoint_status' => $checkpointStatus,
+                            'arrange_number' => $checkpoint->arrange_number,
+                            'items' => $checkpointItems
+                        ];
+                    }
+                    
+                    // Calculate overall order status based on checkpoints
+                    $orderStatus = 'pending';
+                    $allCheckpointsHaveVerifies = true;
+                    $allCheckpointsComplete = true;
+                    
+                    foreach ($orderData['checkpoints'] as $checkpoint) {
+                        if ($checkpoint['checkpoint_status'] === 'pending') {
+                            $allCheckpointsHaveVerifies = false;
+                            $allCheckpointsComplete = false;
+                            break;
+                        } else if ($checkpoint['checkpoint_status'] === 'processing') {
+                            $allCheckpointsComplete = false;
+                        }
+                    }
+                    
+                    if (!$allCheckpointsHaveVerifies) {
+                        $orderStatus = 'waiting_verification';
+                    } else if (!$allCheckpointsComplete) {
+                        $orderStatus = 'processing';
+                    } else {
+                        $orderStatus = 'complete';
+                    }
+                    
+                    $orderData['calculated_status'] = $orderStatus;
+                    
+                    // Add order data to location
+                    $groupedData[$locationID]['orders'][$orderID] = $orderData;
+                }
+                
+                // Convert orders from associative to indexed array
+                $groupedData[$locationID]['orders'] = array_values($groupedData[$locationID]['orders']);
+            }
+            
+            // Convert to array and paginate manually
+            $locationArray = array_values($groupedData);
+            $total = count($locationArray);
+            
+            $paginatedData = array_slice($locationArray, ($page - 1) * $perPage, $perPage);
+            
+            $pagination = [
+                'total' => $total,
+                'per_page' => $perPage,
+                'current_page' => $page,
+                'last_page' => ceil($total / $perPage),
+                'from' => (($page - 1) * $perPage) + 1,
+                'to' => min($page * $perPage, $total)
+            ];
+            
+            return response()->json([
+                'success' => true,
+                'data' => $paginatedData,
+                'pagination' => $pagination
+            ]);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error fetching orders: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Store a newly created order in storage.
+     * (This might be complex depending on your cart/checkout flow)
+     * For now, a basic placeholder.
+     */
+    public function store(Request $request)
+    {
+        $user = Auth::user();
+        $validator = Validator::make($request->all(), [
+            'items' => 'required|array',
+            'items.*.itemID' => 'required|exists:items,itemID',
+            'items.*.quantity' => 'required|integer|min:1',
+            'delivery_address' => 'required|string|max:255',
+            // Add other necessary fields like total_amount, payment details etc.
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        // This is a simplified store method. 
+        // In a real app, this would likely be handled after a payment process.
+        // For now, assuming order creation is direct.
+
+        try {
+            DB::beginTransaction();
+
+            $order = Order::create([
+                'userID' => $user->userID,
+                'companyID' => $user->companyID, // Assuming orders are tied to the user's company
+                'order_status' => 'pending', // Default status
+                'total_amount' => $request->total_amount, // Calculate this based on items
+                'delivery_address' => $request->delivery_address,
+                // ... other fields
+            ]);
+
+            // Attach items to order (assuming an order_items pivot table or similar)
+            // This depends on your Order model's relationships (e.g., items())
+            // foreach ($request->items as $itemData) {
+            //    $order->items()->attach($itemData['itemID'], ['quantity' => $itemData['quantity']]);
+            // }
+
+            DB::commit();
+            return response()->json($order->load(['user', 'items']), 201);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['message' => 'Failed to create order', 'error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Display the specified order.
+     */
+    public function show($id)
+    {
+        $user = Auth::user();
+        $order = Order::with(['user', 'items.poultry', 'items.company', 'payment', 'checkpoints.tasks', 'checkpoints.location', 'delivery.vehicle'])
+                      ->where('companyID', $user->companyID) // Ensure user can only see their company's orders
+                      ->find($id);
+
+        if (!$order) {
+            return response()->json(['message' => 'Order not found'], 404);
+        }
+        
+        // Further process to structure item_records with locations if needed
+        // This part is highly dependent on how `item_record` and locations are structured
+        // and related to orders or items within orders.
+        // For now, we return the order with its relations.
+        // You might need a custom resource or transformer here.
+
+        return response()->json($order);
+    }
+
+    /**
+     * Update the specified order in storage.
+     */
+    public function update(Request $request, $id)
+    {
+        $user = Auth::user();
+        $order = Order::where('companyID', $user->companyID)->find($id);
+
+        if (!$order) {
+            return response()->json(['message' => 'Order not found'], 404);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'order_status' => 'sometimes|string|in:pending,processing,shipped,delivered,completed,cancelled',
+            'delivery_address' => 'sometimes|string|max:255',
+            // Add other updatable fields
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        $order->update($request->only(['order_status', 'delivery_address'])); // Add other fields
+
+        return response()->json($order->fresh()->load(['user', 'items', 'payment']));
+    }
+    
+    /**
+     * Get order statistics
+     */
+    public function getStats()
+    {
+        try {
             $user = Auth::user();
             $companyID = $user->companyID;
             
@@ -117,6 +425,7 @@ class OrderController extends Controller
                             $locationMap[$locationID] = [
                                 'locationID' => $locationID,
                                 'location_name' => $item->location ? $item->location->company_address : 'Unknown',
+                                'companyID' => $item->location? $item->location->companyID : 'Unknown',
                                 'location_status' => 'pending',
                                 'checkpoints' => [],
                                 'items' => []
@@ -266,257 +575,6 @@ class OrderController extends Controller
             
         } catch (\Exception $e) {
             return response()->json(['message' => 'Error fetching orders: ' . $e->getMessage()], 500);
-        }
-    }
-
-    /**
-     * Store a newly created order in storage.
-     * (This might be complex depending on your cart/checkout flow)
-     * For now, a basic placeholder.
-     */
-    public function store(Request $request)
-    {
-        $user = Auth::user();
-        $validator = Validator::make($request->all(), [
-            'items' => 'required|array',
-            'items.*.itemID' => 'required|exists:items,itemID',
-            'items.*.quantity' => 'required|integer|min:1',
-            'delivery_address' => 'required|string|max:255',
-            // Add other necessary fields like total_amount, payment details etc.
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
-        }
-
-        // This is a simplified store method. 
-        // In a real app, this would likely be handled after a payment process.
-        // For now, assuming order creation is direct.
-
-        try {
-            DB::beginTransaction();
-
-            $order = Order::create([
-                'userID' => $user->userID,
-                'companyID' => $user->companyID, // Assuming orders are tied to the user's company
-                'order_status' => 'pending', // Default status
-                'total_amount' => $request->total_amount, // Calculate this based on items
-                'delivery_address' => $request->delivery_address,
-                // ... other fields
-            ]);
-
-            // Attach items to order (assuming an order_items pivot table or similar)
-            // This depends on your Order model's relationships (e.g., items())
-            // foreach ($request->items as $itemData) {
-            //    $order->items()->attach($itemData['itemID'], ['quantity' => $itemData['quantity']]);
-            // }
-
-            DB::commit();
-            return response()->json($order->load(['user', 'items']), 201);
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json(['message' => 'Failed to create order', 'error' => $e->getMessage()], 500);
-        }
-    }
-
-    /**
-     * Display the specified order.
-     */
-    public function show($id)
-    {
-        $user = Auth::user();
-        $order = Order::with(['user', 'items.poultry', 'items.company', 'payment', 'checkpoints.tasks', 'checkpoints.location', 'delivery.vehicle'])
-                      ->where('companyID', $user->companyID) // Ensure user can only see their company's orders
-                      ->find($id);
-
-        if (!$order) {
-            return response()->json(['message' => 'Order not found'], 404);
-        }
-        
-        // Further process to structure item_records with locations if needed
-        // This part is highly dependent on how `item_record` and locations are structured
-        // and related to orders or items within orders.
-        // For now, we return the order with its relations.
-        // You might need a custom resource or transformer here.
-
-        return response()->json($order);
-    }
-
-    /**
-     * Update the specified order in storage.
-     */
-    public function update(Request $request, $id)
-    {
-        $user = Auth::user();
-        $order = Order::where('companyID', $user->companyID)->find($id);
-
-        if (!$order) {
-            return response()->json(['message' => 'Order not found'], 404);
-        }
-
-        $validator = Validator::make($request->all(), [
-            'order_status' => 'sometimes|string|in:pending,processing,shipped,delivered,completed,cancelled',
-            'delivery_address' => 'sometimes|string|max:255',
-            // Add other updatable fields
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
-        }
-
-        $order->update($request->only(['order_status', 'delivery_address'])); // Add other fields
-
-        return response()->json($order->fresh()->load(['user', 'items', 'payment']));
-    }
-    
-    /**
-     * Get order statistics
-     */
-    public function getStats()
-    {
-        try {
-            $user = Auth::user();
-            $companyID = $user->companyID;
-            
-            // Get company type
-            $company = Company::find($companyID);
-            if (!$company) {
-                return response()->json(['message' => 'Company not found'], 404);
-            }
-            
-            $companyType = strtolower($company->company_type);
-            
-            // Different logic based on company type
-            if ($companyType === 'broiler') {
-                // For broiler companies: Find orders through carts -> items -> user -> companyID
-                $orderIDs = DB::table('carts')
-                    ->join('items', 'carts.itemID', '=', 'items.itemID')
-                    ->join('users', 'items.userID', '=', 'users.userID')
-                    ->where('users.companyID', $companyID)
-                    ->distinct()
-                    ->pluck('carts.orderID');
-                
-                // Get all orders with their checkpoints and verifies
-                $orders = Order::whereIn('orderID', $orderIDs)
-                    ->with(['items.location', 'checkpoints.verifies'])
-                    ->get();
-                
-                // Calculate stats based on the custom status logic
-                $pendingCount = 0;
-                $completedCount = 0;
-                $processingCount = 0;
-                $waitingCount = 0;
-                
-                foreach ($orders as $order) {
-                    // Group items by locationID
-                    $itemsByLocation = [];
-                    foreach ($order->items as $item) {
-                        $locationID = $item->locationID;
-                        if (!isset($itemsByLocation[$locationID])) {
-                            $itemsByLocation[$locationID] = [
-                                'location' => $item->location,
-                                'items' => [],
-                                'status' => 'waiting_delivery' // Default status
-                            ];
-                        }
-                        $itemsByLocation[$locationID]['items'][] = $item;
-                    }
-                    
-                    // Process each location's status
-                    $allLocationsComplete = true;
-                    $hasProcessing = false;
-                    $hasWaiting = false;
-                    
-                    foreach ($itemsByLocation as $locationID => &$locationData) {
-                        // Get checkpoints for this order and location
-                        $checkpoints = $order->checkpoints->where('locationID', $locationID);
-                        
-                        if ($checkpoints->isEmpty()) {
-                            $locationData['status'] = 'waiting_delivery';
-                            $allLocationsComplete = false;
-                            $hasWaiting = true;
-                            continue;
-                        }
-                        
-                        // Check if all checkpoints have verifies
-                        $allCheckpointsHaveVerifies = true;
-                        $allVerifiesComplete = true;
-                        
-                        foreach ($checkpoints as $checkpoint) {
-                            if ($checkpoint->verifies->isEmpty()) {
-                                $allCheckpointsHaveVerifies = false;
-                                break;
-                            }
-                            
-                            // Check if any verify is not complete
-                            foreach ($checkpoint->verifies as $verify) {
-                                if ($verify->verify_status !== 'complete') {
-                                    $allVerifiesComplete = false;
-                                    break;
-                                }
-                            }
-                        }
-                        
-                        if (!$allCheckpointsHaveVerifies) {
-                            $locationData['status'] = 'waiting_delivery';
-                            $allLocationsComplete = false;
-                            $hasWaiting = true;
-                        } else if (!$allVerifiesComplete) {
-                            $locationData['status'] = 'processing';
-                            $allLocationsComplete = false;
-                            $hasProcessing = true;
-                        } else {
-                            $locationData['status'] = 'complete';
-                        }
-                    }
-                    
-                    // Increment the appropriate counter
-                    if ($allLocationsComplete) {
-                        $completedCount++;
-                    } else {
-                        $pendingCount++;
-                        if ($hasProcessing) {
-                            $processingCount++;
-                        }
-                        if ($hasWaiting) {
-                            $waitingCount++;
-                        }
-                    }
-                }
-                
-                return response()->json([
-                    'total_orders' => $orders->count(),
-                    'pending_orders' => $pendingCount,
-                    'completed_orders' => $completedCount,
-                    'processing_orders' => $processingCount,
-                    'waiting_orders' => $waitingCount,
-                    'success' => true
-                ]);
-                
-            } else {
-                // For SME and other company types: Use the order_status field directly
-                $totalOrders = Order::where('companyID', $companyID)->count();
-                $pendingOrders = Order::where('companyID', $companyID)
-                    ->whereIn('order_status', ['pending', 'processing', 'waiting_delivery'])
-                    ->count();
-                $completedOrders = Order::where('companyID', $companyID)
-                    ->where('order_status', 'complete')
-                    ->count();
-                
-                return response()->json([
-                    'total_orders' => $totalOrders,
-                    'pending_orders' => $pendingOrders,
-                    'completed_orders' => $completedOrders,
-                    'success' => true
-                ]);
-            }
-            
-        } catch (\Exception $e) {
-            return response()->json([
-                'message' => 'Failed to retrieve order statistics: ' . $e->getMessage(),
-                'success' => false
-            ], 500);
         }
     }
 }

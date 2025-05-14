@@ -67,9 +67,29 @@
                 <div class="card-body">
                   <!-- Routes Information -->
                   <div v-if="delivery && delivery.routes && Object.keys(delivery.routes).length > 0">
+                    <!-- Route tabs for multiple routes -->
+                    <ul class="nav nav-tabs mb-3" v-if="Object.keys(delivery.routes).length > 1">
+                      <li class="nav-item" v-for="(route, routeIndex) in Object.entries(delivery.routes)" :key="routeIndex">
+                        <button 
+                          class="nav-link" 
+                          :class="{ 'active': activeRouteTab === routeIndex }"
+                          @click="setActiveRoute(routeIndex)"
+                        >
+                          Route #{{ parseInt(route[0]) + 1 }}
+                        </button>
+                      </li>
+                    </ul>
+                    
                     <!-- Timeline style routes display -->
                     <div class="timeline">
-                      <div v-for="(route, routeIndex) in Object.entries(delivery.routes)" :key="routeIndex" class="route-group mb-4">
+                      <div v-for="(route, routeIndex) in Object.entries(delivery.routes)" :key="routeIndex" 
+                           class="route-group mb-4" 
+                           v-show="activeRouteTab === routeIndex || Object.keys(delivery.routes).length === 1">
+                        <!-- Route header if multiple routes -->
+                        <div v-if="Object.keys(delivery.routes).length > 1" class="route-header mb-3">
+                          <h6 class="border-bottom pb-2">Route #{{ parseInt(route[0]) + 1 }}</h6>
+                        </div>
+                        
                         <!-- Start Locations - Loop through all start locations -->
                         <div v-for="(startLocation, startLocationID) in route[1].start_locations" :key="startLocationID" class="timeline-item">
                           <div class="timeline-badge">
@@ -80,7 +100,7 @@
                               <div class="d-flex flex-wrap align-items-start gap-2 w-100">
                                 <div class="location-header-content">
                                   <div class="d-flex flex-wrap align-items-center gap-2">
-                                    <h6 class="timeline-title mb-0">Start Location #{{ startLocationID }}</h6>
+                                    <h6 class="timeline-title mb-0">Pick Up  #{{ startLocationID }}</h6>
                                     <span class="badge" :class="getStatusBadgeClass(startLocation.location_status)">
                                       {{ startLocation.location_status || 'Pending' }}
                                     </span>
@@ -183,22 +203,46 @@
                           </div>
                           <div class="timeline-panel">
                             <div class="timeline-heading">
-                              <h6 class="timeline-title">End Location #{{ endLocationID }}</h6>
-                              <span class="badge" :class="getStatusBadgeClass(endLocation.location_status)">
-                                {{ endLocation.location_status || 'Pending' }}
-                              </span>
-                              <button class="btn btn-sm btn-link" @click="toggleLocationItems(route[0], `end-${endLocationID}`)">
-                                <i class="fas" :class="isLocationExpanded(route[0], `end-${endLocationID}`) ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
-                              </button>
-                              
-                              <!-- QR Code Scanner - Only show if this location can be scanned -->
-                              <button 
-                                v-if="canScanLocation(route[1], 'end', endLocationID)" 
-                                class="btn btn-sm btn-primary"
-                                @click="scanQRCode(endLocation.checkpoints)"
-                              >
-                                <i class="fas fa-qrcode me-1"></i> Scan QR
-                              </button>
+                              <div class="d-flex flex-wrap align-items-start gap-2 w-100">
+                                <div class="location-header-content">
+                                  <div class="d-flex flex-wrap align-items-center gap-2">
+                                    <h6 class="timeline-title mb-0">Destination #{{ endLocationID }}</h6>
+                                    <span class="badge" :class="getStatusBadgeClass(endLocation.location_status)">
+                                      {{ endLocation.location_status || 'Pending' }}
+                                    </span>
+                                  </div>
+                                  <div class="location-actions mt-2 d-md-none">
+                                    <div class="d-flex gap-2">
+                                      <button class="btn btn-sm btn-link p-1" @click="toggleLocationItems(route[0], `end-${endLocationID}`)">
+                                        <i class="fas" :class="isLocationExpanded(route[0], `end-${endLocationID}`) ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                                      </button>
+                                      
+                                      <button 
+                                        v-if="canScanLocation(route[1], 'end', endLocationID)" 
+                                        class="btn btn-sm btn-primary"
+                                        @click="scanQRCode(endLocation.checkpoints)"
+                                      >
+                                        <i class="fas fa-qrcode me-1"></i> <span class="d-none d-sm-inline">Scan QR</span>
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div class="ms-auto location-actions d-none d-md-block">
+                                  <div class="d-flex gap-2">
+                                    <button class="btn btn-sm btn-link p-1" @click="toggleLocationItems(route[0], `end-${endLocationID}`)">
+                                      <i class="fas" :class="isLocationExpanded(route[0], `end-${endLocationID}`) ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                                    </button>
+                                    
+                                    <button 
+                                      v-if="canScanLocation(route[1], 'end', endLocationID)" 
+                                      class="btn btn-sm btn-primary"
+                                      @click="scanQRCode(endLocation.checkpoints)"
+                                    >
+                                      <i class="fas fa-qrcode me-1"></i> <span>Scan QR</span>
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
                             </div>
                             <div class="timeline-body">
                               <p>{{ endLocation.company_address }}</p>
@@ -258,11 +302,19 @@
       </div>
     </div>
   </div>
+  <QRScannerModal 
+    v-if="scannerData"
+    :deliveryID="delivery?.deliveryID"
+    :locationID="scannerData.locationID"
+    :checkpoints="scannerData.checkpoints"
+    ref="qrScannerModal"
+    @scanner-closed="reopenExecuteModal"
+  />
 </template>
 
 <script>
 import { Modal } from 'bootstrap';
-
+import QRScannerModal from './QRScannerModal.vue';
 export default {
   name: 'ExecuteModalDelivery',
   props: {
@@ -275,14 +327,22 @@ export default {
       default: () => null
     }
   },
+  components: {
+    QRScannerModal
+  },
   emits: ['start-delivery', 'scan-qr-code', 'refresh'],
   data() {
     return {
       modal: null,
-      expandedLocations: {}
+      activeRouteTab: 0,
+      scannerData: null,
+      expandedLocations: {},
     };
   },
   methods: {
+    setActiveRoute(routeIndex) {
+      this.activeRouteTab = routeIndex;
+    },
     showModal() {
       if (!this.modal) {
         this.modal = new Modal(document.getElementById('executeModal'));
@@ -351,13 +411,18 @@ export default {
      * A location can be scanned if all previous locations are complete 
      */
     canScanLocation(route, locationType, locationID) {
+      // Check if delivery is started first
+      if (this.delivery.status === 'pending') {
+        return false;
+      }
+      
       // For start locations 
       if (locationType === 'start') { 
         // Get all start location IDs as an array 
         const startLocationIDs = Object.keys(route.start_locations); 
         const currentIndex = startLocationIDs.indexOf(locationID.toString()); 
         
-        // If it's the first location, always allow scanning 
+        // If it's the first location and delivery is started, allow scanning 
         if (currentIndex === 0) return true; 
         
         // Check if all previous locations are complete 
@@ -383,7 +448,7 @@ export default {
         const endLocationIDs = Object.keys(route.end_locations); 
         const currentIndex = endLocationIDs.indexOf(locationID.toString()); 
         
-        // If it's the first end location, allow scanning 
+        // If it's the first end location and all start locations are complete, allow scanning 
         if (currentIndex === 0) return true; 
         
         // Check if all previous end locations are complete 
@@ -401,27 +466,34 @@ export default {
     /**
      * Handle QR code scanning
      */
-    scanQRCode(checkpoints) { 
-      // Extract checkpoint IDs 
-      const checkpointIDs = checkpoints.map(cp => cp.checkID); 
-      
-      // Encode the checkpoint array as JSON
-      const checkpointParam = encodeURIComponent(JSON.stringify(checkpointIDs));
-      
-      // Open QR scanner page with checkpoint IDs 
-      const qrScannerUrl = `/qr-scanner?checkpoints=${checkpointParam}&deliveryID=${this.delivery.deliveryID}`; 
-      
-      // Open in new window/tab or redirect based on your preference
-      window.open(qrScannerUrl, '_blank'); 
-      
-      // Alternatively, use router to navigate to QR scanner page
-      // this.$router.push(qrScannerUrl);
-    }
+     scanQRCode(checkpoints) {
+       // Set the scanner data with the current location ID and checkpoints
+       this.scannerData = {
+         locationID: this.delivery.deliveryID,
+         checkpoints: checkpoints
+       };
+       
+       // Hide the execute modal first
+       this.hideModal();
+       
+       // Then show the QR scanner modal
+       // Use nextTick to ensure the DOM has updated
+       this.$nextTick(() => {
+         this.$refs.qrScannerModal.showModal();
+       });
+     },
+    reopenExecuteModal() {
+      // Show the execute modal again after the QR scanner is closed
+      setTimeout(() => {
+        this.showModal();
+      }, 300);
+    },
   }
 };
 </script>
 
 <style scoped>
+/* Timeline styles */
 .timeline {
   position: relative;
   padding: 20px 0;
@@ -673,40 +745,79 @@ export default {
 
 /* Improve table responsiveness */
 .table-responsive {
+  margin: 0;
+  border-radius: 4px;
+  overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  max-width: 100%;
 }
 
-/* Improve button wrapping */
-.btn-group-wrap {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+.table {
+  min-width: 600px; /* Ensure minimum width for readability */
 }
 
-/* Improve text truncation */
-.text-truncate {
-  max-width: 100%;
+.table th,
+.table td {
+  white-space: nowrap;
+  padding: 0.5rem;
+  vertical-align: middle;
 }
 
-/* Improve modal scrolling */
-.modal-dialog-scrollable {
-  max-height: calc(100vh - 1rem);
+/* Column specific widths */
+.table th:first-child,
+.table td:first-child {
+  min-width: 80px; /* Item ID column */
 }
 
-/* Improve timeline spacing */
-.timeline-item:last-child {
-  margin-bottom: 0;
+.table th:nth-child(2),
+.table td:nth-child(2) {
+  min-width: 100px; /* Name column */
+  white-space: normal; /* Allow text wrapping for names */
 }
 
-/* Improve card margins on mobile */
-@media (max-width: 575px) {
-  .card {
-    margin-bottom: 0.5rem;
+.table th:nth-child(3),
+.table td:nth-child(3) {
+  min-width: 80px; /* Quantity column */
+}
+
+.table th:last-child,
+.table td:last-child {
+  min-width: 100px; /* Order ID column */
+}
+
+@media (max-width: 767px) {
+  .table {
+    font-size: 0.875rem;
   }
   
-  .form-group.mb-4 {
-    margin-bottom: 0.75rem !important;
+  .table th,
+  .table td {
+    padding: 0.4rem;
+  }
+  
+  .card-body.p-0 {
+    padding: 0 !important;
+  }
+  
+  .table-responsive {
+    margin: 0 -1px; /* Prevent horizontal scrollbar from being cut off */
+  }
+  
+  /* Improve scroll indication */
+  .table-responsive::-webkit-scrollbar {
+    height: 6px;
+  }
+  
+  .table-responsive::-webkit-scrollbar-track {
+    background: #f1f1f1;
+  }
+  
+  .table-responsive::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 3px;
+  }
+  
+  .table-responsive::-webkit-scrollbar-thumb:hover {
+    background: #555;
   }
 }
 </style>

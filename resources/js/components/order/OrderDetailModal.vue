@@ -1,117 +1,11 @@
 <template>
-  <div class="modal fade" :id="modalId" tabindex="-1" :aria-labelledby="`${modalId}Label`" role="dialog">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
-      <div class="modal-content">
-        <div class="modal-header theme-header">
-          <h5 class="modal-title" :id="`${modalId}Label`">Order Details: #{{ order ? order.orderID : '' }}</h5>
-          <button type="button" class="btn-close theme-close" data-bs-dismiss="modal" aria-label="Close"></button>
-        </div>
-        <div class="modal-body">
-          <LoadingSpinner v-if="loading" message="Loading order details..." />
-          <div v-if="!loading && order">
-            <!-- Order Information -->
-            <p><strong>Status:</strong> <span :class="`badge bg-${getStatusColor(order.calculated_status || order.order_status)}`">{{ formatStatus(order.calculated_status || order.order_status) }}</span></p>
-            <p><strong>Total Amount:</strong> {{ formatCurrency(order.payment ? order.payment.payment_amount : order.total_amount) }}</p>
-            <p><strong>Delivery Address:</strong> {{ order.delivery_address }}</p>
-            <p><strong>Ordered At:</strong> {{ formatDateTime(order.created_at) }}</p>
-            <p><strong>Customer:</strong> {{ order.user ? order.user.fullname : 'N/A' }} ({{ order.user ? order.user.email : 'N/A' }})</p>
-
-            <hr>
-            
-            <!-- Locations and Checkpoints -->
-            <h6>Supplier Locations:</h6>
-            <div v-if="order.locations && order.locations.length > 0">
-              <div v-for="location in order.locations" :key="location.locationID" class="mb-4 p-3 border rounded">
-                <div class="location-header">
-                  <h6 class="location-title mb-2">
-                    Location: {{ location.location_name || 'Unknown Location' }}
-                  </h6>
-                  <div class="location-actions">
-                    <button 
-                      class="btn btn-sm theme-btn-secondary me-2" 
-                      @click="showQRCode(order.orderID, location.locationID)"
-                      title="Generate QR Code"
-                    >
-                      <i class="fas fa-qrcode"></i> <span class="d-none d-sm-inline">QR Code</span>
-                    </button>
-                    <span :class="`badge bg-${getStatusColor(location.location_status)}`">
-                      {{ formatStatus(location.location_status) }}
-                    </span>
-                  </div>
-                </div>
-                
-                <!-- Checkpoints for this location -->
-                <div v-if="location.checkpoints && location.checkpoints.length > 0">
-                  <div v-for="checkpoint in location.checkpoints" :key="checkpoint.checkID" class="mt-3 p-2 border-top pt-3">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                      <span><strong>Checkpoint #{{ checkpoint.checkID }}</strong></span>
-                      <span :class="`badge bg-${getStatusColor(checkpoint.checkpoint_status)}`">{{ formatStatus(checkpoint.checkpoint_status) }}</span>
-                    </div>
-                    <p v-if="checkpoint.timestamp"><strong>Timestamp:</strong> {{ formatDateTime(checkpoint.timestamp) }}</p>
-                    <p v-if="checkpoint.notes"><strong>Notes:</strong> {{ checkpoint.notes }}</p>
-                    
-                    <!-- Items in this checkpoint -->
-                    <div v-if="checkpoint.items && Object.keys(checkpoint.items).length > 0" class="mt-2">
-                      <h6>Items:</h6>
-                      <div class="table-responsive">
-                        <table class="table table-sm table-bordered">
-                          <thead class="table-light">
-                            <tr>
-                              <th>Item</th>
-                              <th>Quantity</th>
-                              <th>Measurement</th>
-                              <th>Price</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            <tr v-for="(item, itemID) in checkpoint.items" :key="itemID">
-                              <td>{{ item.item_name }}</td>
-                              <td>{{ item.quantity }}</td>
-                              <td>{{ item.item_info.measurement_value }} {{ item.item_info.measurement_type }}</td>
-                              <td>{{ formatCurrency(item.item_info.price) }}</td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                    <p v-else class="text-muted">No items associated with this checkpoint.</p>
-                  </div>
-                </div>
-                <p v-else class="text-muted">No checkpoints available for this location.</p>
-              </div>
-            </div>
-            <p v-else>No supplier locations found for this order.</p>
-            
-            <!-- Original Items Section (if needed) -->
-            <hr v-if="order.items && order.items.length > 0">
-            <h6 v-if="order.items && order.items.length > 0">All Order Items:</h6>
-            <ul class="list-group" v-if="order.items && order.items.length > 0">
-              <li v-for="item in order.items" :key="item.itemID" class="list-group-item">
-                {{ item.item_name || (item.poultry ? item.poultry.poultry_name : 'Unknown') }} 
-                ({{ item.poultry ? item.poultry.poultry_type : 'N/A' }}) - 
-                Quantity: {{ item.pivot ? item.pivot.quantity : item.quantity }}
-                <br>
-                <small>Provider: {{ item.company ? item.company.company_name : 'N/A' }}</small>
-              </li>
-            </ul>
-          </div>
-          <div v-if="!loading && !order && error">
-            <p class="text-danger">{{ error }}</p>
-          </div>
-        </div>
-        <div class="modal-footer theme-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-        </div>
-      </div>
-    </div>
-  </div>
   
   <!-- QR Code Modal -->
   <div class="modal fade" id="qrCodeModal" tabindex="-1" aria-labelledby="qrCodeModalLabel" role="dialog">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content">
         <div class="modal-header theme-header">
-          <h5 class="modal-title" id="qrCodeModalLabel">QR Code for Order #{{ selectedOrderID }}</h5>
+          <h5 class="modal-title" id="qrCodeModalLabel">{{ qrCodeTitle || 'QR Code' }}</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body text-center">
@@ -124,13 +18,24 @@
               <p v-else class="text-danger">Failed to generate QR code.</p>
             </div>
             <div class="mb-3">
-              <p class="mb-1"><strong>Order ID:</strong> {{ selectedOrderID }}</p>
-              <p class="mb-1"><strong>Location ID:</strong> {{ selectedLocationID }}</p>            
+              <p v-if="selectedOrderID" class="mb-1"><strong>Order ID:</strong> {{ selectedOrderID }}</p>
+              <p v-if="selectedLocationID" class="mb-1"><strong>Location ID:</strong> {{ selectedLocationID }}</p>
+              <p v-if="qrCodeDescription" class="mt-2">{{ qrCodeDescription }}</p>
             </div>
+            <div class="input-group mb-3">
+              <input type="text" class="form-control" v-model="qrCodeLink" readonly ref="qrLinkInput">
+              <button class="btn btn-outline-secondary" type="button" @click="copyToClipboard">
+                <i class="fas fa-copy"></i>
+              </button>
+            </div>
+            <div v-if="copySuccess" class="alert alert-success py-1">Link copied!</div>
           </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" @click="closeQRModal">Back</button>
+          <button type="button" class="btn btn-primary" @click="downloadQRCode">
+            <i class="fas fa-download me-1"></i> Download
+          </button>
         </div>
       </div>
     </div>
@@ -157,6 +62,10 @@ export default {
     orderData: {
       type: Object,
       default: null
+    },
+    showMainModalAfterQR: {
+      type: Boolean,
+      default: true
     }
   },
   data() {
@@ -167,10 +76,14 @@ export default {
       qrCodeLoading: false,
       qrCodeUrl: null,
       qrCodeLink: '',
+      qrCodeLink: '',
+      qrCodeTitle: '',
+      qrCodeDescription: '',
       selectedOrderID: null,
       selectedLocationID: null,
       qrModal: null,
       mainModal: null,
+      copySuccess: false,
     };
   },
   computed: {
@@ -248,30 +161,28 @@ export default {
       };
       return statusMap[status?.toLowerCase()] || 'secondary';
     },
-    showQRCode(orderID, locationID) {
+    showQRCode(orderID, locationID, companyID = null) {
       this.selectedOrderID = orderID;
       this.selectedLocationID = locationID;
       this.qrCodeLoading = true;
       this.qrCodeUrl = null;
       
-      // Get modal elements
-      const mainModalEl = document.getElementById(this.modalId);
+      // Get modal element
       const qrModalEl = document.getElementById('qrCodeModal');
       
-      // Hide the main modal
-      if (this.mainModal) {
-        if (mainModalEl) {
-          // Set inert attribute to prevent focus
-          mainModalEl.setAttribute('inert', '');
-          // Remove aria-hidden to prevent accessibility issues
-          mainModalEl.removeAttribute('aria-hidden');
+      // Find the location to get its companyID if not provided
+      if (companyID === null && this.order && this.order.locations) {
+        const location = this.order.locations.find(loc => loc.locationID === locationID);
+        if (location) {
+          companyID = location.companyID;
         }
-        this.mainModal.hide();
       }
       
-      // Generate QR code URL
-      const apiUrl = `/api/qrcode/process/${orderID}/${locationID}`;
+      // Generate QR code URL for process route
+      const apiUrl = `/api/qrcode/process/${locationID}/${companyID || 0}`;
       this.qrCodeLink = `${window.location.origin}${apiUrl}`;
+      this.qrCodeTitle = 'Location QR Code';
+      this.qrCodeDescription = 'Scan this QR code to process items at this location.';
       
       // Generate QR code image
       this.generateQRCode(this.qrCodeLink);
@@ -285,6 +196,58 @@ export default {
           qrModalEl.removeAttribute('aria-hidden');
         }
         this.qrModal.show();
+      }
+    },
+    
+    // New method to generate QR code for order verification
+    generateOrderVerificationQR(orderID) {
+      this.selectedOrderID = orderID;
+      this.qrCodeLoading = true;
+      this.qrCodeUrl = null;
+      
+      // Get modal element
+      const qrModalEl = document.getElementById('qrCodeModal');
+      
+      // Generate QR code URL for verification route
+      const apiUrl = `/api/qrcode/verifies/${orderID}`;
+      this.qrCodeLink = `${window.location.origin}${apiUrl}`;
+      this.qrCodeTitle = 'Order Verification QR Code';
+      this.qrCodeDescription = 'Scan this QR code to check the verification status of this order.';
+      
+      // Generate QR code image
+      this.generateQRCode(this.qrCodeLink);
+      
+      // Show QR code modal
+      if (this.qrModal) {
+        if (qrModalEl) {
+          qrModalEl.removeAttribute('inert');
+          qrModalEl.removeAttribute('aria-hidden');
+        }
+        this.qrModal.show();
+      }
+    },
+    closeQRModal() {
+      // Get modal element
+      const qrModalEl = document.getElementById('qrCodeModal');
+      
+      // Hide QR code modal
+      if (this.qrModal) {
+        if (qrModalEl) {
+          // Set inert attribute to prevent focus
+          qrModalEl.setAttribute('inert', '');
+          // Remove aria-hidden to prevent accessibility issues
+          qrModalEl.removeAttribute('aria-hidden');
+        }
+        this.qrModal.hide();
+        
+        // Remove backdrop manually
+        const backdrops = document.querySelectorAll('.modal-backdrop');
+        backdrops.forEach(backdrop => {
+          backdrop.classList.remove('show');
+          setTimeout(() => {
+            backdrop.remove();
+          }, 150);
+        });
       }
     },
     generateQRCode(text) {
@@ -322,42 +285,16 @@ export default {
         this.copySuccess = false;
       }, 3000);
     },
-    closeQRModal() {
-      // Get modal elements
-      const mainModalEl = document.getElementById(this.modalId);
-      const qrModalEl = document.getElementById('qrCodeModal');
+    downloadQRCode() {
+      if (!this.qrCodeUrl) return;
       
-      // Hide QR code modal
-      if (this.qrModal) {
-        if (qrModalEl) {
-          // Set inert attribute to prevent focus
-          qrModalEl.setAttribute('inert', '');
-          // Remove aria-hidden to prevent accessibility issues
-          qrModalEl.removeAttribute('aria-hidden');
-        }
-        this.qrModal.hide();
-        
-        // Remove backdrop manually
-        const backdrops = document.querySelectorAll('.modal-backdrop');
-        backdrops.forEach(backdrop => {
-          backdrop.classList.remove('show');
-          setTimeout(() => {
-            backdrop.remove();
-          }, 150);
-        });
-      }
-      
-      // Show main modal
-      if (this.mainModal) {
-        if (mainModalEl) {
-          // Remove inert attribute to allow focus
-          mainModalEl.removeAttribute('inert');
-          // Remove aria-hidden to prevent accessibility issues
-          mainModalEl.removeAttribute('aria-hidden');
-        }
-        this.mainModal.show();
-      }
-    }
+      const link = document.createElement('a');
+      link.href = this.qrCodeUrl;
+      link.download = `qrcode-${this.selectedOrderID || ''}-${this.selectedLocationID || ''}-${Date.now()}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    },
   },
   mounted() {
     // If an orderId is passed initially, load it.
@@ -371,13 +308,7 @@ export default {
       }
     }
     
-    // Initialize Bootstrap modals with custom options
-    this.mainModal = new bootstrap.Modal(document.getElementById(this.modalId), {
-      backdrop: true,
-      keyboard: true,
-      focus: true
-    });
-    
+    // Initialize only the QR code modal
     this.qrModal = new bootstrap.Modal(document.getElementById('qrCodeModal'), {
       backdrop: true,
       keyboard: true,
@@ -385,7 +316,6 @@ export default {
     });
     
     // Remove aria-hidden when added by Bootstrap
-    const mainModalEl = document.getElementById(this.modalId);
     const qrModalEl = document.getElementById('qrCodeModal');
     
     // Use MutationObserver to detect when Bootstrap adds aria-hidden
@@ -401,40 +331,9 @@ export default {
       });
     });
     
-    // Observe both modals
-    if (mainModalEl) {
-      observer.observe(mainModalEl, { attributes: true });
-    }
-    
+    // Observe QR modal
     if (qrModalEl) {
       observer.observe(qrModalEl, { attributes: true });
-      qrModalEl.addEventListener('hidden.bs.modal', () => {
-        // Show the main modal again when QR modal is closed
-        if (this.mainModal) {
-          // Remove inert attribute to allow focus
-          if (mainModalEl) {
-            mainModalEl.removeAttribute('inert');
-          }
-          this.mainModal.show();
-        }
-      });
-    }
-    
-    // Add event listeners for modal hidden events to clean up backdrops
-    if (mainModalEl) {
-      mainModalEl.addEventListener('hidden.bs.modal', () => {
-        // Clean up any leftover backdrops
-        const backdrops = document.querySelectorAll('.modal-backdrop');
-        backdrops.forEach(backdrop => {
-          backdrop.classList.remove('show');
-          setTimeout(() => {
-            backdrop.remove();
-          }, 150);
-        });
-      });
-    }
-    
-    if (qrModalEl) {
       qrModalEl.addEventListener('hidden.bs.modal', (event) => {
         // Clean up any leftover backdrops
         const backdrops = document.querySelectorAll('.modal-backdrop');
@@ -444,15 +343,6 @@ export default {
             backdrop.remove();
           }, 150);
         });
-        
-        // Show the main modal again when QR modal is closed
-        if (this.mainModal) {
-          // Remove inert attribute to allow focus
-          if (mainModalEl) {
-            mainModalEl.removeAttribute('inert');
-          }
-          this.mainModal.show();
-        }
       });
     }
   }

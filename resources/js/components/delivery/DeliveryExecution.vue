@@ -229,7 +229,7 @@ export default {
       
       // Set the transformed delivery
       this.selectedDelivery = transformedDelivery;
-      
+      console.log("selelected deliveries: "+ JSON.stringify(this.selectedDelivery, null, 3));
       // Show the modal
       this.$nextTick(() => {
         this.modalLoading = false;

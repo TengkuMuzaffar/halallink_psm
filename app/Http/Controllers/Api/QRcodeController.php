@@ -8,7 +8,10 @@ use Illuminate\Support\Facades\Log;
 use App\Models\Verify;
 use App\Models\Checkpoint;
 use App\Models\Delivery;
+use App\Models\Order;
+use App\Models\Location;
 use Illuminate\Support\Facades\Validator;
+use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class QRcodeController extends Controller
 {
@@ -16,23 +19,39 @@ class QRcodeController extends Controller
      * Process QR code scan and create verifications
      *
      * @param  \Illuminate\Http\Request  $request
+     * @param  int  $locationID
+     * @param  int  $companyID
      * @return \Illuminate\Http\Response
      */
-    public function processQRCode(Request $request)
+    public function processQRCode(Request $request, $locationID, $companyID)
     {
         try {
             // Log the request data
             Log::info('QR code scan request received', [
-                'request_data' => $request->all()
+                'request_data' => $request->all(),
+                'locationID' => $locationID,
+                'companyID' => $companyID
             ]);
             
-            // Validate request
+            // Check if it's a GET or POST request
+            if ($request->isMethod('get')) {
+                // For GET requests, just return the location and company info
+                return response()->json([
+                    'status' => 'success',
+                    'message' => 'QR code scanned successfully',
+                    'data' => [
+                        'locationID' => $locationID,
+                        'companyID' => $companyID
+                    ]
+                ], 200);
+            }
+            
+            // For POST requests, validate the data
             $validator = Validator::make($request->all(), [
-                'orderID' => 'required|exists:orders,orderID',
+                'deliveryID' => 'required|exists:deliveries,deliveryID',
                 'locationID' => 'required|exists:locations,locationID',
-                'checkpoints' => 'nullable|array',
+                'checkpoints' => 'required|array',
                 'checkpoints.*' => 'exists:checkpoints,checkID',
-                'deliveryID' => 'nullable|exists:deliveries,deliveryID',
             ]);
             
             if ($validator->fails()) {
@@ -43,36 +62,16 @@ class QRcodeController extends Controller
                 ], 422);
             }
             
-            $orderID = $request->orderID;
-            $locationID = $request->locationID;
-            
-            // If no checkpoints or deliveryID provided, just return the order and location info
-            if (!$request->has('checkpoints') || !$request->has('deliveryID')) {
-                return response()->json([
-                    'status' => 'success',
-                    'message' => 'QR code scanned successfully',
-                    'data' => [
-                        'orderID' => $orderID,
-                        'locationID' => $locationID
-                    ]
-                ], 200);
-            }
-            
-            $checkpoints = $request->checkpoints;
-            $deliveryID = $request->deliveryID;
-            
-            // Verify that all checkpoints belong to the specified order and location
-            $validCheckpoints = Checkpoint::whereIn('checkID', $checkpoints)
-                ->where('orderID', $orderID)
-                ->where('locationID', $locationID)
-                ->get();
-            
-            if (count($validCheckpoints) !== count($checkpoints)) {
+            // Verify that the posted locationID matches the URL locationID
+            if ((int)$request->locationID !== (int)$locationID) {
                 return response()->json([
                     'status' => 'error',
-                    'message' => 'One or more checkpoints are invalid for this order and location'
+                    'message' => 'Location ID mismatch. The scanned location does not match the expected location.'
                 ], 400);
             }
+            
+            $deliveryID = $request->deliveryID;
+            $checkpoints = $request->checkpoints;
             
             // Get the delivery to verify it exists
             $delivery = Delivery::find($deliveryID);
@@ -83,14 +82,21 @@ class QRcodeController extends Controller
                 ], 404);
             }
             
-            // Create verify records for each checkpoint
+            // Check if verifications already exist for these checkpoints
+            $existingVerifications = Verify::where('deliveryID', $deliveryID)
+                ->whereIn('checkID', $checkpoints)
+                ->get();
+            
+            $existingCheckIDs = $existingVerifications->pluck('checkID')->toArray();
+            $newCheckpoints = array_diff($checkpoints, $existingCheckIDs);
+            
+            // Create verify records only for checkpoints that don't have verifications yet
             $verifyRecords = [];
-            foreach ($checkpoints as $checkID) {
+            foreach ($newCheckpoints as $checkID) {
                 $verify = new Verify();
                 $verify->checkID = $checkID;
                 $verify->deliveryID = $deliveryID;
-                $verify->verify_status = 'complete';
-                $verify->timestamp = now();
+                $verify->verify_status = 'pending'; // Initial status is pending until form is filled
                 $verify->save();
                 
                 $verifyRecords[] = $verify;
@@ -98,9 +104,12 @@ class QRcodeController extends Controller
             
             return response()->json([
                 'status' => 'success',
-                'message' => 'QR code processed successfully',
+                'message' => count($verifyRecords) > 0 
+                    ? 'QR code processed successfully. Created ' . count($verifyRecords) . ' new verification records.'
+                    : 'All checkpoints already have verification records.',
                 'data' => [
                     'verifications' => $verifyRecords,
+                    'existingVerifications' => $existingVerifications,
                     'count' => count($verifyRecords)
                 ]
             ], 200);
@@ -115,6 +124,182 @@ class QRcodeController extends Controller
                 'status' => 'error',
                 'message' => 'An error occurred while processing the QR code',
                 'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+    
+    /**
+     * Generate QR code for location
+     *
+     * @param  int  $locationID
+     * @param  int  $companyID
+     * @return \Illuminate\Http\Response
+     */
+    public function generateLocationQR($locationID, $companyID)
+    {
+        try {
+            // Check if location exists
+            $location = Location::where('locationID', $locationID)
+                ->where('companyID', $companyID)
+                ->first();
+                
+            if (!$location) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Location not found'
+                ], 404);
+            }
+            
+            // Generate URL for QR code
+            $url = url("/api/qrcode/process/{$locationID}/{$companyID}");
+            
+            // Generate QR code
+            $qrCode = QrCode::format('png')
+                ->size(300)
+                ->errorCorrection('H')
+                ->generate($url);
+                
+            // Convert to base64 for frontend display
+            $qrCodeBase64 = 'data:image/png;base64,' . base64_encode($qrCode);
+            
+            return response()->json([
+                'success' => true,
+                'qr_code_url' => $qrCodeBase64,
+                'target_url' => $url
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error generating location QR code: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to generate QR code: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+    
+    /**
+     * Generate QR code for order verification
+     *
+     * @param  int  $orderID
+     * @return \Illuminate\Http\Response
+     */
+    public function generateOrderVerifyQR($orderID)
+    {
+        try {
+            // Check if order exists
+            $order = Order::find($orderID);
+            
+            if (!$order) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Order not found'
+                ], 404);
+            }
+            
+            // Generate URL for QR code
+            $url = url("/api/qrcode/verifies/{$orderID}");
+            
+            // Generate QR code
+            $qrCode = QrCode::format('png')
+                ->size(300)
+                ->errorCorrection('H')
+                ->generate($url);
+                
+            // Convert to base64 for frontend display
+            $qrCodeBase64 = 'data:image/png;base64,' . base64_encode($qrCode);
+            
+            return response()->json([
+                'success' => true,
+                'qr_code_url' => $qrCodeBase64,
+                'target_url' => $url
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error generating order verification QR code: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to generate QR code: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+    
+    /**
+     * Get verification status for an order
+     *
+     * @param  int  $orderID
+     * @return \Illuminate\Http\Response
+     */
+    public function getOrderVerificationStatus($orderID)
+    {
+        try {
+            // Get order with checkpoints and verifications
+            $order = Order::with(['checkpoints.verifies'])
+                ->find($orderID);
+                
+            if (!$order) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Order not found'
+                ], 404);
+            }
+            
+            // Prepare verification status data
+            $checkpointStatuses = [];
+            $allVerified = true;
+            
+            foreach ($order->checkpoints as $checkpoint) {
+                $isVerified = false;
+                $verifyComment = null;
+                $verifyStatus = 'pending';
+                
+                // Check if checkpoint has been verified
+                if ($checkpoint->verifies && $checkpoint->verifies->count() > 0) {
+                    $latestVerify = $checkpoint->verifies->sortByDesc('created_at')->first();
+                    $isVerified = $latestVerify->isVerified();
+                    $verifyComment = $latestVerify->verify_comment;
+                    $verifyStatus = $latestVerify->verify_status;
+                }
+                
+                if (!$isVerified) {
+                    $allVerified = false;
+                }
+                
+                // Get items for this checkpoint
+                $items = [];
+                if ($checkpoint->item_record) {
+                    foreach (json_decode($checkpoint->item_record, true) as $item) {
+                        $items[] = [
+                            'item_name' => $item['item_name'] ?? 'Unknown Item',
+                            'quantity' => $item['quantity'] ?? 0,
+                            'measurement_value' => $item['measurement_value'] ?? 0,
+                            'measurement_type' => $item['measurement_type'] ?? '',
+                        ];
+                    }
+                }
+                
+                $checkpointStatuses[] = [
+                    'checkID' => $checkpoint->checkID,
+                    'arrange_number' => $checkpoint->arrange_number,
+                    'is_verified' => $isVerified,
+                    'verify_status' => $verifyStatus,
+                    'verify_comment' => $verifyComment,
+                    'items' => $items
+                ];
+            }
+            
+            return response()->json([
+                'success' => true,
+                'order' => [
+                    'orderID' => $order->orderID,
+                    'order_status' => $order->order_status,
+                    'created_at' => $order->created_at,
+                    'all_verified' => $allVerified
+                ],
+                'checkpoints' => $checkpointStatuses
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error getting order verification status: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to get verification status: ' . $e->getMessage()
             ], 500);
         }
     }

@@ -38,10 +38,10 @@
       </div>
     </div>
     
-    <!-- Orders Table -->
+    <!-- Locations and Orders -->
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0">Orders</h5>
+        <h5 class="mb-0">Orders by Location</h5>
       </div>
       <div class="card-body">
         <!-- Error State -->
@@ -49,77 +49,194 @@
           {{ error }}
         </div>
         
-        <!-- Table (always show, with loading state inside) -->
-        <ResponsiveTable
-          :columns="columns"
-          :items="orders"
-          :loading="loading"
-          :has-actions="true"
-          item-key="orderID"
-          @search="handleSearch"
-          :show-pagination="false"
-          :server-side="true"
-          @sort="handleSort"
-        >
-          <!-- Custom filters -->
-          <template #filters>
-            <div class="d-flex gap-2">
-              <select class="form-select form-select-sm" v-model="statusFilter" @change="applyFilters">
-                <option value="">All Statuses</option>
-                <option value="pending">Pending</option>
-                <option value="processing">Processing</option>
-                <option value="complete">Complete</option>
-                <option value="waiting_delivery">Waiting Delivery</option>
-                <option value="paid">Paid</option>
-              </select>
-              
-              <div class="input-group input-group-sm">
-                <span class="input-group-text">From</span>
-                <input type="date" class="form-control" v-model="dateRangeFilter.from" @change="applyFilters">
+        <!-- Loading State -->
+        <div v-if="loading" class="text-center py-5">
+          <LoadingSpinner />
+        </div>
+        
+        <!-- Filters -->
+        <div class="mb-4 d-flex gap-2">
+          <div class="input-group">
+            <input 
+              type="text" 
+              class="form-control" 
+              placeholder="Search orders..." 
+              v-model="searchQuery"
+              @input="debounceSearch"
+            />
+            <button class="btn btn-outline-secondary" type="button">
+              <i class="fas fa-search"></i>
+            </button>
+          </div>
+          
+          <select class="form-select" v-model="statusFilter" @change="applyFilters">
+            <option value="">All Statuses</option>
+            <option value="pending">Pending</option>
+            <option value="processing">Processing</option>
+            <option value="complete">Complete</option>
+            <option value="waiting_delivery">Waiting Delivery</option>
+            <option value="paid">Paid</option>
+          </select>
+          
+          <div class="input-group">
+            <span class="input-group-text">From</span>
+            <input type="date" class="form-control" v-model="dateRangeFilter.from" @change="applyFilters">
+          </div>
+          
+          <div class="input-group">
+            <span class="input-group-text">To</span>
+            <input type="date" class="form-control" v-model="dateRangeFilter.to" @change="applyFilters">
+          </div>
+        </div>
+        
+        <!-- No Data State -->
+        <div v-if="!loading && (!locations || locations.length === 0)" class="text-center py-5">
+          <div class="mb-3">
+            <i class="fas fa-box-open fa-4x text-muted"></i>
+          </div>
+          <h5 class="text-muted">No orders found</h5>
+          <p class="text-muted">Try adjusting your filters or check back later.</p>
+        </div>
+        
+        <!-- Locations List -->
+        <div v-if="!loading && locations && locations.length > 0">
+          <div v-for="(location, locationIndex) in locations" :key="location.locationID" class="location-card mb-4">
+            <div class="card">
+              <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                <div>
+                  <span class="badge bg-secondary me-2">{{ location.location_type }}</span>
+                  <strong>{{ location.company_address }}</strong>
+                </div>
+                <div class="d-flex align-items-center">
+                  <span class="badge bg-primary me-3">{{ location.orders.length }} orders</span>
+                  <button 
+                    class="btn btn-sm btn-outline-primary" 
+                    @click="generateLocationQR(location.locationID, location.companyID || 0)"
+                    title="Generate QR Code for this location"
+                  >
+                    <i class="fas fa-qrcode"></i>
+                  </button>
+                </div>
               </div>
-              
-              <div class="input-group input-group-sm">
-                <span class="input-group-text">To</span>
-                <input type="date" class="form-control" v-model="dateRangeFilter.to" @change="applyFilters">
+              <div class="card-body p-0">
+                <!-- Orders Table -->
+                <div class="table-responsive">
+                  <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                      <tr>
+                        <th scope="col" style="width: 50px"></th>
+                        <th scope="col">Order ID</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">Date</th>
+                        <th scope="col">Customer</th>
+                        <th scope="col" class="text-end">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <template v-for="(order, orderIndex) in location.orders" :key="order.orderID">
+                        <!-- Order Row -->
+                        <tr>
+                          <td class="text-center">
+                            <button 
+                              class="btn btn-sm btn-link p-0" 
+                              @click="toggleOrder(order.orderID)"
+                              :aria-expanded="expandedOrders[order.orderID] ? 'true' : 'false'"
+                            >
+                              <i 
+                                class="fas" 
+                                :class="expandedOrders[order.orderID] ? 'fa-chevron-down' : 'fa-chevron-right'"
+                              ></i>
+                            </button>
+                          </td>
+                          <td><strong>#{{ order.orderID }}</strong></td>
+                          <td>
+                            <span :class="`badge bg-${getStatusColor(order.calculated_status || order.order_status)}`">
+                              {{ formatStatus(order.calculated_status || order.order_status) }}
+                            </span>
+                          </td>
+                          <td>{{ formatDate(order.created_at) }}</td>
+                          <td>{{ order.user ? (order.user.fullname || order.user.email) : 'N/A' }}</td>
+                          <td class="text-end">
+                            <button 
+                              class="btn btn-sm btn-outline-primary me-2" 
+                              @click="generateOrderQR(order.orderID)"
+                              title="Generate QR Code for order verification"
+                            >
+                              <i class="fas fa-qrcode"></i>
+                            </button>
+                          </td>
+                        </tr>
+                        
+                        <!-- Expanded Order Items -->
+                        <tr v-if="expandedOrders[order.orderID]">
+                          <td colspan="6" class="p-0">
+                            <div class="p-3 bg-light">
+                              <h6 class="mb-3">Order Checkpoints</h6>
+                              
+                              <!-- Checkpoints -->
+                              <div v-for="(checkpoint, checkpointIndex) in order.checkpoints" :key="checkpoint.checkID" class="mb-4">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                  <h6 class="mb-0">
+                                    <span class="badge bg-secondary me-2">Checkpoint #{{ checkpoint.arrange_number }}</span>
+                                    <span :class="`badge bg-${getStatusColor(checkpoint.checkpoint_status)}`">
+                                      {{ formatStatus(checkpoint.checkpoint_status) }}
+                                    </span>
+                                  </h6>
+                                </div>
+                                
+                                <!-- Items Table -->
+                                <div class="table-responsive">
+                                  <table class="table table-sm table-bordered">
+                                    <thead class="table-light">
+                                      <tr>
+                                        <th>Item</th>
+                                        <th>Quantity</th>
+                                        <th>Price</th>
+                                        <th>Total</th>
+                                        <th>Supplier</th>
+                                        <th>Slaughterhouse</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      <tr v-for="(item, itemIndex) in checkpoint.items" :key="`${checkpoint.checkID}-${item.itemID}`">
+                                        <td>
+                                          <div class="d-flex align-items-center">
+                                            <div>
+                                              <div class="fw-bold">{{ item.item_name }}</div>
+                                              <small class="text-muted">{{ item.measurement_value }} {{ item.measurement_type }}</small>
+                                            </div>
+                                          </div>
+                                        </td>
+                                        <td>{{ item.quantity }}</td>
+                                        <td>{{ formatCurrency(item.price_at_purchase) }}</td>
+                                        <td>{{ formatCurrency(item.total_price) }}</td>
+                                        <td>
+                                          <small>{{ item.supplier_location_address }}</small>
+                                        </td>
+                                        <td>
+                                          <small>{{ item.slaughterhouse_location_address }}</small>
+                                        </td>
+                                      </tr>
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
-          </template>
-          
-          <!-- Custom column slots -->
-          <template #order_status="{ item }">
-            <span :class="`badge bg-${getStatusColor(item.calculated_status || item.order_status)}`">
-              {{ formatStatus(item.calculated_status || item.order_status) }}
-            </span>
-          </template>
-          
-          <template #total_amount="{ item }">
-            <span>{{ formatCurrency(item.payment ? item.payment.payment_amount : item.total_amount) }}</span>
-          </template>
-          
-          <template #created_at="{ item }">
-            <span>{{ formatDate(item.created_at) }}</span>
-          </template>
-          
-          <template #customer="{ item }">
-            <span>{{ item.user ? (item.user.fullname || item.user.email) : 'N/A' }}</span>
-          </template>
-          
-          <template #locations="{ item }">
-            <span class="badge bg-info">{{ item.locations ? item.locations.length : 0 }} locations</span>
-          </template>
-          
-          <!-- Actions slot -->
-          <template #actions="{ item }">
-            <button class="btn btn-sm btn-outline-primary me-1" @click="viewOrder(item.orderID)">
-              <i class="fas fa-eye"></i>
-            </button>
-          </template>
-        </ResponsiveTable>
+          </div>
+        </div>
         
         <!-- Pagination -->
-        <div v-if="!loading && orders.length > 0" class="d-flex justify-content-between align-items-center mt-4">
+        <div v-if="!loading && locations && locations.length > 0" class="d-flex justify-content-between align-items-center mt-4">
           <div>
-            <span class="text-muted">Showing {{ pagination.from || 1 }}-{{ pagination.to || orders.length }} of {{ pagination.total || orders.length }}</span>
+            <span class="text-muted">Showing {{ pagination.from || 1 }}-{{ pagination.to || locations.length }} of {{ pagination.total || locations.length }}</span>
           </div>
           <nav aria-label="Order pagination">
             <ul class="pagination mb-0">
@@ -149,10 +266,14 @@
     
     <!-- Order Detail Modal -->
     <OrderDetailModal 
+      ref="orderDetailModalRef"
       :order-id="selectedOrderId" 
       :order-data="selectedOrder" 
       modal-id="orderPageDetailModal" 
+      :show-main-modal-after-QR="false"
     />
+    
+    <!-- Remove the QR Code Modal since we'll use the one from OrderDetailModal -->
   </div>
 </template>
 
@@ -178,7 +299,7 @@ export default {
     // State variables
     const loading = ref(true);
     const error = ref(null);
-    const orders = ref([]);
+    const locations = ref([]);
     const orderStats = ref({
       total_orders: 0,
       pending_orders: 0,
@@ -186,8 +307,14 @@ export default {
       processing_orders: 0,
       waiting_orders: 0
     });
+   
+    // QR Code state - we can remove these since we'll use OrderDetailModal's QR functionality
     const selectedOrderId = ref(null);
     const selectedOrder = ref(null);
+    const orderDetailModalRef = ref(null);
+    
+    // Expanded state tracking (only for orders)
+    const expandedOrders = ref({});
     
     // Filters
     const searchQuery = ref('');
@@ -212,16 +339,6 @@ export default {
       from: 1,
       to: 10
     });
-    
-    // Table columns definition
-    const columns = ref([
-      { key: 'orderID', label: 'Order ID', sortable: true },
-      { key: 'order_status', label: 'Status', sortable: true },
-      { key: 'total_amount', label: 'Amount', sortable: true },
-      { key: 'created_at', label: 'Date', sortable: true },
-      { key: 'customer', label: 'Customer', sortable: false },
-      { key: 'locations', label: 'Locations', sortable: false }
-    ]);
     
     // Computed pagination range
     const paginationRange = computed(() => {
@@ -280,11 +397,49 @@ export default {
         'pending': 'warning',
         'processing': 'info',
         'complete': 'success',
+        'waiting_verification': 'primary',
         'waiting_delivery': 'primary',
         'paid': 'dark'
       };
       
       return statusColors[status.toLowerCase()] || 'secondary';
+    };
+    
+    // Toggle order expansion
+    const toggleOrder = (orderId) => {
+      expandedOrders.value = {
+        ...expandedOrders.value,
+        [orderId]: !expandedOrders.value[orderId]
+      };
+    };
+    
+    // Generate QR code for location
+    const generateLocationQR = (locationId, companyId) => {
+      if (orderDetailModalRef.value) {
+        // Call the showQRCode method from OrderDetailModal
+        orderDetailModalRef.value.showQRCode(null, locationId, companyId);
+      }
+    };
+    
+    // Generate QR code for order verification
+    const generateOrderQR = (orderId) => {
+      if (orderDetailModalRef.value) {
+        // Call the generateOrderVerificationQR method from OrderDetailModal
+        orderDetailModalRef.value.generateOrderVerificationQR(orderId);
+      }
+    };
+    
+    // Remove these methods as they're now handled by OrderDetailModal
+    // copyQrLink
+    // downloadQrCode
+    
+    // Debounce search
+    let searchTimeout = null;
+    const debounceSearch = () => {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => {
+        applyFilters();
+      }, 500);
     };
     
     // Fetch orders with filters, sorting, and pagination
@@ -313,24 +468,22 @@ export default {
         const response = await orderService.fetchOrders(params);
         console.log("Orders response:", JSON.stringify(response, null, 4));
         
-        if (response.data) {
-          // Process the data array
-          orders.value = response.data;
+        if (response.success && response.data) {
+          // Set locations data
+          locations.value = response.data;
           
           // Update pagination if available
           if (response.pagination) {
             pagination.value = response.pagination;
-            pagination.value.from = (pagination.value.current_page - 1) * pagination.value.per_page + 1;
-            pagination.value.to = Math.min(pagination.value.from + pagination.value.per_page - 1, pagination.value.total);
           }
         } else {
-          orders.value = [];
+          locations.value = [];
           console.error('Unexpected response format:', response);
         }
       } catch (err) {
         console.error('Error fetching orders:', err);
         error.value = err.message || 'Failed to load orders. Please try again later.';
-        orders.value = [];
+        locations.value = [];
       } finally {
         loading.value = false;
       }
@@ -346,20 +499,6 @@ export default {
       }
     };
     
-    // Handle search from ResponsiveTable
-    const handleSearch = (query) => {
-      searchQuery.value = query;
-      currentPage.value = 1; // Reset to first page when searching
-      fetchOrders();
-    };
-    
-    // Handle sort from ResponsiveTable
-    const handleSort = ({ field, direction }) => {
-      sortField.value = field;
-      sortDirection.value = direction;
-      fetchOrders();
-    };
-    
     // Apply filters (status and date range)
     const applyFilters = () => {
       currentPage.value = 1; // Reset to first page when filtering
@@ -373,30 +512,32 @@ export default {
       fetchOrders();
     };
     
-    // View order details
-    const viewOrder = (orderId) => {
-      selectedOrderId.value = orderId;
-      selectedOrder.value = orders.value.find(o => o.orderID === orderId);
-      
-      // Open modal
-      const modal = new bootstrap.Modal(document.getElementById('orderPageDetailModal'));
-      modal.show();
-    };
-    
     // Lifecycle hooks
     onMounted(() => {
       fetchOrders();
       fetchOrderStats();
     });
     
+    // View order details
+    const viewOrder = (order) => {
+      selectedOrderId.value = order.orderID;
+      selectedOrder.value = order;
+      
+      // Open modal
+      const modal = new bootstrap.Modal(document.getElementById('orderPageDetailModal'));
+      modal.show();
+    };
+    
     return {
       // State
       loading,
       error,
-      orders,
+      locations,
       orderStats,
       selectedOrderId,
       selectedOrder,
+      expandedOrders,
+      orderDetailModalRef,
       
       // Filters
       searchQuery,
@@ -409,16 +550,15 @@ export default {
       pagination,
       paginationRange,
       
-      // Table
-      columns,
-      
       // Methods
       fetchOrders,
-      handleSearch,
-      handleSort,
+      toggleOrder,
+      debounceSearch,
       applyFilters,
       changePage,
       viewOrder,
+      generateLocationQR,
+      generateOrderQR,
       
       // Formatters
       formatLargeNumber,
@@ -443,5 +583,26 @@ export default {
 .badge {
   font-size: 0.85em;
   padding: 0.35em 0.65em;
+}
+
+.location-card {
+  transition: all 0.3s ease;
+}
+
+.location-card:hover {
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.table > :not(caption) > * > * {
+  padding: 0.75rem 1rem;
+}
+
+.btn-link {
+  color: #6c757d;
+  text-decoration: none;
+}
+
+.btn-link:hover {
+  color: #0d6efd;
 }
 </style>

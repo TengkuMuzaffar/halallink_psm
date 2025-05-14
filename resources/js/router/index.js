@@ -25,6 +25,9 @@ const VehicleManagement = () => import('../pages/VehicleManagement.vue');
 const DeliveryPage = () => import('../pages/DeliveryPage.vue'); // Import the new page
 const OrderManagement = () =>  import('../pages/OrderManagementPage.vue');
 
+// Import the verification page
+const VerifyDeliveryPage = () => import('../pages/VerifyDeliveryPage.vue');
+
 const routes = [
   {
     path: '/test/after-payment/:id',
@@ -189,6 +192,15 @@ const routes = [
           requiresCompanyType: 'broiler', // For frontend route guard if you have one
           title: 'Order Management'
 
+        }
+      },
+      {
+        path: '/verify/:locationID/:deliveryID',
+        name: 'VerifyDelivery',
+        component: VerifyDeliveryPage,
+        meta: {
+          requiresAuth: true,
+          title: 'Verify Delivery'
         }
       },
     ]

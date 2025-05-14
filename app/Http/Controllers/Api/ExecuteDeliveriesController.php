@@ -20,298 +20,424 @@ use App\Models\Order;
 class ExecuteDeliveriesController extends Controller
 {
     public function index(Request $request)
-    {
-        try {
-            Log::info('ExecuteDeliveriesController: Starting index method');
-            
-            // Get the authenticated user
-            $user = Auth::user();
-            Log::info('ExecuteDeliveriesController: Authenticated user', [
-                'userID' => $user->userID,
-                'role' => $user->role,
-                'companyID' => $user->companyID ?? 'null'
+{
+    try {
+        Log::info('ExecuteDeliveriesController: Starting index method');
+        
+        // Get the authenticated user
+        $user = Auth::user();
+        Log::info('ExecuteDeliveriesController: Authenticated user', [
+            'userID' => $user->userID,
+            'role' => $user->role,
+            'companyID' => $user->companyID ?? 'null'
+        ]);
+        
+        // Start with a base query to get all trips with non-null deliveryID
+        Log::info('ExecuteDeliveriesController: Building base query for trips');
+        $tripsQuery = Trip::whereNotNull('deliveryID');
+        
+        // Apply role-based filtering
+        if ($user->role === 'employee') {
+            // If user is an employee, only show trips for deliveries assigned to them
+            Log::info('ExecuteDeliveriesController: Applying employee filter', [
+                'userID' => $user->userID
+            ]);
+            $tripsQuery->whereHas('delivery', function($q) use ($user) {
+                $q->where('userID', $user->userID);
+            });
+        } else if ($user->role === 'admin') {
+            // If user is an admin, show all trips for deliveries from their company
+            Log::info('ExecuteDeliveriesController: Applying admin filter', [
+                'companyID' => $user->companyID
+            ]);
+            $tripsQuery->whereHas('delivery.user', function($q) use ($user) {
+                $q->where('companyID', $user->companyID);
+            });
+        }
+        
+        // Apply status filter if provided
+        if ($request->has('status') && !empty($request->status)) {
+            $status = $request->status;
+            Log::info('ExecuteDeliveriesController: Applying status filter', [
+                'status' => $status
             ]);
             
-            // Start with a base query to get all trips with non-null deliveryID
-            Log::info('ExecuteDeliveriesController: Building base query for trips');
-            $tripsQuery = Trip::whereNotNull('deliveryID');
-            
-            // Apply role-based filtering
-            if ($user->role === 'employee') {
-                // If user is an employee, only show trips for deliveries assigned to them
-                Log::info('ExecuteDeliveriesController: Applying employee filter', [
-                    'userID' => $user->userID
-                ]);
-                $tripsQuery->whereHas('delivery', function($q) use ($user) {
-                    $q->where('userID', $user->userID);
-                });
-            } else if ($user->role === 'admin') {
-                // If user is an admin, show all trips for deliveries from their company
-                Log::info('ExecuteDeliveriesController: Applying admin filter', [
-                    'companyID' => $user->companyID
-                ]);
-                $tripsQuery->whereHas('delivery.user', function($q) use ($user) {
-                    $q->where('companyID', $user->companyID);
-                });
-            }
-            
-            // Apply status filter if provided
-            if ($request->has('status') && !empty($request->status)) {
-                $status = $request->status;
-                Log::info('ExecuteDeliveriesController: Applying status filter', [
-                    'status' => $status
-                ]);
-                
-                $tripsQuery->whereHas('delivery', function($q) use ($status) {
-                    if ($status === 'pending') {
-                        $q->whereNull('start_timestamp')->whereNull('arrive_timestamp');
-                    } else if ($status === 'in_progress') {
-                        $q->whereNotNull('start_timestamp')->whereNull('arrive_timestamp');
-                    } else if ($status === 'completed') {
-                        $q->whereNotNull('arrive_timestamp');
-                    }
-                });
-            }
-            
-            // Eager load relationships
-            $tripsQuery->with([
-                'delivery.user', 
-                'delivery.vehicle',
-                'startCheckpoint.location',
-                'endCheckpoint.location',
-                'order.carts.item.poultry'
+            $tripsQuery->whereHas('delivery', function($q) use ($status) {
+                if ($status === 'pending') {
+                    $q->whereNull('start_timestamp')->whereNull('arrive_timestamp');
+                } else if ($status === 'in_progress') {
+                    $q->whereNotNull('start_timestamp')->whereNull('arrive_timestamp');
+                } else if ($status === 'completed') {
+                    $q->whereNotNull('arrive_timestamp');
+                }
+            });
+        }
+        
+        // Eager load relationships
+        $tripsQuery->with([
+            'delivery.user', 
+            'delivery.vehicle',
+            'startCheckpoint.location',
+            'endCheckpoint.location',
+            'order.carts.item.poultry'
+        ]);
+        
+        // Execute the query
+        $trips = $tripsQuery->get();
+        Log::info('ExecuteDeliveriesController: Found ' . $trips->count() . ' trips');
+        
+        // Group trips by deliveryID
+        $deliveryGroups = $trips->groupBy('deliveryID');
+        
+        $result = [];
+        
+        foreach ($deliveryGroups as $deliveryID => $deliveryTrips) {
+            Log::info('ExecuteDeliveriesController: Processing delivery', [
+                'deliveryID' => $deliveryID,
+                'trip_count' => $deliveryTrips->count()
             ]);
             
-            // Execute the query
-            $trips = $tripsQuery->get();
-            Log::info('ExecuteDeliveriesController: Found ' . $trips->count() . ' trips');
+            // Get the delivery details
+            $delivery = $deliveryTrips->first()->delivery;
             
-            // Group trips by deliveryID
-            $deliveryGroups = $trips->groupBy('deliveryID');
+            // Initialize the delivery data structure
+            $deliveryData = [
+                'deliveryID' => $deliveryID,
+                'driver' => [
+                    'userID' => $delivery->user->userID ?? null,
+                    'fullname' => $delivery->user->fullname ?? 'Unknown'
+                ],
+                'vehicle' => [
+                    'vehicleID' => $delivery->vehicle->vehicleID ?? null,
+                    'vehicle_plate' => $delivery->vehicle->vehicle_plate ?? 'Unknown'
+                ],
+                'status' => $delivery->arrive_timestamp ? 'completed' : 
+                        ($delivery->start_timestamp ? 'in_progress' : 'pending'),
+                'scheduled_date' => $delivery->scheduled_date,
+                'start_timestamp' => $delivery->start_timestamp,
+                'arrive_timestamp' => $delivery->arrive_timestamp,
+                'routes' => []
+            ];
             
-            $result = [];
+            // Collect all unique locations
+            $startLocations = [];
+            $endLocations = [];
+            $locationCheckpoints = [];
+            $locationItems = [];
             
-            foreach ($deliveryGroups as $deliveryID => $deliveryTrips) {
-                Log::info('ExecuteDeliveriesController: Processing delivery', [
-                    'deliveryID' => $deliveryID,
-                    'trip_count' => $deliveryTrips->count()
-                ]);
+            // First pass: collect all locations and their checkpoints
+            foreach ($deliveryTrips as $trip) {
+                if (!$trip->startCheckpoint || !$trip->endCheckpoint) {
+                    continue;
+                }
                 
-                // Get the delivery details
-                $delivery = $deliveryTrips->first()->delivery;
+                $startLocationID = $trip->startCheckpoint->locationID;
+                $endLocationID = $trip->endCheckpoint->locationID;
                 
-                // Initialize the delivery data structure
-                $deliveryData = [
-                    'deliveryID' => $deliveryID,
-                    'driver' => [
-                        'userID' => $delivery->user->userID ?? null,
-                        'fullname' => $delivery->user->fullname ?? 'Unknown'
-                    ],
-                    'vehicle' => [
-                        'vehicleID' => $delivery->vehicle->vehicleID ?? null,
-                        'vehicle_plate' => $delivery->vehicle->vehicle_plate ?? 'Unknown'
-                    ],
-                    'status' => $delivery->arrive_timestamp ? 'completed' : 
-                            ($delivery->start_timestamp ? 'in_progress' : 'pending'),
-                    'scheduled_date' => $delivery->scheduled_date,
-                    'start_timestamp' => $delivery->start_timestamp,
-                    'arrive_timestamp' => $delivery->arrive_timestamp,
-                    'routes' => []
+                // Add start location if not already added
+                if (!isset($startLocations[$startLocationID])) {
+                    $startLocations[$startLocationID] = [
+                        'locationID' => $startLocationID,
+                        'company_address' => $trip->startCheckpoint->location->company_address
+                    ];
+                }
+                
+                // Add end location if not already added
+                if (!isset($endLocations[$endLocationID])) {
+                    $endLocations[$endLocationID] = [
+                        'locationID' => $endLocationID,
+                        'company_address' => $trip->endCheckpoint->location->company_address
+                    ];
+                }
+                
+                // Add checkpoint to location
+                if (!isset($locationCheckpoints[$startLocationID])) {
+                    $locationCheckpoints[$startLocationID] = [];
+                }
+                if (!isset($locationCheckpoints[$endLocationID])) {
+                    $locationCheckpoints[$endLocationID] = [];
+                }
+                
+                // Process start checkpoint
+                $startCheckpoint = $trip->startCheckpoint;
+                $startCheckpointData = [
+                    'checkID' => $startCheckpoint->checkID,
+                    'items' => []
                 ];
                 
-                // Collect all unique locations
-                $startLocations = [];
-                $endLocations = [];
-                $locationCheckpoints = [];
-                $locationItems = [];
+                // Get orderID from trip or checkpoint
+                $orderID = $trip->orderID ?? $startCheckpoint->orderID;
                 
-                // First pass: collect all locations and their checkpoints
-                foreach ($deliveryTrips as $trip) {
-                    if (!$trip->startCheckpoint || !$trip->endCheckpoint) {
+                // Process items in the checkpoint
+                if ($startCheckpoint->item_record) {
+                    foreach ($startCheckpoint->item_record as $itemID) {
+                        // Skip if already processed for this checkpoint
+                        if (isset($startCheckpointData['items'][$itemID])) {
+                            continue;
+                        }
+                        
+                        // Get quantity from cart
+                        $quantity = 0;
+                        if ($orderID) {
+                            $cart = Cart::where('orderID', $orderID)
+                                ->where('itemID', $itemID)
+                                ->first();
+                            if ($cart) {
+                                $quantity = $cart->quantity;
+                            }
+                        }
+                        
+                        // Get item details
+                        $item = Item::with('poultry')->find($itemID);
+                        if ($item) {
+                            $startCheckpointData['items'][$itemID] = [
+                                'item_name' => $item->poultry ? $item->poultry->poultry_name : 'Unknown',
+                                'quantity' => $quantity,
+                                'orderID' => $orderID
+                            ];
+                            
+                            // Track items for validation later
+                            if (!isset($locationItems[$startLocationID])) {
+                                $locationItems[$startLocationID] = [];
+                            }
+                            if (!isset($locationItems[$startLocationID][$startCheckpoint->checkID])) {
+                                $locationItems[$startLocationID][$startCheckpoint->checkID] = [];
+                            }
+                            $locationItems[$startLocationID][$startCheckpoint->checkID][$itemID] = true;
+                        }
+                    }
+                }
+                
+                // Add checkpoint to location if not already added
+                $checkpointExists = false;
+                foreach ($locationCheckpoints[$startLocationID] as $checkpoint) {
+                    if ($checkpoint['checkID'] == $startCheckpoint->checkID) {
+                        $checkpointExists = true;
+                        break;
+                    }
+                }
+                
+                if (!$checkpointExists) {
+                    $locationCheckpoints[$startLocationID][] = $startCheckpointData;
+                }
+                
+                // Process end checkpoint
+                $endCheckpoint = $trip->endCheckpoint;
+                $endCheckpointData = [
+                    'checkID' => $endCheckpoint->checkID,
+                    'items' => []
+                ];
+                
+                // Process items in the end checkpoint
+                if ($endCheckpoint->item_record) {
+                    foreach ($endCheckpoint->item_record as $itemID) {
+                        // Skip if already processed for this checkpoint
+                        if (isset($endCheckpointData['items'][$itemID])) {
+                            continue;
+                        }
+                        
+                        // Get quantity from cart
+                        $quantity = 0;
+                        if ($orderID) {
+                            $cart = Cart::where('orderID', $orderID)
+                                ->where('itemID', $itemID)
+                                ->first();
+                            if ($cart) {
+                                $quantity = $cart->quantity;
+                            }
+                        }
+                        
+                        // Get item details
+                        $item = Item::with('poultry')->find($itemID);
+                        if ($item) {
+                            $endCheckpointData['items'][$itemID] = [
+                                'item_name' => $item->poultry ? $item->poultry->poultry_name : 'Unknown',
+                                'quantity' => $quantity,
+                                'orderID' => $endCheckpoint->orderID
+                            ];
+                            
+                            // Track items for validation later
+                            if (!isset($locationItems[$endLocationID])) {
+                                $locationItems[$endLocationID] = [];
+                            }
+                            if (!isset($locationItems[$endLocationID][$endCheckpoint->checkID])) {
+                                $locationItems[$endLocationID][$endCheckpoint->checkID] = [];
+                            }
+                            $locationItems[$endLocationID][$endCheckpoint->checkID][$itemID] = true;
+                        }
+                    }
+                }
+                
+                // Add checkpoint to location if not already added
+                $checkpointExists = false;
+                foreach ($locationCheckpoints[$endLocationID] as $checkpoint) {
+                    if ($checkpoint['checkID'] == $endCheckpoint->checkID) {
+                        $checkpointExists = true;
+                        break;
+                    }
+                }
+                
+                if (!$checkpointExists) {
+                    $locationCheckpoints[$endLocationID][] = $endCheckpointData;
+                }
+            }
+            
+            // Identify all connections between start and end locations
+            $locationConnections = [];
+            foreach ($deliveryTrips as $trip) {
+                if (!$trip->startCheckpoint || !$trip->endCheckpoint) {
+                    continue;
+                }
+                
+                $startLocationID = $trip->startCheckpoint->locationID;
+                $endLocationID = $trip->endCheckpoint->locationID;
+                
+                // Track connections
+                if (!isset($locationConnections[$startLocationID])) {
+                    $locationConnections[$startLocationID] = [];
+                }
+                if (!in_array($endLocationID, $locationConnections[$startLocationID])) {
+                    $locationConnections[$startLocationID][] = $endLocationID;
+                }
+            }
+            
+            // Group locations based on shared connections
+            $processedStartLocations = [];
+            $processedEndLocations = [];
+            $routeGroups = [];
+            
+            // Process each start location
+            foreach ($locationConnections as $startLocationID => $endLocationIDs) {
+                // Skip if this start location is already processed
+                if (in_array($startLocationID, $processedStartLocations)) {
+                    continue;
+                }
+                
+                $currentGroup = [
+                    'start_locations' => [$startLocationID],
+                    'end_locations' => $endLocationIDs
+                ];
+                $processedStartLocations[] = $startLocationID;
+                
+                // Find other start locations that share end locations with this one
+                foreach ($locationConnections as $otherStartID => $otherEndIDs) {
+                    // Skip if already processed or same as current
+                    if (in_array($otherStartID, $processedStartLocations) || $otherStartID == $startLocationID) {
                         continue;
                     }
                     
-                    $startLocationID = $trip->startCheckpoint->locationID;
-                    $endLocationID = $trip->endCheckpoint->locationID;
+                    // Check if there's any overlap in end locations
+                    $sharedEndLocations = array_intersect($endLocationIDs, $otherEndIDs);
                     
-                    // Add start location if not already added
-                    if (!isset($startLocations[$startLocationID])) {
-                        $startLocations[$startLocationID] = [
+                    if (!empty($sharedEndLocations)) {
+                        // Add this start location to the group
+                        $currentGroup['start_locations'][] = $otherStartID;
+                        $processedStartLocations[] = $otherStartID;
+                        
+                        // Add any new end locations to the group
+                        $currentGroup['end_locations'] = array_unique(
+                            array_merge($currentGroup['end_locations'], $otherEndIDs)
+                        );
+                    }
+                }
+                
+                // Add the group to our route groups
+                $routeGroups[] = $currentGroup;
+            }
+            
+            // Now build the routes from the groups
+            foreach ($routeGroups as $groupIndex => $group) {
+                $routeStartLocations = [];
+                $routeEndLocations = [];
+                
+                // Sort start locations by ID for consistent ordering
+                sort($group['start_locations']);
+                sort($group['end_locations']);
+                
+                // First collect all valid items from end locations in this route
+                $validItemsInRoute = [];
+                foreach ($group['end_locations'] as $endLocationID) {
+                    if (isset($endLocations[$endLocationID]) && isset($locationCheckpoints[$endLocationID])) {
+                        foreach ($locationCheckpoints[$endLocationID] as $checkpoint) {
+                            if (isset($checkpoint['items'])) {
+                                foreach ($checkpoint['items'] as $itemID => $itemData) {
+                                    $validItemsInRoute[$itemID] = true;
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Build start locations for this route with filtered items
+                foreach ($group['start_locations'] as $startLocationID) {
+                    if (isset($startLocations[$startLocationID])) {
+                        // Filter checkpoints to only include items that are in end locations
+                        $filteredCheckpoints = [];
+                        
+                        foreach ($locationCheckpoints[$startLocationID] ?? [] as $checkpoint) {
+                            $filteredItems = [];
+                            
+                            foreach ($checkpoint['items'] ?? [] as $itemID => $itemData) {
+                                // Only include items that are in any end location for this route
+                                if (isset($validItemsInRoute[$itemID])) {
+                                    $filteredItems[$itemID] = $itemData;
+                                }
+                            }
+                            
+                            // Only include checkpoint if it has items after filtering
+                            if (!empty($filteredItems)) {
+                                $filteredCheckpoint = $checkpoint;
+                                $filteredCheckpoint['items'] = $filteredItems;
+                                $filteredCheckpoints[] = $filteredCheckpoint;
+                            }
+                        }
+                        
+                        $startLocationWithCheckpoints = [
                             'locationID' => $startLocationID,
-                            'company_address' => $trip->startCheckpoint->location->company_address
+                            'company_address' => $startLocations[$startLocationID]['company_address'],
+                            'checkpoints' => $filteredCheckpoints
                         ];
+                        
+                        // Add location status
+                        $startLocationWithCheckpoints['location_status'] = $this->getLocationStatus(
+                            $deliveryID, 
+                            $startLocationWithCheckpoints['checkpoints']
+                        );
+                        
+                        $routeStartLocations[$startLocationID] = $startLocationWithCheckpoints;
                     }
-                    
-                    // Add end location if not already added
-                    if (!isset($endLocations[$endLocationID])) {
-                        $endLocations[$endLocationID] = [
+                }
+                
+                // Build end locations for this route
+                foreach ($group['end_locations'] as $endLocationID) {
+                    if (isset($endLocations[$endLocationID])) {
+                        $endLocationWithCheckpoints = [
                             'locationID' => $endLocationID,
-                            'company_address' => $trip->endCheckpoint->location->company_address
+                            'company_address' => $endLocations[$endLocationID]['company_address'],
+                            'checkpoints' => $locationCheckpoints[$endLocationID] ?? []
                         ];
-                    }
-                    
-                    // Add checkpoint to location
-                    if (!isset($locationCheckpoints[$startLocationID])) {
-                        $locationCheckpoints[$startLocationID] = [];
-                    }
-                    if (!isset($locationCheckpoints[$endLocationID])) {
-                        $locationCheckpoints[$endLocationID] = [];
-                    }
-                    
-                    // Process start checkpoint
-                    $startCheckpoint = $trip->startCheckpoint;
-                    $startCheckpointData = [
-                        'checkID' => $startCheckpoint->checkID,
-                        'items' => []
-                    ];
-                    
-                    // Get orderID from trip or checkpoint
-                    $orderID = $trip->orderID ?? $startCheckpoint->orderID;
-                    
-                    // Process items in the checkpoint
-                    if ($startCheckpoint->item_record) {
-                        foreach ($startCheckpoint->item_record as $itemID) {
-                            // Skip if already processed for this checkpoint
-                            if (isset($startCheckpointData['items'][$itemID])) {
-                                continue;
-                            }
-                            
-                            // Get quantity from cart
-                            $quantity = 0;
-                            if ($orderID) {
-                                $cart = Cart::where('orderID', $orderID)
-                                    ->where('itemID', $itemID)
-                                    ->first();
-                                if ($cart) {
-                                    $quantity = $cart->quantity;
-                                }
-                            }
-                            
-                            // Get item details
-                            $item = Item::with('poultry')->find($itemID);
-                            if ($item) {
-                                $startCheckpointData['items'][$itemID] = [
-                                    'item_name' => $item->poultry ? $item->poultry->poultry_name : 'Unknown',
-                                    'quantity' => $quantity,
-                                    'orderID' => $orderID
-                                ];
-                                
-                                // Track items for validation later
-                                if (!isset($locationItems[$startLocationID])) {
-                                    $locationItems[$startLocationID] = [];
-                                }
-                                if (!isset($locationItems[$startLocationID][$startCheckpoint->checkID])) {
-                                    $locationItems[$startLocationID][$startCheckpoint->checkID] = [];
-                                }
-                                $locationItems[$startLocationID][$startCheckpoint->checkID][$itemID] = true;
-                            }
-                        }
-                    }
-                    
-                    // Add checkpoint to location if not already added
-                    $checkpointExists = false;
-                    foreach ($locationCheckpoints[$startLocationID] as $checkpoint) {
-                        if ($checkpoint['checkID'] == $startCheckpoint->checkID) {
-                            $checkpointExists = true;
-                            break;
-                        }
-                    }
-                    
-                    if (!$checkpointExists) {
-                        $locationCheckpoints[$startLocationID][] = $startCheckpointData;
-                    }
-                    
-                    // Process end checkpoint
-                    $endCheckpoint = $trip->endCheckpoint;
-                    $endCheckpointData = [
-                        'checkID' => $endCheckpoint->checkID,
-                        'items' => []
-                    ];
-                    
-                    // Process items in the end checkpoint
-                    if ($endCheckpoint->item_record) {
-                        foreach ($endCheckpoint->item_record as $itemID) {
-                            // Skip if already processed for this checkpoint
-                            if (isset($endCheckpointData['items'][$itemID])) {
-                                continue;
-                            }
-                            
-                            // Get quantity from cart
-                            $quantity = 0;
-                            if ($orderID) {
-                                $cart = Cart::where('orderID', $orderID)
-                                    ->where('itemID', $itemID)
-                                    ->first();
-                                if ($cart) {
-                                    $quantity = $cart->quantity;
-                                }
-                            }
-                            
-                            // Get item details
-                            $item = Item::with('poultry')->find($itemID);
-                            if ($item) {
-                                $endCheckpointData['items'][$itemID] = [
-                                    'item_name' => $item->poultry ? $item->poultry->poultry_name : 'Unknown',
-                                    'quantity' => $quantity,
-                                    'orderID' => $endCheckpoint->orderID
-                                ];
-                                
-                                // Track items for validation later
-                                if (!isset($locationItems[$endLocationID])) {
-                                    $locationItems[$endLocationID] = [];
-                                }
-                                if (!isset($locationItems[$endLocationID][$endCheckpoint->checkID])) {
-                                    $locationItems[$endLocationID][$endCheckpoint->checkID] = [];
-                                }
-                                $locationItems[$endLocationID][$endCheckpoint->checkID][$itemID] = true;
-                            }
-                        }
-                    }
-                    
-                    // Add checkpoint to location if not already added
-                    $checkpointExists = false;
-                    foreach ($locationCheckpoints[$endLocationID] as $checkpoint) {
-                        if ($checkpoint['checkID'] == $endCheckpoint->checkID) {
-                            $checkpointExists = true;
-                            break;
-                        }
-                    }
-                    
-                    if (!$checkpointExists) {
-                        $locationCheckpoints[$endLocationID][] = $endCheckpointData;
+                        
+                        // Add location status
+                        $endLocationWithCheckpoints['location_status'] = $this->getLocationStatus(
+                            $deliveryID, 
+                            $endLocationWithCheckpoints['checkpoints']
+                        );
+                        
+                        $routeEndLocations[$endLocationID] = $endLocationWithCheckpoints;
                     }
                 }
                 
-                // Validate items in start locations against end locations
-                foreach ($startLocations as $startLocationID => $startLocation) {
-                    // Collect all valid items from end locations
-                    $validItems = [];
-                    foreach ($endLocations as $endLocationID => $endLocation) {
-                        if (isset($locationItems[$endLocationID])) {
-                            foreach ($locationItems[$endLocationID] as $checkpointID => $items) {
-                                foreach ($items as $itemID => $exists) {
-                                    $validItems[$itemID] = true;
-                                }
-                            }
-                        }
-                    }
-                    
-                    // Filter out invalid items from start locations
-                    if (isset($locationCheckpoints[$startLocationID])) {
-                        foreach ($locationCheckpoints[$startLocationID] as &$checkpoint) {
-                            foreach ($checkpoint['items'] as $itemID => $itemData) {
-                                if (!isset($validItems[$itemID])) {
-                                    unset($checkpoint['items'][$itemID]);
-                                }
-                            }
-                        }
-                    }
+                // Add the route to delivery data
+                if (!empty($routeStartLocations) && !empty($routeEndLocations)) {
+                    $deliveryData['routes'][] = [
+                        'start_locations' => $routeStartLocations,
+                        'end_locations' => $routeEndLocations
+                    ];
                 }
-                
-                // Create routes by grouping locations with the same end location
-                $routeIndex = 1;
-                $routesByEndLocation = [];
-                
+            }
+            
+            // If no routes were created, use the old method as fallback
+            if (empty($deliveryData['routes'])) {
                 // First, group routes by end location
                 foreach ($endLocations as $endLocationID => $endLocation) {
                     $connectedStartLocations = [];
@@ -337,12 +463,6 @@ class ExecuteDeliveriesController extends Controller
                                 'checkpoints' => $locationCheckpoints[$startLocationID] ?? []
                             ];
                             
-                            // Add location status
-                            $startLocationWithCheckpoints['location_status'] = $this->getLocationStatus(
-                                $deliveryID, 
-                                $startLocationWithCheckpoints['checkpoints']
-                            );
-                            
                             $connectedStartLocations[$startLocationID] = $startLocationWithCheckpoints;
                         }
                     }
@@ -358,6 +478,14 @@ class ExecuteDeliveriesController extends Controller
                         ];
                         
                         // Add location status
+                        foreach ($connectedStartLocations as $startLocationID => &$startLocationData) {
+                            $startLocationData['location_status'] = $this->getLocationStatus(
+                                $deliveryID, 
+                                $startLocationData['checkpoints']
+                            );
+                        }
+                        
+                        // Add location status for end location
                         $endLocationWithCheckpoints['location_status'] = $this->getLocationStatus(
                             $deliveryID, 
                             $endLocationWithCheckpoints['checkpoints']
@@ -365,39 +493,35 @@ class ExecuteDeliveriesController extends Controller
                         
                         $endLocationsWithStatus[$endLocationID] = $endLocationWithCheckpoints;
                         
-                        $routesByEndLocation[$endLocationID] = [
+                        $routeKey = count($deliveryData['routes']);
+                        $deliveryData['routes'][$routeKey] = [
                             'start_locations' => $connectedStartLocations,
                             'end_locations' => $endLocationsWithStatus
                         ];
                     }
                 }
-                
-                // Now create the routes from the grouped data
-                foreach ($routesByEndLocation as $endLocationID => $routeData) {
-                    $deliveryData['routes'][$routeIndex] = $routeData;
-                    $routeIndex++;
-                }
-                
-                $result[$deliveryID] = $deliveryData;
             }
             
-            return response()->json([
-                'success' => true,
-                'data' => $result
-            ]);
-            
-        } catch (\Exception $e) {
-            Log::error('ExecuteDeliveriesController: Error in index method', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-            
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Failed to retrieve deliveries: ' . $e->getMessage()
-            ], 500);
+            $result[$deliveryID] = $deliveryData;
         }
+        
+        return response()->json([
+            'success' => true,
+            'data' => $result
+        ]);
+        
+    } catch (\Exception $e) {
+        Log::error('ExecuteDeliveriesController: Error in index method', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
+        
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Failed to retrieve deliveries: ' . $e->getMessage()
+        ], 500);
     }
+}
 
     /**
      * Determine the status of a location based on its checkpoints verification status

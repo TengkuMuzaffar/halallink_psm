@@ -146,7 +146,17 @@ Route::middleware('auth:sanctum')->group(function () {
         
         // Add new route for QR code processing
         Route::post('/qrcode/process', [App\Http\Controllers\Api\QRcodeController::class, 'processQRCode']);
-        Route::get('/qrcode/process/{orderID}/{locationID}', [App\Http\Controllers\Api\QRcodeController::class, 'processQRCode']);
+        // Verification routes
+        Route::get('/verifications', [App\Http\Controllers\Api\VerifyController::class, 'index']);
+        Route::get('/verifications/{verifyID}', [App\Http\Controllers\Api\VerifyController::class, 'show']);
+        Route::post('/verifications/{verifyID}', [App\Http\Controllers\Api\VerifyController::class, 'update']);
+        Route::post('/deliveries/{deliveryID}/complete-verification', [App\Http\Controllers\Api\VerifyController::class, 'completeVerification']);
+            
+       
+       
+        // QR code processing route - support both GET and POST
+        Route::match(['get', 'post'], '/qrcode/process/{locationID}/{companyID}', [App\Http\Controllers\Api\QRcodeController::class, 'processQRCode']);
+        // Route::get('/qrcode/process/{orderID}/{locationID}', [App\Http\Controllers\Api\QRcodeController::class, 'processQRCode']);
         // Location routes for delivery
         Route::get('/locations', [App\Http\Controllers\Api\LocationController::class, 'index']);
         Route::get('/users/get/drivers', [App\Http\Controllers\Api\DeliveryController::class, 'getDrivers']);
@@ -163,6 +173,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::patch('/employees/{id}/status', [EmployeeController::class, 'updateStatus']);
     });
 }); // Ensure this is the closing bracket for Route::middleware('auth:sanctum')->group
+
+
+
 
 
 
