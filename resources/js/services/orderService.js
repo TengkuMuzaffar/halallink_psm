@@ -59,5 +59,15 @@ export const orderService = {
       method: 'put',
       data: orderData
     });
+  },
+  
+  /**
+   * Generate QR code for location
+   * @param {number} locationID - Location ID
+   * @param {number} companyID - Company ID
+   * @returns {Promise} - Promise with QR code data
+   */
+  generateLocationQR(locationID, companyID) {
+    return fetchData(`/api/qrcode/process/${locationID}/${companyID || 0}`);
   }
 };

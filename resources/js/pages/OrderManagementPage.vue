@@ -414,24 +414,42 @@ export default {
     };
     
     // Generate QR code for location
-    const generateLocationQR = (locationId, companyId) => {
+    const generateLocationQR = (locationID, companyID) => {
+      // Set selected order to null since we're generating a location QR
+      selectedOrderId.value = null;
+      selectedOrder.value = null;
+      
+      // Call the QR code generation method from OrderDetailModal component
       if (orderDetailModalRef.value) {
-        // Call the showQRCode method from OrderDetailModal
-        orderDetailModalRef.value.showQRCode(null, locationId, companyId);
+        orderDetailModalRef.value.showQRCode(null, locationID, companyID);
       }
     };
     
-    // Generate QR code for order verification
-    const generateOrderQR = (orderId) => {
+    const generateOrderQR = (orderID) => {
+      // Find the order data to pass to the modal
+      const order = findOrderById(orderID);
+      selectedOrderId.value = orderID;
+      selectedOrder.value = order;
+      
+      // Call the order verification QR generation method
       if (orderDetailModalRef.value) {
-        // Call the generateOrderVerificationQR method from OrderDetailModal
-        orderDetailModalRef.value.generateOrderVerificationQR(orderId);
+        orderDetailModalRef.value.generateOrderVerificationQR(orderID);
       }
     };
     
-    // Remove these methods as they're now handled by OrderDetailModal
-    // copyQrLink
-    // downloadQrCode
+    // Helper function to find an order by ID across all locations
+    const findOrderById = (orderID) => {
+      if (!locations.value) return null;
+      
+      for (const location of locations.value) {
+        if (!location.orders) continue;
+        
+        const order = location.orders.find(o => o.orderID === orderID);
+        if (order) return order;
+      }
+      
+      return null;
+    };
     
     // Debounce search
     let searchTimeout = null;

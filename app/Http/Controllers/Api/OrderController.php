@@ -60,8 +60,10 @@ class OrderController extends Controller
                 }
                 
                 // Initialize location data structure
+                // Initialize location data structure
                 $groupedData[$locationID] = [
                     'locationID' => $locationID,
+                    'companyID' => $location->companyID, // Add this line to include companyID
                     'company_address' => $location->company_address ?? 'Unknown Location',
                     'location_type' => $location->location_type ?? 'Unknown Type',
                     'orders' => []

@@ -14,7 +14,7 @@
           </div>
           <div v-else>
             <div class="mb-3">
-              <img v-if="qrCodeUrl" :src="qrCodeUrl" alt="QR Code" class="img-fluid" style="max-width: 250px;" />
+              <img v-if="qrCodeUrl" :src="qrCodeUrl" alt="QR Code" class="img-fluid secure-qr" style="max-width: 250px;" @contextmenu.prevent />
               <p v-else class="text-danger">Failed to generate QR code.</p>
             </div>
             <div class="mb-3">
@@ -22,20 +22,12 @@
               <p v-if="selectedLocationID" class="mb-1"><strong>Location ID:</strong> {{ selectedLocationID }}</p>
               <p v-if="qrCodeDescription" class="mt-2">{{ qrCodeDescription }}</p>
             </div>
-            <div class="input-group mb-3">
-              <input type="text" class="form-control" v-model="qrCodeLink" readonly ref="qrLinkInput">
-              <button class="btn btn-outline-secondary" type="button" @click="copyToClipboard">
-                <i class="fas fa-copy"></i>
-              </button>
-            </div>
-            <div v-if="copySuccess" class="alert alert-success py-1">Link copied!</div>
+            <!-- Removed the URL input and copy button -->
           </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" @click="closeQRModal">Back</button>
-          <button type="button" class="btn btn-primary" @click="downloadQRCode">
-            <i class="fas fa-download me-1"></i> Download
-          </button>
+          <!-- Removed the download button -->
         </div>
       </div>
     </div>
@@ -271,29 +263,11 @@ export default {
         } else {
           // Convert canvas to data URL
           this.qrCodeUrl = canvas.toDataURL();
+          
+          // Clear the link from memory for security
+          this.qrCodeLink = '';
         }
       });
-    },
-    copyToClipboard() {
-      const copyText = this.$refs.qrLinkInput;
-      copyText.select();
-      document.execCommand('copy');
-      this.copySuccess = true;
-      
-      // Reset copy success message after 3 seconds
-      setTimeout(() => {
-        this.copySuccess = false;
-      }, 3000);
-    },
-    downloadQRCode() {
-      if (!this.qrCodeUrl) return;
-      
-      const link = document.createElement('a');
-      link.href = this.qrCodeUrl;
-      link.download = `qrcode-${this.selectedOrderID || ''}-${this.selectedLocationID || ''}-${Date.now()}.png`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
     },
   },
   mounted() {
@@ -553,5 +527,15 @@ export default {
   .mb-4 {
     margin-bottom: 1rem !important;
   }
+}
+
+/* Secure QR code styling */
+.secure-qr {
+  user-select: none;
+  pointer-events: none;
+  -webkit-user-drag: none;
+  -khtml-user-drag: none;
+  -moz-user-drag: none;
+  -o-user-drag: none;
 }
 </style>
