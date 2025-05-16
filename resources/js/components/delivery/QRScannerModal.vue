@@ -125,12 +125,40 @@ export default {
             return;
           }
           
+          // Extract location ID and company ID from URL if possible
+          let urlLocationID = props.locationID;
+          let companyID = null;
+          
+          try {
+            // Try to extract IDs from URL path segments
+            const pathSegments = urlObj.pathname.split('/').filter(segment => segment);
+            
+            // The URL format is typically /api/qrcode/process/{locationID}/{companyID}
+            // Find numeric segments that might be the IDs
+            const numericSegments = pathSegments.filter(segment => !isNaN(segment));
+            
+            if (numericSegments.length >= 2) {
+              urlLocationID = parseInt(numericSegments[0]);
+              companyID = parseInt(numericSegments[1]);
+              console.log('Extracted from URL - Location ID:', urlLocationID, 'Company ID:', companyID);
+            }
+          } catch (err) {
+            console.warn('Could not extract IDs from URL, using props value:', err);
+          }
+          
           // Prepare data to post
           const postData = {
             deliveryID: props.deliveryID,
-            locationID: props.locationID,
-            checkpoints: props.checkpoints
+            locationID: urlLocationID,
+            checkpoints: props.checkpoints,
+            companyID: companyID // Add company ID if available
           };
+          
+          // Log the data being sent
+          console.log('Sending data to server:', {
+            url: url,
+            postData: postData
+          });
           
           // Show success message
           scanResult.value = 'QR code detected! Processing...';
@@ -143,9 +171,22 @@ export default {
                 setTimeout(() => {
                   closeModal();
                   
-                  // Redirect to the verification page
-                  const verifyUrl = `/verify/${props.locationID}/${props.deliveryID}`;
-                  router.push(verifyUrl);
+                  // Redirect to the verification page with proper parameter formatting
+                  const verifyUrl = `/verify/${urlLocationID}/${props.deliveryID}`;
+                  console.log('Navigating to:', verifyUrl);
+                  
+                  // Use router.push with named route and params object instead of path string
+                  router.push({
+                    name: 'VerifyDelivery',
+                    params: {
+                      locationID: urlLocationID.toString(),
+                      deliveryID: props.deliveryID.toString()
+                    }
+                  }).catch(err => {
+                    console.error('Navigation error:', err);
+                    // Fallback to window.location if router navigation fails
+                    window.location.href = verifyUrl;
+                  });
                 }, 1000);
               } else {
                 // Show error message
@@ -154,7 +195,16 @@ export default {
               }
             },
             onError: (err) => {
-              error.value = `Error processing QR code: ${err.message || 'Unknown error'}`;
+              console.error('API Error Details:', err);
+              
+              // Check if there's a response with error details
+              if (err.response && err.response.data) {
+                error.value = `Error processing QR code: ${err.response.data.message || err.message}`;
+                console.error('Server error details:', err.response.data);
+              } else {
+                error.value = `Error processing QR code: ${err.message || 'Unknown error'}`;
+              }
+              
               scanResult.value = null;
             }
           });

@@ -39,19 +39,17 @@
     </div>
     
     <!-- Locations and Orders -->
-    <div class="card">
-      <div class="card-header d-flex justify-content-between align-items-center">
+    <div class="card theme-card">
+      <div class="card-header d-flex justify-content-between align-items-center theme-header">
         <h5 class="mb-0">Orders by Location</h5>
+        <button class="btn btn-sm theme-btn-outline" @click="refreshData">
+          <i class="fas fa-sync-alt"></i> Refresh
+        </button>
       </div>
-      <div class="card-body">
+      <div class="card-body theme-body">
         <!-- Error State -->
         <div v-if="error" class="alert alert-danger" role="alert">
           {{ error }}
-        </div>
-        
-        <!-- Loading State -->
-        <div v-if="loading" class="text-center py-5">
-          <LoadingSpinner />
         </div>
         
         <!-- Filters -->
@@ -89,6 +87,11 @@
           </div>
         </div>
         
+        <!-- Loading State - Moved below filters -->
+        <div v-if="loading" class="text-center py-5">
+          <LoadingSpinner />
+        </div>
+        
         <!-- No Data State -->
         <div v-if="!loading && (!locations || locations.length === 0)" class="text-center py-5">
           <div class="mb-3">
@@ -101,16 +104,16 @@
         <!-- Locations List -->
         <div v-if="!loading && locations && locations.length > 0">
           <div v-for="(location, locationIndex) in locations" :key="location.locationID" class="location-card mb-4">
-            <div class="card">
-              <div class="card-header bg-light d-flex justify-content-between align-items-center">
+            <div class="card theme-inner-card">
+              <div class="card-header theme-card-header d-flex justify-content-between align-items-center">
                 <div>
-                  <span class="badge bg-secondary me-2">{{ location.location_type }}</span>
+                  <span class="badge theme-badge-secondary me-2">{{ location.location_type }}</span>
                   <strong>{{ location.company_address }}</strong>
                 </div>
                 <div class="d-flex align-items-center">
-                  <span class="badge bg-primary me-3">{{ location.orders.length }} orders</span>
+                  <span class="badge theme-badge-primary me-3">{{ location.orders.length }} orders</span>
                   <button 
-                    class="btn btn-sm btn-outline-primary" 
+                    class="btn btn-sm btn-primary" 
                     @click="generateLocationQR(location.locationID, location.companyID || 0)"
                     title="Generate QR Code for this location"
                   >
@@ -121,21 +124,20 @@
               <div class="card-body p-0">
                 <!-- Orders Table -->
                 <div class="table-responsive">
-                  <table class="table table-hover mb-0">
-                    <thead class="table-light">
+                  <table class="table table-hover mb-0 theme-table">
+                    <thead class="theme-table-header">
                       <tr>
                         <th scope="col" style="width: 50px"></th>
                         <th scope="col">Order ID</th>
                         <th scope="col">Status</th>
                         <th scope="col">Date</th>
                         <th scope="col">Customer</th>
-                        <th scope="col" class="text-end">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       <template v-for="(order, orderIndex) in location.orders" :key="order.orderID">
                         <!-- Order Row -->
-                        <tr>
+                        <tr class="theme-list-item" :class="{'theme-list-item-active': expandedOrders[order.orderID]}">
                           <td class="text-center">
                             <button 
                               class="btn btn-sm btn-link p-0" 
@@ -143,42 +145,33 @@
                               :aria-expanded="expandedOrders[order.orderID] ? 'true' : 'false'"
                             >
                               <i 
-                                class="fas" 
+                                class="fas theme-icon" 
                                 :class="expandedOrders[order.orderID] ? 'fa-chevron-down' : 'fa-chevron-right'"
                               ></i>
                             </button>
                           </td>
                           <td><strong>#{{ order.orderID }}</strong></td>
                           <td>
-                            <span :class="`badge bg-${getStatusColor(order.calculated_status || order.order_status)}`">
+                            <span class="badge theme-badge-primary">
                               {{ formatStatus(order.calculated_status || order.order_status) }}
                             </span>
                           </td>
                           <td>{{ formatDate(order.created_at) }}</td>
                           <td>{{ order.user ? (order.user.fullname || order.user.email) : 'N/A' }}</td>
-                          <td class="text-end">
-                            <button 
-                              class="btn btn-sm btn-outline-primary me-2" 
-                              @click="generateOrderQR(order.orderID)"
-                              title="Generate QR Code for order verification"
-                            >
-                              <i class="fas fa-qrcode"></i>
-                            </button>
-                          </td>
                         </tr>
                         
                         <!-- Expanded Order Items -->
                         <tr v-if="expandedOrders[order.orderID]">
                           <td colspan="6" class="p-0">
-                            <div class="p-3 bg-light">
-                              <h6 class="mb-3">Order Checkpoints</h6>
+                            <div class="p-3 theme-details">
+                              <h6 class="mb-3 theme-subtitle">Order Checkpoints</h6>
                               
                               <!-- Checkpoints -->
                               <div v-for="(checkpoint, checkpointIndex) in order.checkpoints" :key="checkpoint.checkID" class="mb-4">
                                 <div class="d-flex justify-content-between align-items-center mb-2">
                                   <h6 class="mb-0">
-                                    <span class="badge bg-secondary me-2">Checkpoint #{{ checkpoint.arrange_number }}</span>
-                                    <span :class="`badge bg-${getStatusColor(checkpoint.checkpoint_status)}`">
+                                    <span class="badge theme-badge-secondary me-2">Checkpoint #{{ checkpoint.arrange_number }}</span>
+                                    <span class="badge theme-badge-primary">
                                       {{ formatStatus(checkpoint.checkpoint_status) }}
                                     </span>
                                   </h6>
@@ -186,8 +179,8 @@
                                 
                                 <!-- Items Table -->
                                 <div class="table-responsive">
-                                  <table class="table table-sm table-bordered">
-                                    <thead class="table-light">
+                                  <table class="table table-sm table-bordered theme-inner-table">
+                                    <thead class="theme-table-header">
                                       <tr>
                                         <th>Item</th>
                                         <th>Quantity</th>
@@ -234,14 +227,14 @@
         </div>
         
         <!-- Pagination -->
-        <div v-if="!loading && locations && locations.length > 0" class="d-flex justify-content-between align-items-center mt-4">
+        <div v-if="!loading && locations && locations.length > 0" class="d-flex justify-content-between align-items-center mt-4 theme-pagination-container">
           <div>
-            <span class="text-muted">Showing {{ pagination.from || 1 }}-{{ pagination.to || locations.length }} of {{ pagination.total || locations.length }}</span>
+            <span class="theme-pagination-text">Showing {{ pagination.from || 1 }}-{{ pagination.to || locations.length }} of {{ pagination.total || locations.length }}</span>
           </div>
           <nav aria-label="Order pagination">
             <ul class="pagination mb-0">
               <li class="page-item" :class="{ disabled: currentPage <= 1 || loading }">
-                <a class="page-link" href="#" @click.prevent="!loading && changePage(currentPage - 1)">
+                <a class="page-link theme-pagination-link" href="#" @click.prevent="!loading && changePage(currentPage - 1)">
                   <i class="fas fa-chevron-left"></i>
                 </a>
               </li>
@@ -251,10 +244,10 @@
                 class="page-item"
                 :class="{ active: page === currentPage, disabled: loading }"
               >
-                <a class="page-link" href="#" @click.prevent="!loading && changePage(page)">{{ page }}</a>
+                <a class="page-link theme-pagination-link" href="#" @click.prevent="!loading && changePage(page)">{{ page }}</a>
               </li>
               <li class="page-item" :class="{ disabled: currentPage >= pagination.last_page || loading }">
-                <a class="page-link" href="#" @click.prevent="!loading && changePage(currentPage + 1)">
+                <a class="page-link theme-pagination-link" href="#" @click.prevent="!loading && changePage(currentPage + 1)">
                   <i class="fas fa-chevron-right"></i>
                 </a>
               </li>
@@ -413,27 +406,40 @@ export default {
       };
     };
     
-    // Generate QR code for location
-    const generateLocationQR = (locationID, companyID) => {
-      // Set selected order to null since we're generating a location QR
-      selectedOrderId.value = null;
-      selectedOrder.value = null;
-      
-      // Call the QR code generation method from OrderDetailModal component
-      if (orderDetailModalRef.value) {
-        orderDetailModalRef.value.showQRCode(null, locationID, companyID);
+    const generateLocationQR = async (locationID, companyID) => {
+      try {
+        // Generate a timestamp and expiration time (2 hours from now)
+        const timestamp = Date.now();
+        const expirationTime = timestamp + (2 * 60 * 60 * 1000); // 2 hours in milliseconds
+        
+        // If we have a selected order, use the OrderDetailModal to show the QR
+        if (orderDetailModalRef.value) {
+          selectedOrderId.value = null;
+          selectedOrder.value = null;
+          
+          // Generate a unique QR code URL with timestamp and expiration
+          const qrCodeUrl = `/api/qrcode/process/${locationID}/${companyID}?timestamp=${timestamp}&expires=${expirationTime}`;
+          
+          // Show the QR code in the modal - pass locationID as second parameter
+          orderDetailModalRef.value.showQRCode(qrCodeUrl, locationID, companyID);
+        }
+      } catch (error) {
+        console.error('Error generating QR code:', error);
       }
     };
     
+    // Add the missing generateOrderQR function
     const generateOrderQR = (orderID) => {
-      // Find the order data to pass to the modal
+      // Find the order data
       const order = findOrderById(orderID);
+      
+      // Set selected order
       selectedOrderId.value = orderID;
       selectedOrder.value = order;
       
-      // Call the order verification QR generation method
+      // Call the QR code generation method from OrderDetailModal component
       if (orderDetailModalRef.value) {
-        orderDetailModalRef.value.generateOrderVerificationQR(orderID);
+        orderDetailModalRef.value.showQRCode(orderID);
       }
     };
     
@@ -530,6 +536,17 @@ export default {
       fetchOrders();
     };
     
+    // Add the refreshData function
+    const refreshData = () => {
+      // Reset to first page when refreshing
+      currentPage.value = 1;
+      // Clear any error messages
+      error.value = null;
+      // Fetch fresh data
+      fetchOrders();
+      fetchOrderStats();
+    };
+    
     // Lifecycle hooks
     onMounted(() => {
       fetchOrders();
@@ -554,8 +571,8 @@ export default {
       orderStats,
       selectedOrderId,
       selectedOrder,
-      expandedOrders,
       orderDetailModalRef,
+      expandedOrders,
       
       // Filters
       searchQuery,
@@ -564,26 +581,23 @@ export default {
       
       // Pagination
       currentPage,
-      perPage,
       pagination,
       paginationRange,
       
       // Methods
-      fetchOrders,
-      toggleOrder,
-      debounceSearch,
-      applyFilters,
-      changePage,
-      viewOrder,
-      generateLocationQR,
-      generateOrderQR,
-      
-      // Formatters
       formatLargeNumber,
       formatCurrency,
       formatDate,
       formatStatus,
-      getStatusColor
+      getStatusColor,
+      toggleOrder,
+      generateLocationQR,
+      generateOrderQR,
+      debounceSearch,
+      applyFilters,
+      changePage,
+      refreshData,  // Add this line
+      viewOrder
     };
   }
 }
@@ -594,6 +608,183 @@ export default {
   padding: 20px 0;
 }
 
+/* Theme colors */
+.theme-card {
+  --primary-color: #123524;
+  --secondary-color: #EFE3C2;
+  --accent-color: #3E7B27;
+  --text-color: #333;
+  --light-text: #666;
+  --border-color: rgba(18, 53, 36, 0.2);
+  --light-bg: rgba(239, 227, 194, 0.2);
+  --lighter-bg: rgba(239, 227, 194, 0.1);
+  
+  border-color: var(--border-color);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.theme-header {
+  background-color: var(--primary-color);
+  color: var(--secondary-color);
+  border-bottom: none;
+}
+
+.theme-body {
+  padding: 1.25rem;
+}
+
+.theme-inner-card {
+  border-color: var(--border-color);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.theme-card-header {
+  background-color: var(--light-bg);
+  border-bottom: 1px solid var(--border-color);
+}
+
+/* Button styles */
+.theme-btn-accent {
+  background-color: var(--accent-color);
+  border-color: var(--accent-color);
+  color: var(--secondary-color);
+}
+
+.theme-btn-accent:hover {
+  background-color: #2e5c1d;
+  border-color: #2e5c1d;
+  color: var(--secondary-color);
+}
+
+.theme-btn-outline {
+  color: var(--secondary-color);
+  border-color: var(--secondary-color);
+  background-color: transparent;
+}
+
+.theme-btn-outline:hover {
+  color: var(--primary-color);
+  background-color: var(--secondary-color);
+  border-color: var(--secondary-color);
+}
+
+.theme-btn-primary {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+  color: var(--secondary-color);
+}
+
+.theme-btn-primary:hover {
+  background-color: #0a2016;
+  border-color: #0a2016;
+  color: var(--secondary-color);
+}
+
+/* Badge styles */
+.theme-badge-primary {
+  background-color: var(--primary-color);
+  color: var(--secondary-color);
+}
+
+.theme-badge-secondary {
+  background-color: var(--secondary-color);
+  color: var(--primary-color);
+}
+
+.theme-badge-accent {
+  background-color: var(--accent-color);
+  color: var(--secondary-color);
+}
+
+/* List styles */
+.theme-list-item {
+  border-color: var(--border-color);
+  transition: background-color 0.2s ease;
+}
+
+.theme-list-item:hover {
+  background-color: var(--lighter-bg);
+}
+
+.theme-list-item-active {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+  color: var(--secondary-color);
+}
+
+.theme-list-item-active .text-muted {
+  color: rgba(239, 227, 194, 0.7) !important;
+}
+
+/* Table styles */
+.theme-table {
+  border-color: var(--border-color);
+}
+
+.theme-table-header {
+  background-color: var(--light-bg);
+  color: var(--primary-color);
+}
+
+.theme-inner-table {
+  border-color: var(--border-color);
+}
+
+/* Icon styles */
+.theme-icon {
+  color: var(--accent-color);
+}
+
+.theme-list-item-active .theme-icon {
+  color: var(--secondary-color);
+}
+
+/* Spinner */
+.theme-spinner {
+  color: var(--accent-color);
+}
+
+/* Details section */
+.theme-details {
+  background-color: var(--lighter-bg);
+}
+
+.theme-subtitle {
+  color: var(--primary-color);
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+/* Pagination */
+.theme-pagination-container {
+  background-color: var(--lighter-bg);
+  border-top: 1px solid var(--border-color);
+  padding: 0.75rem 1rem;
+}
+
+.theme-pagination-text {
+  color: var(--text-color);
+}
+
+.theme-pagination-link {
+  color: var(--primary-color);
+  border-color: var(--border-color);
+}
+
+.theme-pagination-link:hover {
+  background-color: var(--light-bg);
+  color: var(--primary-color);
+  border-color: var(--border-color);
+}
+
+.page-item.active .theme-pagination-link {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+  color: var(--secondary-color);
+}
+
+/* Original styles with theme modifications */
 .pagination {
   margin-bottom: 0;
 }
@@ -616,11 +807,11 @@ export default {
 }
 
 .btn-link {
-  color: #6c757d;
+  color: var(--accent-color);
   text-decoration: none;
 }
 
 .btn-link:hover {
-  color: #0d6efd;
+  color: #2e5c1d;
 }
 </style>

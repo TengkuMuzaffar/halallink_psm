@@ -18,7 +18,7 @@
               <p v-else class="text-danger">Failed to generate QR code.</p>
             </div>
             <div class="mb-3">
-              <p v-if="selectedOrderID" class="mb-1"><strong>Order ID:</strong> {{ selectedOrderID }}</p>
+              <!-- Remove the Order ID display -->
               <p v-if="selectedLocationID" class="mb-1"><strong>Location ID:</strong> {{ selectedLocationID }}</p>
               <p v-if="qrCodeDescription" class="mt-2">{{ qrCodeDescription }}</p>
             </div>
@@ -154,7 +154,8 @@ export default {
       return statusMap[status?.toLowerCase()] || 'secondary';
     },
     showQRCode(orderID, locationID, companyID = null) {
-      this.selectedOrderID = orderID;
+      // Don't set selectedOrderID to hide it from display
+      this.selectedOrderID = null; // Changed from orderID to null
       this.selectedLocationID = locationID;
       this.qrCodeLoading = true;
       this.qrCodeUrl = null;
@@ -174,6 +175,7 @@ export default {
       const apiUrl = `/api/qrcode/process/${locationID}/${companyID || 0}`;
       this.qrCodeLink = `${window.location.origin}${apiUrl}`;
       this.qrCodeTitle = 'Location QR Code';
+      this.selectedLocationID = `Location ${locationID}`; 
       this.qrCodeDescription = 'Scan this QR code to process items at this location.';
       
       // Generate QR code image

@@ -33,32 +33,42 @@ class QRcodeController extends Controller
                 'companyID' => $companyID
             ]);
             
-            // Check if it's a GET or POST request
-            if ($request->isMethod('get')) {
-                // For GET requests, just return the location and company info
+            // Check for timestamp and expiration parameters
+            $timestamp = $request->query('timestamp');
+            $expirationTime = $request->query('expires');
+            
+            // Validate timestamp and expiration
+            if (!$timestamp || !$expirationTime) {
                 return response()->json([
-                    'status' => 'success',
-                    'message' => 'QR code scanned successfully',
-                    'data' => [
-                        'locationID' => $locationID,
-                        'companyID' => $companyID
-                    ]
-                ], 200);
+                    'status' => 'error',
+                    'message' => 'Invalid QR code: Missing timestamp or expiration',
+                    'redirect' => false
+                ], 400);
             }
             
-            // For POST requests, validate the data
+            // Check if QR code has expired (2 hour limit)
+            $currentTime = time() * 1000; // Convert to milliseconds to match JS timestamp
+            if ($currentTime > $expirationTime) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'QR code has expired. Please generate a new QR code.',
+                    'redirect' => false
+                ], 400);
+            }
+            
+            // Validate the data
             $validator = Validator::make($request->all(), [
                 'deliveryID' => 'required|exists:deliveries,deliveryID',
                 'locationID' => 'required|exists:locations,locationID',
                 'checkpoints' => 'required|array',
-                'checkpoints.*' => 'exists:checkpoints,checkID',
             ]);
             
             if ($validator->fails()) {
                 return response()->json([
                     'status' => 'error',
                     'message' => 'Validation failed',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
+                    'redirect' => false
                 ], 422);
             }
             
@@ -66,19 +76,37 @@ class QRcodeController extends Controller
             if ((int)$request->locationID !== (int)$locationID) {
                 return response()->json([
                     'status' => 'error',
-                    'message' => 'Location ID mismatch. The scanned location does not match the expected location.'
+                    'message' => 'Location ID mismatch. The scanned location does not match the expected location.',
+                    'redirect' => false
                 ], 400);
             }
             
             $deliveryID = $request->deliveryID;
-            $checkpoints = $request->checkpoints;
+            
+            // Extract checkpoint IDs from the complex structure
+            $checkpoints = [];
+            foreach ($request->checkpoints as $checkpoint) {
+                if (isset($checkpoint['checkID'])) {
+                    $checkpoints[] = $checkpoint['checkID'];
+                }
+            }
+            
+            // If no valid checkpoints were found, return an error
+            if (empty($checkpoints)) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'No valid checkpoint IDs found in the request',
+                    'redirect' => false
+                ], 422);
+            }
             
             // Get the delivery to verify it exists
             $delivery = Delivery::find($deliveryID);
             if (!$delivery) {
                 return response()->json([
                     'status' => 'error',
-                    'message' => 'Delivery not found'
+                    'message' => 'Delivery not found',
+                    'redirect' => false
                 ], 404);
             }
             
@@ -102,6 +130,10 @@ class QRcodeController extends Controller
                 $verifyRecords[] = $verify;
             }
             
+            // Determine if we should redirect to the verification page
+            $shouldRedirect = count($verifyRecords) > 0 || count($existingVerifications) > 0;
+            $redirectUrl = "/verify/{$locationID}/{$deliveryID}";
+            
             return response()->json([
                 'status' => 'success',
                 'message' => count($verifyRecords) > 0 
@@ -111,7 +143,9 @@ class QRcodeController extends Controller
                     'verifications' => $verifyRecords,
                     'existingVerifications' => $existingVerifications,
                     'count' => count($verifyRecords)
-                ]
+                ],
+                'redirect' => $shouldRedirect,
+                'redirectUrl' => $redirectUrl
             ], 200);
             
         } catch (\Exception $e) {
@@ -123,7 +157,8 @@ class QRcodeController extends Controller
             return response()->json([
                 'status' => 'error',
                 'message' => 'An error occurred while processing the QR code',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                'redirect' => false
             ], 500);
         }
     }

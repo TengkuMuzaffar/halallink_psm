@@ -711,7 +711,7 @@ class DeliveryController extends Controller
             $perPage = $request->input('per_page', 3);
             $page = $request->input('page', 1);
             
-            $deliveries = Delivery::with(['user', 'vehicle', 'verifies.user', 'verifies.vehicle'])
+            $deliveries = Delivery::with(['user', 'vehicle', 'verifies'])
                 ->whereDate('scheduled_date', '>=', now()->format('Y-m-d'))  // Only future or today's deliveries
                 ->orderBy('scheduled_date', 'asc')  // Sort by nearest date first
                 ->paginate($perPage);
@@ -925,7 +925,7 @@ class DeliveryController extends Controller
     public function getDeliveryDetails($deliveryID)
     {
         try {
-            $delivery = Delivery::with(['verifies.user', 'verifies.vehicle', 'verifies.checkpoint.location'])
+            $delivery = Delivery::with(['verifies', 'verifies.checkpoint.location'])
                 ->findOrFail($deliveryID);
                 
             // Format delivery data

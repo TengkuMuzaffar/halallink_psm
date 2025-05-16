@@ -200,6 +200,7 @@ const routes = [
         component: VerifyDeliveryPage,
         meta: {
           requiresAuth: true,
+          requiresCompanyType: 'logistic', 
           title: 'Verify Delivery'
         }
       },

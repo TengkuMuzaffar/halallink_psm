@@ -467,19 +467,75 @@ export default {
      * Handle QR code scanning
      */
      scanQRCode(checkpoints) {
-       // Set the scanner data with the current location ID and checkpoints
+       // Find the location ID from the checkpoints
+       let locationID = null;
+       
+       // First, check if we're scanning a start location
+       for (const [locID, location] of Object.entries(this.delivery.routes[this.activeRouteTab].start_locations)) {
+         if (location.checkpoints.some(cp => checkpoints.includes(cp))) {
+           locationID = parseInt(locID);
+           break;
+         }
+       }
+       
+       // If not found in start locations, check end locations
+       if (!locationID) {
+         for (const [locID, location] of Object.entries(this.delivery.routes[this.activeRouteTab].end_locations)) {
+           if (location.checkpoints.some(cp => checkpoints.includes(cp))) {
+             locationID = parseInt(locID);
+             break;
+           }
+         }
+       }
+       
+       // If still not found, use the first checkpoint's location
+       if (!locationID && checkpoints.length > 0) {
+         // Try to find the location that contains this checkpoint
+         for (const [routeIndex, route] of Object.entries(this.delivery.routes)) {
+           // Check start locations
+           for (const [locID, location] of Object.entries(route.start_locations)) {
+             if (location.checkpoints.some(cp => checkpoints.includes(cp))) {
+               locationID = parseInt(locID);
+               break;
+             }
+           }
+           
+           // Check end locations if not found
+           if (!locationID) {
+             for (const [locID, location] of Object.entries(route.end_locations)) {
+               if (location.checkpoints.some(cp => checkpoints.includes(cp))) {
+                 locationID = parseInt(locID);
+                 break;
+               }
+             }
+           }
+           
+           if (locationID) break;
+         }
+       }
+       
+       // If we still don't have a location ID, use the first one from the route
+       if (!locationID) {
+         const startLocations = Object.keys(this.delivery.routes[this.activeRouteTab].start_locations);
+         if (startLocations.length > 0) {
+           locationID = parseInt(startLocations[0]);
+         }
+       }
+       
+       // Store the scanner data
        this.scannerData = {
-         locationID: this.delivery.deliveryID,
+         locationID: locationID,
          checkpoints: checkpoints
        };
        
-       // Hide the execute modal first
+       // Hide the execute modal
        this.hideModal();
        
-       // Then show the QR scanner modal
-       // Use nextTick to ensure the DOM has updated
+       // Show the QR scanner modal
        this.$nextTick(() => {
-         this.$refs.qrScannerModal.showModal();
+         if (this.$refs.qrScannerModal) {
+           this.$refs.qrScannerModal.showModal();
+         }
        });
      },
     reopenExecuteModal() {

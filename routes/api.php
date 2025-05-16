@@ -155,7 +155,8 @@ Route::middleware('auth:sanctum')->group(function () {
        
        
         // QR code processing route - support both GET and POST
-        Route::match(['get', 'post'], '/qrcode/process/{locationID}/{companyID}', [App\Http\Controllers\Api\QRcodeController::class, 'processQRCode']);
+        // Only allow POST requests for QR code processing
+        Route::post('/qrcode/process/{locationID}/{companyID}', [App\Http\Controllers\Api\QRcodeController::class, 'processQRCode']);
         // Route::get('/qrcode/process/{orderID}/{locationID}', [App\Http\Controllers\Api\QRcodeController::class, 'processQRCode']);
         // Location routes for delivery
         Route::get('/locations', [App\Http\Controllers\Api\LocationController::class, 'index']);

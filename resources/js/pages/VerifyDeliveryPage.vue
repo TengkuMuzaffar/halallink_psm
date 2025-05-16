@@ -25,6 +25,15 @@
               <i class="fas fa-exclamation-triangle me-2"></i>{{ error }}
             </div>
             
+            <div v-else-if="qrExpired" class="alert alert-warning">
+              <i class="fas fa-exclamation-triangle me-2"></i>The QR code has expired. Please generate a new QR code to continue.
+              <div class="mt-3">
+                <button class="btn btn-primary" @click="goBack">
+                  <i class="fas fa-arrow-left me-1"></i>Return to Deliveries
+                </button>
+              </div>
+            </div>
+            
             <div v-else>
               <div class="delivery-info mb-4">
                 <h6 class="text-uppercase text-muted mb-3">Delivery Information</h6>
@@ -44,56 +53,64 @@
                 </div>
               </div>
               
+              <!-- Verification Table -->
               <div class="verification-list">
                 <h6 class="text-uppercase text-muted mb-3">Verification Items</h6>
                 
-                <div v-if="verifications.length === 0" class="alert alert-info">
-                  <i class="fas fa-info-circle me-2"></i>No verification items found for this delivery and location.
-                </div>
+                <ResponsiveTable
+                  v-if="verifications.length > 0"
+                  :columns="columns"
+                  :items="verifications"
+                  :loading="tableLoading"
+                  :has-actions="true"
+                  item-key="verifyID"
+                >
+                  <!-- Checkpoint column -->
+                  <template #checkpoint="{ item }">
+                    <div class="d-flex flex-column">
+                      <h6 class="mb-0 text-sm">{{ item.checkpoint?.check_name || `Checkpoint #${item.checkID}` }}</h6>
+                      <p class="text-xs text-secondary mb-0">ID: {{ item.checkID }}</p>
+                    </div>
+                  </template>
+                  
+                  <!-- Status column -->
+                  <template #status="{ item }">
+                    <span :class="getStatusBadgeClass(item.verify_status)">
+                      {{ formatStatus(item.verify_status) }}
+                    </span>
+                  </template>
+                  
+                  <!-- Comments column -->
+                  <template #comments="{ item }">
+                    <p class="text-xs font-weight-bold mb-0">{{ item.verify_comment || 'No comments' }}</p>
+                  </template>
+                  
+                  <!-- Actions column -->
+                  <template #actions="{ item }">
+                    <button 
+                      class="btn btn-sm btn-primary" 
+                      @click="openVerificationModal(item)"
+                      :disabled="item.verify_status === 'verified'"
+                    >
+                      <i class="fas fa-edit me-1"></i>{{ item.verify_status === 'verified' ? 'View' : 'Update' }}
+                    </button>
+                  </template>
+                  
+                  <!-- Empty state -->
+                  <template #empty>
+                    <div class="text-center py-4">
+                      <i class="fas fa-clipboard-list fa-3x text-muted mb-3"></i>
+                      <p class="text-muted">No verification items found for this delivery and location.</p>
+                    </div>
+                  </template>
+                </ResponsiveTable>
                 
-                <div v-else class="table-responsive">
-                  <table class="table align-items-center mb-0">
-                    <thead>
-                      <tr>
-                        <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Checkpoint</th>
-                        <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Status</th>
-                        <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Comments</th>
-                        <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr v-for="verify in verifications" :key="verify.verifyID">
-                        <td>
-                          <div class="d-flex px-2 py-1">
-                            <div class="d-flex flex-column justify-content-center">
-                              <h6 class="mb-0 text-sm">{{ verify.checkpoint?.check_name || `Checkpoint #${verify.checkID}` }}</h6>
-                              <p class="text-xs text-secondary mb-0">ID: {{ verify.checkID }}</p>
-                            </div>
-                          </div>
-                        </td>
-                        <td>
-                          <span :class="getStatusBadgeClass(verify.verify_status)">
-                            {{ formatStatus(verify.verify_status) }}
-                          </span>
-                        </td>
-                        <td>
-                          <p class="text-xs font-weight-bold mb-0">{{ verify.verify_comment || 'No comments' }}</p>
-                        </td>
-                        <td>
-                          <button 
-                            class="btn btn-sm btn-primary" 
-                            @click="openVerificationModal(verify)"
-                            :disabled="verify.verify_status === 'verified'"
-                          >
-                            <i class="fas fa-edit me-1"></i>{{ verify.verify_status === 'verified' ? 'View' : 'Update' }}
-                          </button>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
+                <div v-else class="alert alert-info">
+                  <i class="fas fa-info-circle me-2"></i>No verification items found for this delivery and location.
                 </div>
               </div>
               
+              <!-- Complete All Verifications Button -->
               <div class="mt-4 text-end">
                 <button 
                   class="btn btn-success" 
@@ -189,21 +206,38 @@
 import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { Modal } from 'bootstrap';
-import { fetchData, postData } from '../../utils/api';
+import { verifyDeliveryService } from '../services/verifyDeliveryService';
+import ResponsiveTable from '../components/ui/ResponsiveTable.vue';
+import LoadingSpinner from '../components/ui/LoadingSpinner.vue';
+import Pagination from '../components/ui/Pagination.vue';
 
 export default {
   name: 'VerifyDeliveryPage',
+  components: {
+    ResponsiveTable,
+    LoadingSpinner,
+    Pagination
+  },
   setup() {
     const route = useRoute();
     const router = useRouter();
     const loading = ref(true);
+    const tableLoading = ref(false);
     const error = ref(null);
+    const qrExpired = ref(false);
     const deliveryID = ref(route.params.deliveryID);
     const locationID = ref(route.params.locationID);
     const verifications = ref([]);
     const deliveryInfo = ref({});
     const currentVerify = ref({});
     const verificationModal = ref(null);
+    
+    // Table columns definition
+    const columns = [
+      { key: 'checkpoint', label: 'Checkpoint', sortable: false },
+      { key: 'status', label: 'Status', sortable: true },
+      { key: 'comments', label: 'Comments', sortable: false }
+    ];
     
     // Computed property to check if all verifications are complete
     const allVerificationsComplete = computed(() => {
@@ -242,20 +276,33 @@ export default {
       try {
         loading.value = true;
         
+        // Check URL for expiration parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const expirationTime = urlParams.get('expires');
+        
+        if (expirationTime) {
+          const currentTime = Date.now();
+          if (currentTime > parseInt(expirationTime)) {
+            qrExpired.value = true;
+            loading.value = false;
+            return;
+          }
+        }
+        
         // Fetch delivery info
-        const deliveryResponse = await fetchData(`/api/deliveries/${deliveryID.value}`);
+        const deliveryResponse = await verifyDeliveryService.getDeliveryInfo(deliveryID.value);
         if (deliveryResponse.status === 'success') {
           deliveryInfo.value = deliveryResponse.data;
         }
         
         // Fetch verifications
-        const response = await fetchData(`/api/verifications?deliveryID=${deliveryID.value}&locationID=${locationID.value}`);
+        const response = await verifyDeliveryService.getVerifications(deliveryID.value, locationID.value);
         if (response.status === 'success') {
           verifications.value = response.data;
           
           // Fetch checkpoint details for each verification
           for (const verify of verifications.value) {
-            const checkpointResponse = await fetchData(`/api/checkpoints/${verify.checkID}`);
+            const checkpointResponse = await verifyDeliveryService.getCheckpointDetails(verify.checkID);
             if (checkpointResponse.status === 'success') {
               verify.checkpoint = checkpointResponse.data;
             }
@@ -279,7 +326,9 @@ export default {
     // Submit verification update
     const submitVerification = async () => {
       try {
-        const response = await postData(`/api/verifications/${currentVerify.value.verifyID}`, {
+        tableLoading.value = true;
+        
+        const response = await verifyDeliveryService.updateVerification(currentVerify.value.verifyID, {
           verify_status: currentVerify.value.verify_status,
           verify_comment: currentVerify.value.verify_comment
         });
@@ -298,6 +347,8 @@ export default {
         }
       } catch (err) {
         alert(`Error updating verification: ${err.message || 'Unknown error'}`);
+      } finally {
+        tableLoading.value = false;
       }
     };
     
@@ -309,9 +360,8 @@ export default {
           return;
         }
         
-        const response = await postData(`/api/deliveries/${deliveryID.value}/complete-verification`, {
-          locationID: locationID.value
-        });
+        tableLoading.value = true;
+        const response = await verifyDeliveryService.completeVerifications(deliveryID.value, locationID.value);
         
         if (response.status === 'success') {
           alert('All verifications completed successfully');
@@ -321,6 +371,8 @@ export default {
         }
       } catch (err) {
         alert(`Error completing verifications: ${err.message || 'Unknown error'}`);
+      } finally {
+        tableLoading.value = false;
       }
     };
     
@@ -339,12 +391,15 @@ export default {
     
     return {
       loading,
+      tableLoading,
       error,
+      qrExpired,
       deliveryID,
       locationID,
       verifications,
       deliveryInfo,
       currentVerify,
+      columns,
       allVerificationsComplete,
       formatDate,
       formatStatus,
@@ -401,17 +456,6 @@ export default {
   border-radius: 8px;
   padding: 15px;
   margin-bottom: 20px;
-}
-
-.table th {
-  font-size: 0.75rem;
-  font-weight: 700;
-  padding: 12px 15px;
-}
-
-.table td {
-  padding: 12px 15px;
-  vertical-align: middle;
 }
 
 .btn {
