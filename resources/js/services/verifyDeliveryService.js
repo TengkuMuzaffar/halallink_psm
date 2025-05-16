@@ -1,60 +1,75 @@
-import { fetchData, postData } from '../utils/api';
+import api from '../utils/api';
 
 export const verifyDeliveryService = {
-  // Fetch verifications for a specific delivery and location
-  async getVerifications(deliveryID, locationID) {
+  // Get delivery information
+  getDeliveryInfo: async (deliveryID) => {
     try {
-      const response = await fetchData(`/api/verifications?deliveryID=${deliveryID}&locationID=${locationID}`);
-      return response;
-    } catch (error) {
-      console.error('Error fetching verifications:', error);
-      throw error;
-    }
-  },
-  
-  // Fetch delivery information
-  async getDeliveryInfo(deliveryID) {
-    try {
-      const response = await fetchData(`/api/deliveries/${deliveryID}`);
+      const response = await api.get(`/api/deliveries/${deliveryID}`);
       return response;
     } catch (error) {
       console.error('Error fetching delivery info:', error);
-      throw error;
+      return {
+        status: 'error',
+        message: error.message || 'Failed to fetch delivery information'
+      };
     }
   },
   
-  // Fetch checkpoint details
-  async getCheckpointDetails(checkpointID) {
+  // Get verifications for a delivery at a specific location
+  getVerifications: async (deliveryID, locationID) => {
     try {
-      const response = await fetchData(`/api/checkpoints/${checkpointID}`);
+      const response = await api.get(`/api/verifications?deliveryID=${deliveryID}&locationID=${locationID}`);
+      return response;
+    } catch (error) {
+      console.error('Error fetching verifications:', error);
+      return {
+        status: 'error',
+        message: error.message || 'Failed to fetch verification data'
+      };
+    }
+  },
+  
+  // Get checkpoint details
+  getCheckpointDetails: async (checkpointID) => {
+    try {
+      const response = await api.get(`/api/checkpoints/${checkpointID}`);
       return response;
     } catch (error) {
       console.error('Error fetching checkpoint details:', error);
-      throw error;
+      return {
+        status: 'error',
+        message: error.message || 'Failed to fetch checkpoint details'
+      };
     }
   },
   
-  // Update verification status
-  async updateVerification(verifyID, data) {
+  // Update verification
+  updateVerification: async (verifyID, data) => {
     try {
-      const response = await postData(`/api/verifications/${verifyID}`, data);
+      const response = await api.put(`/api/verifications/${verifyID}`, data);
       return response;
     } catch (error) {
       console.error('Error updating verification:', error);
-      throw error;
+      return {
+        status: 'error',
+        message: error.message || 'Failed to update verification'
+      };
     }
   },
   
   // Complete all verifications for a delivery at a location
-  async completeVerifications(deliveryID, locationID) {
+  completeVerifications: async (deliveryID, locationID) => {
     try {
-      const response = await postData(`/api/deliveries/${deliveryID}/complete-verification`, {
-        locationID: locationID
-      });
+      const response = await api.post(`/api/verifications/complete/${locationID}/${deliveryID}`);
       return response;
     } catch (error) {
       console.error('Error completing verifications:', error);
-      throw error;
+      return {
+        status: 'error',
+        message: error.message || 'Failed to complete verifications'
+      };
     }
   }
 };
+
+export default verifyDeliveryService;

@@ -132,7 +132,7 @@ class QRcodeController extends Controller
             
             // Determine if we should redirect to the verification page
             $shouldRedirect = count($verifyRecords) > 0 || count($existingVerifications) > 0;
-            $redirectUrl = "/verify/{$locationID}/{$deliveryID}";
+            $redirectUrl = "/verify?locationID={$locationID}&deliveryID={$deliveryID}";
             
             return response()->json([
                 'status' => 'success',

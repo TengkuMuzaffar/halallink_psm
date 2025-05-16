@@ -155,7 +155,7 @@ export default {
     },
     showQRCode(orderID, locationID, companyID = null) {
       // Don't set selectedOrderID to hide it from display
-      this.selectedOrderID = null; // Changed from orderID to null
+      this.selectedOrderID = null;
       this.selectedLocationID = locationID;
       this.qrCodeLoading = true;
       this.qrCodeUrl = null;
@@ -171,8 +171,12 @@ export default {
         }
       }
       
-      // Generate QR code URL for process route
-      const apiUrl = `/api/qrcode/process/${locationID}/${companyID || 0}`;
+      // Generate a timestamp and expiration time (2 hours from now)
+      const timestamp = Date.now();
+      const expirationTime = timestamp + (2 * 60 * 60 * 1000); // 2 hours in milliseconds
+      
+      // Generate QR code URL for process route with timestamp and expiration
+      const apiUrl = `/api/qrcode/process/${locationID}/${companyID || 0}?timestamp=${timestamp}&expires=${expirationTime}`;
       this.qrCodeLink = `${window.location.origin}${apiUrl}`;
       this.qrCodeTitle = 'Location QR Code';
       this.selectedLocationID = `Location ${locationID}`; 

@@ -9,6 +9,9 @@ use Illuminate\Support\Facades\Validator;
 use App\Models\Verify;
 use App\Models\Checkpoint;
 use App\Models\Delivery;
+use App\Models\Trip; // Import Trip model
+use App\Models\Item; // Import Item model
+use App\Models\Poultry; // Import Poultry model
 
 class VerifyController extends Controller
 {
@@ -64,7 +67,7 @@ class VerifyController extends Controller
     }
     
     /**
-     * Get a specific verification
+     * Get a specific verification with associated items
      *
      * @param  int  $verifyID
      * @return \Illuminate\Http\Response
@@ -72,29 +75,87 @@ class VerifyController extends Controller
     public function show($verifyID)
     {
         try {
+            // Eager load checkpoint
             $verify = Verify::with('checkpoint')->find($verifyID);
-            
+
             if (!$verify) {
                 return response()->json([
                     'status' => 'error',
                     'message' => 'Verification not found'
                 ], 404);
             }
-            
+
+            $checkID = $verify->checkID;
+            $items = []; // Initialize items array
+
+            // Find trips where this checkID is either the start or end checkpoint
+            $tripAsStart = Trip::where('start_checkID', $checkID)->first();
+            $tripAsEnd = Trip::where('end_checkID', $checkID)->first();
+
+            $itemIDs = [];
+
+            if ($tripAsStart) {
+                // If checkID is a start_checkID in a trip
+                $startCheckpoint = $verify->checkpoint; // Already loaded
+                $endCheckpoint = Checkpoint::find($tripAsStart->end_checkID);
+
+                if ($startCheckpoint && $endCheckpoint) {
+                    $startItemRecord = $startCheckpoint->item_record ?? [];
+                    $endItemRecord = $endCheckpoint->item_record ?? [];
+
+                    // Items are those in start_checkID's item_record not in end_checkID's item_record
+                    $itemIDs = array_diff($startItemRecord, $endItemRecord);
+                }
+            } elseif ($tripAsEnd) {
+                // If checkID is an end_checkID in a trip (and not a start_checkID)
+                $endCheckpoint = $verify->checkpoint; // Already loaded
+
+                if ($endCheckpoint) {
+                    // Items are simply those in the end_checkID's item_record
+                    $itemIDs = $endCheckpoint->item_record ?? [];
+                }
+            } else {
+                 // If checkID is not associated with any trip (e.g., initial checkpoint)
+                 $checkpoint = $verify->checkpoint;
+                 if ($checkpoint) {
+                     $itemIDs = $checkpoint->item_record ?? [];
+                 }
+            }
+
+
+            // Fetch item details for the determined item IDs
+            if (!empty($itemIDs)) {
+                $items = Item::whereIn('itemID', $itemIDs)
+                             ->with('poultry') // Eager load poultry to get poultry_name
+                             ->get()
+                             ->map(function ($item) {
+                                 return [
+                                     'itemID' => $item->itemID,
+                                     'item_name' => $item->poultry ? $item->poultry->poultry_name : 'Unknown Poultry',
+                                     'quantity' => 1, // Assuming quantity is 1 per item ID in the record
+                                     // Add other relevant item details if needed
+                                 ];
+                             });
+            }
+
+            // Add the items to the verification data
+            $verifyData = $verify->toArray();
+            $verifyData['associated_items'] = $items;
+
             return response()->json([
                 'status' => 'success',
-                'data' => $verify
+                'data' => $verifyData
             ], 200);
-            
+
         } catch (\Exception $e) {
-            Log::error('Error fetching verification', [
+            Log::error('Error fetching verification with items', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
-            
+
             return response()->json([
                 'status' => 'error',
-                'message' => 'An error occurred while fetching verification',
+                'message' => 'An error occurred while fetching verification details',
                 'error' => $e->getMessage()
             ], 500);
         }

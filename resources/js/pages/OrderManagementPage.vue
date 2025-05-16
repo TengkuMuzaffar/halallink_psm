@@ -408,20 +408,13 @@ export default {
     
     const generateLocationQR = async (locationID, companyID) => {
       try {
-        // Generate a timestamp and expiration time (2 hours from now)
-        const timestamp = Date.now();
-        const expirationTime = timestamp + (2 * 60 * 60 * 1000); // 2 hours in milliseconds
-        
         // If we have a selected order, use the OrderDetailModal to show the QR
         if (orderDetailModalRef.value) {
           selectedOrderId.value = null;
           selectedOrder.value = null;
           
-          // Generate a unique QR code URL with timestamp and expiration
-          const qrCodeUrl = `/api/qrcode/process/${locationID}/${companyID}?timestamp=${timestamp}&expires=${expirationTime}`;
-          
           // Show the QR code in the modal - pass locationID as second parameter
-          orderDetailModalRef.value.showQRCode(qrCodeUrl, locationID, companyID);
+          orderDetailModalRef.value.showQRCode(null, locationID, companyID);
         }
       } catch (error) {
         console.error('Error generating QR code:', error);

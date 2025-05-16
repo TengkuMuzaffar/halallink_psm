@@ -195,13 +195,21 @@ const routes = [
         }
       },
       {
-        path: '/verify/:locationID/:deliveryID',
+        path: '/verify',
         name: 'VerifyDelivery',
         component: VerifyDeliveryPage,
         meta: {
           requiresAuth: true,
           requiresCompanyType: 'logistic', 
           title: 'Verify Delivery'
+        },
+        beforeEnter: (to, from, next) => {
+          // Only allow access if locationID and deliveryID are present in query params
+          if (!to.query.locationID || !to.query.deliveryID) {
+            next({ name: 'Deliveries' }); // Redirect to deliveries list or another appropriate page
+          } else {
+            next();
+          }
         }
       },
     ]

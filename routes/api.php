@@ -144,12 +144,10 @@ Route::middleware('auth:sanctum')->group(function () {
         // Add new route for starting a delivery
         Route::post('/deliveries/{deliveryID}/start', [App\Http\Controllers\Api\ExecuteDeliveriesController::class, 'startDelivery']);
         
-        // Add new route for QR code processing
-        Route::post('/qrcode/process', [App\Http\Controllers\Api\QRcodeController::class, 'processQRCode']);
-        // Verification routes
+       // Verification routes
         Route::get('/verifications', [App\Http\Controllers\Api\VerifyController::class, 'index']);
         Route::get('/verifications/{verifyID}', [App\Http\Controllers\Api\VerifyController::class, 'show']);
-        Route::post('/verifications/{verifyID}', [App\Http\Controllers\Api\VerifyController::class, 'update']);
+        Route::put('/verifications/{verifyID}', [App\Http\Controllers\Api\VerifyController::class, 'update']); // Changed from Route::post
         Route::post('/deliveries/{deliveryID}/complete-verification', [App\Http\Controllers\Api\VerifyController::class, 'completeVerification']);
             
        

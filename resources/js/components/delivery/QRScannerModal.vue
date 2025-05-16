@@ -172,21 +172,12 @@ export default {
                   closeModal();
                   
                   // Redirect to the verification page with proper parameter formatting
-                  const verifyUrl = `/verify/${urlLocationID}/${props.deliveryID}`;
+                  const verifyUrl = `/verify?locationID=${urlLocationID}&deliveryID=${props.deliveryID}`;
                   console.log('Navigating to:', verifyUrl);
                   
-                  // Use router.push with named route and params object instead of path string
-                  router.push({
-                    name: 'VerifyDelivery',
-                    params: {
-                      locationID: urlLocationID.toString(),
-                      deliveryID: props.deliveryID.toString()
-                    }
-                  }).catch(err => {
-                    console.error('Navigation error:', err);
-                    // Fallback to window.location if router navigation fails
-                    window.location.href = verifyUrl;
-                  });
+                  // Use window.location instead of router.push
+                  window.location.href = verifyUrl;
+                  
                 }, 1000);
               } else {
                 // Show error message

@@ -1,490 +1,224 @@
 <template>
-  <div class="container-fluid py-4">
-    <div class="row">
-      <div class="col-12">
-        <div class="card theme-card mb-4">
-          <div class="card-header theme-header pb-0">
-            <div class="d-flex justify-content-between align-items-center">
-              <h5 class="mb-0">
-                <i class="fas fa-clipboard-check me-2"></i>Delivery Verification
-              </h5>
-              <button class="btn btn-sm btn-secondary" @click="goBack">
-                <i class="fas fa-arrow-left me-1"></i>Back to Deliveries
+  <div class="verify-delivery-container">
+    <div class="page-card">
+      <div class="card-header">
+        <h2>Verify Delivery</h2>
+        <p v-if="deliveryID && locationID">
+          Delivery ID: {{ deliveryID }} | Location ID: {{ locationID }}
+        </p>
+      </div>
+
+      <div class="card-body">
+        <!-- Loading State -->
+        <LoadingSpinner v-if="loading" message="Fetching verification data..." overlay size="lg" />
+
+        <!-- Error Message Display -->
+        <div v-if="!loading && error" class="alert alert-danger">
+          <i class="fas fa-exclamation-circle me-2"></i>
+          {{ error }}
+        </div>
+
+        <!-- Verifications Table -->
+        <div v-if="!loading && !error && verifications.length > 0">
+          <ResponsiveTable
+            :columns="tableColumns"
+            :items="verifications"
+            :loading="loading"
+            item-key="verifyID"
+            :has-actions="true"
+            :show-filters="false" 
+            :show-pagination="true"
+          >
+            <template #actions="{ item }">
+              <button class="btn btn-sm btn-primary" @click="openVerifiesModal(item)">
+                <i class="fas fa-edit"></i> Edit
               </button>
-            </div>
-          </div>
-          <div class="card-body">
-            <div v-if="loading" class="text-center py-5">
-              <div class="spinner-border theme-spinner" role="status">
-                <span class="visually-hidden">Loading...</span>
-              </div>
-              <p class="mt-3">Loading verification data...</p>
-            </div>
-            
-            <div v-else-if="error" class="alert alert-danger">
-              <i class="fas fa-exclamation-triangle me-2"></i>{{ error }}
-            </div>
-            
-            <div v-else-if="qrExpired" class="alert alert-warning">
-              <i class="fas fa-exclamation-triangle me-2"></i>The QR code has expired. Please generate a new QR code to continue.
-              <div class="mt-3">
-                <button class="btn btn-primary" @click="goBack">
-                  <i class="fas fa-arrow-left me-1"></i>Return to Deliveries
-                </button>
-              </div>
-            </div>
-            
-            <div v-else>
-              <div class="delivery-info mb-4">
-                <h6 class="text-uppercase text-muted mb-3">Delivery Information</h6>
-                <div class="row">
-                  <div class="col-md-4">
-                    <p class="mb-1"><strong>Delivery ID:</strong> {{ deliveryID }}</p>
-                    <p class="mb-1"><strong>Location ID:</strong> {{ locationID }}</p>
-                  </div>
-                  <div class="col-md-4">
-                    <p class="mb-1"><strong>Driver:</strong> {{ deliveryInfo.driver_name || 'N/A' }}</p>
-                    <p class="mb-1"><strong>Vehicle:</strong> {{ deliveryInfo.vehicle_plate || 'N/A' }}</p>
-                  </div>
-                  <div class="col-md-4">
-                    <p class="mb-1"><strong>Date:</strong> {{ formatDate(deliveryInfo.scheduled_date) }}</p>
-                    <p class="mb-1"><strong>Status:</strong> <span class="badge bg-info">{{ deliveryInfo.delivery_status || 'In Progress' }}</span></p>
-                  </div>
-                </div>
-              </div>
-              
-              <!-- Verification Table -->
-              <div class="verification-list">
-                <h6 class="text-uppercase text-muted mb-3">Verification Items</h6>
-                
-                <ResponsiveTable
-                  v-if="verifications.length > 0"
-                  :columns="columns"
-                  :items="verifications"
-                  :loading="tableLoading"
-                  :has-actions="true"
-                  item-key="verifyID"
-                >
-                  <!-- Checkpoint column -->
-                  <template #checkpoint="{ item }">
-                    <div class="d-flex flex-column">
-                      <h6 class="mb-0 text-sm">{{ item.checkpoint?.check_name || `Checkpoint #${item.checkID}` }}</h6>
-                      <p class="text-xs text-secondary mb-0">ID: {{ item.checkID }}</p>
-                    </div>
-                  </template>
-                  
-                  <!-- Status column -->
-                  <template #status="{ item }">
-                    <span :class="getStatusBadgeClass(item.verify_status)">
-                      {{ formatStatus(item.verify_status) }}
-                    </span>
-                  </template>
-                  
-                  <!-- Comments column -->
-                  <template #comments="{ item }">
-                    <p class="text-xs font-weight-bold mb-0">{{ item.verify_comment || 'No comments' }}</p>
-                  </template>
-                  
-                  <!-- Actions column -->
-                  <template #actions="{ item }">
-                    <button 
-                      class="btn btn-sm btn-primary" 
-                      @click="openVerificationModal(item)"
-                      :disabled="item.verify_status === 'verified'"
-                    >
-                      <i class="fas fa-edit me-1"></i>{{ item.verify_status === 'verified' ? 'View' : 'Update' }}
-                    </button>
-                  </template>
-                  
-                  <!-- Empty state -->
-                  <template #empty>
-                    <div class="text-center py-4">
-                      <i class="fas fa-clipboard-list fa-3x text-muted mb-3"></i>
-                      <p class="text-muted">No verification items found for this delivery and location.</p>
-                    </div>
-                  </template>
-                </ResponsiveTable>
-                
-                <div v-else class="alert alert-info">
-                  <i class="fas fa-info-circle me-2"></i>No verification items found for this delivery and location.
-                </div>
-              </div>
-              
-              <!-- Complete All Verifications Button -->
-              <div class="mt-4 text-end">
-                <button 
-                  class="btn btn-success" 
-                  @click="completeVerification"
-                  :disabled="!allVerificationsComplete"
-                >
-                  <i class="fas fa-check-circle me-1"></i>Complete All Verifications
-                </button>
-              </div>
-            </div>
-          </div>
+            </template>
+          </ResponsiveTable>
         </div>
+        
+        <div v-if="!loading && !error && verifications.length === 0 && deliveryID && locationID">
+            <p>No verifications found for this delivery at this location.</p>
+        </div>
+
       </div>
     </div>
-    
-    <!-- Verification Modal -->
-    <div class="modal fade" id="verificationModal" tabindex="-1" aria-labelledby="verificationModalLabel" aria-hidden="true">
-      <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content theme-modal">
-          <div class="modal-header theme-header">
-            <h5 class="modal-title" id="verificationModalLabel">
-              <i class="fas fa-clipboard-check me-2"></i>Update Verification
-            </h5>
-            <button type="button" class="btn-close theme-close" data-bs-dismiss="modal" aria-label="Close"></button>
-          </div>
-          <div class="modal-body theme-body">
-            <form @submit.prevent="submitVerification">
-              <div class="mb-3">
-                <label for="verifyID" class="form-label">Verification ID</label>
-                <input 
-                  type="text" 
-                  class="form-control" 
-                  id="verifyID" 
-                  v-model="currentVerify.verifyID" 
-                  readonly
-                >
-              </div>
-              
-              <div class="mb-3">
-                <label for="checkpointName" class="form-label">Checkpoint</label>
-                <input 
-                  type="text" 
-                  class="form-control" 
-                  id="checkpointName" 
-                  v-model="currentVerify.checkpoint?.check_name" 
-                  readonly
-                >
-              </div>
-              
-              <div class="mb-3">
-                <label for="verify_status" class="form-label">Verification Status</label>
-                <select 
-                  class="form-select" 
-                  id="verify_status" 
-                  v-model="currentVerify.verify_status" 
-                  required
-                >
-                  <option value="">Select Status</option>
-                  <option value="verified">Verified</option>
-                  <option value="rejected">Rejected</option>
-                  <option value="pending">Pending</option>
-                </select>
-              </div>
-              
-              <div class="mb-3">
-                <label for="verify_comment" class="form-label">Comments</label>
-                <textarea 
-                  class="form-control" 
-                  id="verify_comment" 
-                  v-model="currentVerify.verify_comment" 
-                  rows="3"
-                  placeholder="Enter any comments or notes about this verification"
-                ></textarea>
-              </div>
-              
-              <div class="modal-footer theme-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                  <i class="fas fa-times me-1"></i>Cancel
-                </button>
-                <button type="submit" class="btn btn-primary">
-                  <i class="fas fa-save me-1"></i>Save Changes
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-    </div>
+
+    <!-- Verification Details Modal -->
+    <VerifiesModalDetail
+      :show="showDetailModal"
+      :verification="selectedVerification"
+      @close="closeVerifiesModal"
+      @updated="handleVerificationUpdated" 
+    />
   </div>
 </template>
 
-<script>
-import { ref, computed, onMounted } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
-import { Modal } from 'bootstrap';
-import { verifyDeliveryService } from '../services/verifyDeliveryService';
+<script setup>
+import { ref, onMounted, computed } from 'vue';
+import { useRoute } from 'vue-router';
+import verifyDeliveryService from '../services/verifyDeliveryService'; // Adjusted path
 import ResponsiveTable from '../components/ui/ResponsiveTable.vue';
 import LoadingSpinner from '../components/ui/LoadingSpinner.vue';
-import Pagination from '../components/ui/Pagination.vue';
+import VerifiesModalDetail from '../components/verify/VerifiesModalDetail.vue'; // New modal
 
-export default {
-  name: 'VerifyDeliveryPage',
-  components: {
-    ResponsiveTable,
-    LoadingSpinner,
-    Pagination
-  },
-  setup() {
-    const route = useRoute();
-    const router = useRouter();
-    const loading = ref(true);
-    const tableLoading = ref(false);
-    const error = ref(null);
-    const qrExpired = ref(false);
-    const deliveryID = ref(route.params.deliveryID);
-    const locationID = ref(route.params.locationID);
-    const verifications = ref([]);
-    const deliveryInfo = ref({});
-    const currentVerify = ref({});
-    const verificationModal = ref(null);
-    
-    // Table columns definition
-    const columns = [
-      { key: 'checkpoint', label: 'Checkpoint', sortable: false },
-      { key: 'status', label: 'Status', sortable: true },
-      { key: 'comments', label: 'Comments', sortable: false }
-    ];
-    
-    // Computed property to check if all verifications are complete
-    const allVerificationsComplete = computed(() => {
-      return verifications.value.every(v => v.verify_status === 'verified' || v.verify_status === 'rejected');
-    });
-    
-    // Format date
-    const formatDate = (dateString) => {
-      if (!dateString) return 'N/A';
-      const date = new Date(dateString);
-      return date.toLocaleDateString();
-    };
-    
-    // Format status
-    const formatStatus = (status) => {
-      if (!status) return 'Pending';
-      return status.charAt(0).toUpperCase() + status.slice(1);
-    };
-    
-    // Get status badge class
-    const getStatusBadgeClass = (status) => {
-      const classes = 'badge ';
-      switch (status) {
-        case 'verified':
-          return classes + 'bg-success';
-        case 'rejected':
-          return classes + 'bg-danger';
-        case 'pending':
-        default:
-          return classes + 'bg-warning';
-      }
-    };
-    
-    // Load verification data
-    const loadVerificationData = async () => {
-      try {
-        loading.value = true;
-        
-        // Check URL for expiration parameters
-        const urlParams = new URLSearchParams(window.location.search);
-        const expirationTime = urlParams.get('expires');
-        
-        if (expirationTime) {
-          const currentTime = Date.now();
-          if (currentTime > parseInt(expirationTime)) {
-            qrExpired.value = true;
-            loading.value = false;
-            return;
-          }
-        }
-        
-        // Fetch delivery info
-        const deliveryResponse = await verifyDeliveryService.getDeliveryInfo(deliveryID.value);
-        if (deliveryResponse.status === 'success') {
-          deliveryInfo.value = deliveryResponse.data;
-        }
-        
-        // Fetch verifications
-        const response = await verifyDeliveryService.getVerifications(deliveryID.value, locationID.value);
-        if (response.status === 'success') {
-          verifications.value = response.data;
-          
-          // Fetch checkpoint details for each verification
-          for (const verify of verifications.value) {
-            const checkpointResponse = await verifyDeliveryService.getCheckpointDetails(verify.checkID);
-            if (checkpointResponse.status === 'success') {
-              verify.checkpoint = checkpointResponse.data;
-            }
-          }
-        } else {
-          error.value = response.message || 'Failed to load verification data';
-        }
-      } catch (err) {
-        error.value = `Error loading verification data: ${err.message || 'Unknown error'}`;
-      } finally {
-        loading.value = false;
-      }
-    };
-    
-    // Open verification modal
-    const openVerificationModal = (verify) => {
-      currentVerify.value = { ...verify };
-      verificationModal.value.show();
-    };
-    
-    // Submit verification update
-    const submitVerification = async () => {
-      try {
-        tableLoading.value = true;
-        
-        const response = await verifyDeliveryService.updateVerification(currentVerify.value.verifyID, {
-          verify_status: currentVerify.value.verify_status,
-          verify_comment: currentVerify.value.verify_comment
-        });
-        
-        if (response.status === 'success') {
-          // Update the verification in the list
-          const index = verifications.value.findIndex(v => v.verifyID === currentVerify.value.verifyID);
-          if (index !== -1) {
-            verifications.value[index] = { ...verifications.value[index], ...currentVerify.value };
-          }
-          
-          // Close the modal
-          verificationModal.value.hide();
-        } else {
-          alert(response.message || 'Failed to update verification');
-        }
-      } catch (err) {
-        alert(`Error updating verification: ${err.message || 'Unknown error'}`);
-      } finally {
-        tableLoading.value = false;
-      }
-    };
-    
-    // Complete all verifications
-    const completeVerification = async () => {
-      try {
-        if (!allVerificationsComplete.value) {
-          alert('Please complete all verifications before proceeding');
-          return;
-        }
-        
-        tableLoading.value = true;
-        const response = await verifyDeliveryService.completeVerifications(deliveryID.value, locationID.value);
-        
-        if (response.status === 'success') {
-          alert('All verifications completed successfully');
-          router.push('/deliveries');
-        } else {
-          alert(response.message || 'Failed to complete verifications');
-        }
-      } catch (err) {
-        alert(`Error completing verifications: ${err.message || 'Unknown error'}`);
-      } finally {
-        tableLoading.value = false;
-      }
-    };
-    
-    // Go back to deliveries page
-    const goBack = () => {
-      router.push('/deliveries');
-    };
-    
-    onMounted(() => {
-      // Initialize the modal
-      verificationModal.value = new Modal(document.getElementById('verificationModal'));
-      
-      // Load verification data
-      loadVerificationData();
-    });
-    
-    return {
-      loading,
-      tableLoading,
-      error,
-      qrExpired,
-      deliveryID,
-      locationID,
-      verifications,
-      deliveryInfo,
-      currentVerify,
-      columns,
-      allVerificationsComplete,
-      formatDate,
-      formatStatus,
-      getStatusBadgeClass,
-      openVerificationModal,
-      submitVerification,
-      completeVerification,
-      goBack
-    };
+const route = useRoute();
+const loading = ref(true);
+const error = ref(null);
+const deliveryID = ref(null);
+const locationID = ref(null);
+const verifications = ref([]);
+
+const selectedVerification = ref(null);
+const showDetailModal = ref(false);
+
+const formatDate = (dateString) => {
+  if (!dateString) return 'N/A';
+  const options = { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+  return new Date(dateString).toLocaleDateString(undefined, options);
+};
+
+const tableColumns = ref([
+  { key: 'verifyID', label: 'Verification ID', sortable: true },
+  { key: 'verify_status', label: 'Status', sortable: true },
+  // Removed other columns as per request
+]);
+
+const fetchVerifications = async () => {
+  if (!deliveryID.value || !locationID.value) {
+    error.value = "Delivery ID and Location ID are required parameters.";
+    loading.value = false;
+    return;
+  }
+
+  loading.value = true;
+  error.value = null;
+
+  try {
+    const response = await verifyDeliveryService.getVerifications(deliveryID.value, locationID.value);
+    if (response.status === 'error') {
+        throw new Error(response.message);
+    }
+    // Assuming the response directly contains the array of verifications or is nested under a 'data' property
+    verifications.value = response.data || response; 
+    console.log('Fetched verifications:', verifications.value);
+  } catch (err) {
+    console.error('Error fetching verifications:', err);
+    error.value = err.message || 'Failed to fetch verification data. Please try again.';
+    verifications.value = []; // Clear verifications on error
+  } finally {
+    loading.value = false;
   }
 };
+
+const openVerifiesModal = (item) => {
+  selectedVerification.value = item;
+  showDetailModal.value = true;
+};
+
+const closeVerifiesModal = () => {
+  showDetailModal.value = false;
+  selectedVerification.value = null;
+};
+
+const handleVerificationUpdated = (updatedVerification) => {
+  const index = verifications.value.findIndex(v => v.verifyID === updatedVerification.verifyID);
+  if (index !== -1) {
+    // Replace the old item with the updated one to maintain reactivity
+    verifications.value[index] = updatedVerification;
+  }
+  // The modal will close itself after a successful update as per VerifiesModalDetail.vue
+};
+
+onMounted(() => {
+  deliveryID.value = route.query.deliveryID;
+  locationID.value = route.query.locationID;
+
+  if (!deliveryID.value || !locationID.value) {
+    error.value = "Missing Delivery ID or Location ID in the URL.";
+    loading.value = false;
+    // Optionally, redirect or show a more prominent error
+    // For example: router.push({ name: 'SomeErrorPage' });
+  } else {
+    fetchVerifications();
+  }
+});
+
 </script>
 
 <style scoped>
-.theme-card {
-  border-radius: 10px;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
-}
-
-.theme-header {
-  background-color: #123524;
-  color: #EFE3C2;
-  padding: 15px 20px;
-}
-
-.theme-body {
+.verify-delivery-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: flex-start; /* Align to top */
+  justify-content: center;
+  background-color: #f5f5f5;
   padding: 20px;
 }
 
-.theme-spinner {
-  color: #3E7B27;
-  width: 3rem;
-  height: 3rem;
+.page-card {
+  width: 100%;
+  max-width: 900px; /* Adjust as needed */
+  background: #fff;
+  border-radius: 15px;
+  overflow: hidden;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+  margin-top: 20px; /* Add some margin at the top */
 }
 
-.theme-close {
-  filter: invert(1) brightness(1.5);
+.card-header {
+  background-color: #123524; /* Dark green */
+  color: #EFE3C2; /* Cream */
+  padding: 20px 30px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.theme-modal {
-  border: none;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-  border-radius: 10px;
+.card-header h2 {
+  margin: 0;
+  font-size: 24px;
+}
+.card-header p {
+  margin: 5px 0 0;
+  font-size: 14px;
+  opacity: 0.8;
 }
 
-.theme-footer {
-  background-color: rgba(239, 227, 194, 0.2);
-  border-top: 1px solid rgba(18, 53, 36, 0.2);
+.card-body {
+  padding: 30px;
 }
 
-.delivery-info, .verification-list {
-  background-color: #f8f9fa;
+.loading-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  color: #123524;
+}
+
+.alert {
   border-radius: 8px;
   padding: 15px;
-  margin-bottom: 20px;
 }
 
-.btn {
-  border-radius: 5px;
-  padding: 8px 16px;
-  transition: all 0.2s ease;
+.alert-danger {
+  background-color: #f8d7da;
+  border-color: #f5c6cb;
+  color: #721c24;
 }
 
-.btn:hover {
-  transform: translateY(-2px);
+/* Placeholder for table styling if you add one */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
 }
-
-.btn-primary {
-  background-color: #3E7B27;
-  border-color: #3E7B27;
+th, td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: left;
 }
-
-.btn-primary:hover {
-  background-color: #2d5a1c;
-  border-color: #2d5a1c;
-}
-
-.btn-success {
-  background-color: #198754;
-  border-color: #198754;
-}
-
-.btn-success:hover {
-  background-color: #157347;
-  border-color: #146c43;
+th {
+  background-color: #f2f2f2;
 }
 </style>
