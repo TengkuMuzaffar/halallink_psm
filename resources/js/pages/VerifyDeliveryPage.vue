@@ -1,54 +1,79 @@
 <template>
-  <div class="verify-delivery-container">
-    <div class="page-card">
-      <div class="card-header">
-        <h2>Verify Delivery</h2>
-        <p v-if="deliveryID && locationID">
-          Delivery ID: {{ deliveryID }} | Location ID: {{ locationID }}
-        </p>
+  <div class="verify-delivery-management">
+    <h1 class="mb-4">Verify Delivery</h1>
+    
+    <!-- Verification Stats could be added here similar to EmployeeStats -->
+    
+    <!-- Verifications Table -->
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Verifications</h5>
+        <!-- Optional: Add a button here if needed -->
+        <!-- <button class="btn btn-primary" @click="someAction">
+          <i class="fas fa-plus me-1"></i> Some Action
+        </button> -->
       </div>
-
       <div class="card-body">
-        <!-- Loading State -->
-        <LoadingSpinner v-if="loading" message="Fetching verification data..." overlay size="lg" />
-
-        <!-- Error Message Display -->
-        <div v-if="!loading && error" class="alert alert-danger">
-          <i class="fas fa-exclamation-circle me-2"></i>
+        <!-- Error State -->
+        <div v-if="error" class="alert alert-danger" role="alert">
           {{ error }}
         </div>
-
-        <!-- Verifications Table -->
-        <div v-if="!loading && !error && verifications.length > 0">
-          <ResponsiveTable
-            :columns="tableColumns"
-            :items="verifications"
-            :loading="loading"
-            item-key="verifyID"
-            :has-actions="true"
-            :show-filters="false"
-            :show-pagination="true"
-          >
-            <template #actions="{ item }">
-              <button class="btn btn-sm btn-primary" @click="openVerifiesModal(item)">
-                <i class="fas fa-edit"></i> Edit
-              </button>
-            </template>
-          </ResponsiveTable>
+        
+        <!-- Table (always show, with loading state inside) -->
+        <ResponsiveTable
+          :columns="tableColumns"
+          :items="verifications"
+          :loading="loading"
+          :has-actions="true"
+          item-key="verifyID"
+          :show-pagination="false"
+        >
+          <!-- Custom column slots could be added here -->
+          
+          <!-- Actions slot -->
+          <template #actions="{ item }">
+            <button class="btn btn-sm btn-outline-primary" @click="openVerifiesModal(item)">
+              <i class="fas fa-edit"></i>
+            </button>
+          </template>
+        </ResponsiveTable>
+        
+        <!-- Add custom pagination controls (always visible when data is loaded) -->
+        <div v-if="pagination.last_page > 0" class="d-flex justify-content-between align-items-center mt-3">
+          <div>
+            <span class="text-muted">Showing {{ pagination.from || 0 }} to {{ pagination.to || 0 }} of {{ pagination.total || 0 }} entries</span>
+          </div>
+          <nav aria-label="Table pagination">
+            <ul class="pagination mb-0">
+              <li class="page-item" :class="{ disabled: currentPage === 1 || loading }">
+                <a class="page-link" href="#" @click.prevent="!loading && changePage(currentPage - 1)">
+                  <i class="fas fa-chevron-left"></i>
+                </a>
+              </li>
+              <li 
+                v-for="page in paginationRange" 
+                :key="page" 
+                class="page-item"
+                :class="{ active: page === currentPage, disabled: loading }"
+              >
+                <a class="page-link" href="#" @click.prevent="!loading && changePage(page)">{{ page }}</a>
+              </li>
+              <li class="page-item" :class="{ disabled: currentPage === pagination.last_page || loading }">
+                <a class="page-link" href="#" @click.prevent="!loading && changePage(currentPage + 1)">
+                  <i class="fas fa-chevron-right"></i>
+                </a>
+              </li>
+            </ul>
+          </nav>
         </div>
-
-        <div v-if="!loading && !error && verifications.length === 0 && deliveryID && locationID">
-            <p>No verifications found for this delivery at this location.</p>
-        </div>
-
       </div>
     </div>
-
+    
     <!-- Verification Details Modal -->
     <VerifiesModalDetail
       :show="showDetailModal"
       :verify-id="selectedVerification ? selectedVerification.verifyID : null"
-      :delivery-id="deliveryID" 
+      :delivery-id="deliveryID"
       :location-id="locationID"
       :token="token"
       @close="closeVerifiesModal"
@@ -60,21 +85,62 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue';
 import { useRoute } from 'vue-router';
-import verifyDeliveryService from '../services/verifyDeliveryService'; // Adjusted path
+import verifyDeliveryService from '../services/verifyDeliveryService';
 import ResponsiveTable from '../components/ui/ResponsiveTable.vue';
 import LoadingSpinner from '../components/ui/LoadingSpinner.vue';
-import VerifiesModalDetail from '../components/verify/VerifiesModalDetail.vue'; // New modal
+import VerifiesModalDetail from '../components/verify/VerifiesModalDetail.vue';
 
 const route = useRoute();
 const loading = ref(true);
 const error = ref(null);
 const deliveryID = ref(null);
 const locationID = ref(null);
-const token = ref(null); // Add token ref
+const token = ref(null);
 const verifications = ref([]);
 
 const selectedVerification = ref(null);
 const showDetailModal = ref(false);
+
+// Add pagination state
+const currentPage = ref(1);
+const perPage = ref(10);
+const pagination = ref({
+  current_page: 1,
+  last_page: 1,
+  per_page: 10,
+  total: 0,
+  from: 0,
+  to: 0
+});
+
+// Computed property for pagination range
+const paginationRange = computed(() => {
+  const range = [];
+  const maxVisiblePages = 5;
+  const totalPages = pagination.value.last_page;
+  
+  if (totalPages <= maxVisiblePages) {
+    // Show all pages if total is less than max visible
+    for (let i = 1; i <= totalPages; i++) {
+      range.push(i);
+    }
+  } else {
+    // Show limited pages with current page in the middle
+    let startPage = Math.max(1, pagination.value.current_page - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+    
+    // Adjust if we're near the end
+    if (endPage === totalPages) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+    
+    for (let i = startPage; i <= endPage; i++) {
+      range.push(i);
+    }
+  }
+  
+  return range;
+});
 
 const formatDate = (dateString) => {
   if (!dateString) return 'N/A';
@@ -85,7 +151,7 @@ const formatDate = (dateString) => {
 const tableColumns = ref([
   { key: 'verifyID', label: 'Verification ID', sortable: true },
   { key: 'verify_status', label: 'Status', sortable: true },
-  // Removed other columns as per request
+  // Add more columns if needed
 ]);
 
 const fetchVerifications = async () => {
@@ -100,133 +166,121 @@ const fetchVerifications = async () => {
   error.value = null;
 
   try {
-    // Pass the token to the service function
     const response = await verifyDeliveryService.getVerifications(deliveryID.value, locationID.value, token.value);
     if (response.status === 'error') {
-        throw new Error(response.message);
+      throw new Error(response.message);
     }
-    // Assuming the response directly contains the array of verifications or is nested under a 'data' property
-    verifications.value = response.data || response;
-    console.log('Fetched verifications:', verifications.value);
+    
+    const fetchedData = response.data || response;
+    verifications.value = fetchedData;
+    
+    // Update pagination state
+    pagination.value.total = verifications.value.length;
+    pagination.value.last_page = Math.ceil(verifications.value.length / perPage.value);
+    pagination.value.current_page = currentPage.value;
+    pagination.value.from = verifications.value.length > 0 ? (currentPage.value - 1) * perPage.value + 1 : 0;
+    pagination.value.to = Math.min(currentPage.value * perPage.value, verifications.value.length);
   } catch (err) {
     console.error('Error fetching verifications:', err);
     error.value = err.message || 'Failed to fetch verification data. Please try again.';
-    verifications.value = []; // Clear verifications on error
+    verifications.value = [];
+    
+    // Reset pagination on error
+    pagination.value = {
+      current_page: 1,
+      last_page: 1,
+      per_page: perPage.value,
+      total: 0,
+      from: 0,
+      to: 0
+    };
   } finally {
     loading.value = false;
   }
 };
 
+// Change page
+const changePage = (page) => {
+  if (page < 1 || page > pagination.value.last_page || loading.value) return;
+  
+  currentPage.value = page;
+  
+  // Update pagination display
+  pagination.value.current_page = page;
+  pagination.value.from = (page - 1) * perPage.value + 1;
+  pagination.value.to = Math.min(page * perPage.value, verifications.value.length);
+};
+
 const openVerifiesModal = (item) => {
-  selectedVerification.value = item; // Keep this for now if needed elsewhere, but the modal will use the ID
+  selectedVerification.value = item;
   showDetailModal.value = true;
 };
 
 const closeVerifiesModal = () => {
   showDetailModal.value = false;
-  selectedVerification.value = null; // Clear selected item when modal closes
+  selectedVerification.value = null;
 };
 
-const handleVerificationUpdated = (updatedVerification) => {
-  const index = verifications.value.findIndex(v => v.verifyID === updatedVerification.verifyID);
-  if (index !== -1) {
-    // Replace the old item with the updated one to maintain reactivity
-    verifications.value[index] = updatedVerification;
-  }
-  // The modal will close itself after a successful update as per VerifiesModalDetail.vue
+const handleVerificationUpdated = () => {
+  fetchVerifications();
 };
 
+// Initialize data
 onMounted(() => {
+  // Get parameters from route query
   deliveryID.value = route.query.deliveryID;
   locationID.value = route.query.locationID;
-  token.value = route.query.token; // Read token from route
-
-  // Check for all required parameters
+  token.value = route.query.token;
+  
   if (!deliveryID.value || !locationID.value || !token.value) {
-    error.value = "Missing Delivery ID, Location ID, or Token in the URL.";
+    error.value = "Missing required parameters: Delivery ID, Location ID, and Token.";
     loading.value = false;
-    // Optionally, redirect or show a more prominent error
-    // For example: router.push({ name: 'SomeErrorPage' });
   } else {
     fetchVerifications();
   }
 });
-
 </script>
 
 <style scoped>
-.verify-delivery-container {
-  min-height: 100vh;
-  display: flex;
-  align-items: flex-start; /* Align to top */
-  justify-content: center;
-  background-color: #f5f5f5;
-  padding: 20px;
-}
-
-.page-card {
-  width: 100%;
-  max-width: 900px; /* Adjust as needed */
-  background: #fff;
-  border-radius: 15px;
-  overflow: hidden;
-  box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
-  margin-top: 20px; /* Add some margin at the top */
-}
-
-.card-header {
-  background-color: #123524; /* Dark green */
-  color: #EFE3C2; /* Cream */
-  padding: 20px 30px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.card-header h2 {
-  margin: 0;
-  font-size: 24px;
-}
-.card-header p {
-  margin: 5px 0 0;
-  font-size: 14px;
-  opacity: 0.8;
-}
-
-.card-body {
-  padding: 30px;
-}
-
-.loading-indicator {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 40px;
+.verify-delivery-management h1 {
   color: #123524;
 }
 
-.alert {
-  border-radius: 8px;
-  padding: 15px;
+/* Pagination styling */
+.pagination {
+  margin-bottom: 0;
 }
 
-.alert-danger {
-  background-color: #f8d7da;
-  border-color: #f5c6cb;
-  color: #721c24;
+.page-link {
+  color: #123524;
 }
 
-/* Placeholder for table styling if you add one */
-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 20px;
+.page-item.active .page-link {
+  background-color: #123524;
+  border-color: #123524;
+  color: #fff;
 }
-th, td {
-  border: 1px solid #ddd;
-  padding: 8px;
-  text-align: left;
+
+.page-item.disabled .page-link {
+  color: #6c757d;
+  pointer-events: none;
+  background-color: #fff;
+  border-color: #dee2e6;
 }
-th {
-  background-color: #f2f2f2;
+
+.page-link:hover {
+  color: #0a1f15;
+  background-color: #e9ecef;
+  border-color: #dee2e6;
+}
+
+.page-link:focus {
+  box-shadow: 0 0 0 0.25rem rgba(18, 53, 36, 0.25);
+}
+
+@media (max-width: 768px) {
+  .verify-delivery-management h1 {
+    font-size: 1.75rem;
+  }
 }
 </style>
