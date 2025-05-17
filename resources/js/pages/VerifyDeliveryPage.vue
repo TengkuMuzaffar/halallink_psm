@@ -26,7 +26,7 @@
             :loading="loading"
             item-key="verifyID"
             :has-actions="true"
-            :show-filters="false" 
+            :show-filters="false"
             :show-pagination="true"
           >
             <template #actions="{ item }">
@@ -36,7 +36,7 @@
             </template>
           </ResponsiveTable>
         </div>
-        
+
         <div v-if="!loading && !error && verifications.length === 0 && deliveryID && locationID">
             <p>No verifications found for this delivery at this location.</p>
         </div>
@@ -47,9 +47,12 @@
     <!-- Verification Details Modal -->
     <VerifiesModalDetail
       :show="showDetailModal"
-      :verification="selectedVerification"
+      :verify-id="selectedVerification ? selectedVerification.verifyID : null"
+      :delivery-id="deliveryID" 
+      :location-id="locationID"
+      :token="token"
       @close="closeVerifiesModal"
-      @updated="handleVerificationUpdated" 
+      @updated="handleVerificationUpdated"
     />
   </div>
 </template>
@@ -67,6 +70,7 @@ const loading = ref(true);
 const error = ref(null);
 const deliveryID = ref(null);
 const locationID = ref(null);
+const token = ref(null); // Add token ref
 const verifications = ref([]);
 
 const selectedVerification = ref(null);
@@ -85,8 +89,9 @@ const tableColumns = ref([
 ]);
 
 const fetchVerifications = async () => {
-  if (!deliveryID.value || !locationID.value) {
-    error.value = "Delivery ID and Location ID are required parameters.";
+  // Check for all required parameters including token
+  if (!deliveryID.value || !locationID.value || !token.value) {
+    error.value = "Delivery ID, Location ID, and Token are required parameters.";
     loading.value = false;
     return;
   }
@@ -95,12 +100,13 @@ const fetchVerifications = async () => {
   error.value = null;
 
   try {
-    const response = await verifyDeliveryService.getVerifications(deliveryID.value, locationID.value);
+    // Pass the token to the service function
+    const response = await verifyDeliveryService.getVerifications(deliveryID.value, locationID.value, token.value);
     if (response.status === 'error') {
         throw new Error(response.message);
     }
     // Assuming the response directly contains the array of verifications or is nested under a 'data' property
-    verifications.value = response.data || response; 
+    verifications.value = response.data || response;
     console.log('Fetched verifications:', verifications.value);
   } catch (err) {
     console.error('Error fetching verifications:', err);
@@ -112,13 +118,13 @@ const fetchVerifications = async () => {
 };
 
 const openVerifiesModal = (item) => {
-  selectedVerification.value = item;
+  selectedVerification.value = item; // Keep this for now if needed elsewhere, but the modal will use the ID
   showDetailModal.value = true;
 };
 
 const closeVerifiesModal = () => {
   showDetailModal.value = false;
-  selectedVerification.value = null;
+  selectedVerification.value = null; // Clear selected item when modal closes
 };
 
 const handleVerificationUpdated = (updatedVerification) => {
@@ -133,9 +139,11 @@ const handleVerificationUpdated = (updatedVerification) => {
 onMounted(() => {
   deliveryID.value = route.query.deliveryID;
   locationID.value = route.query.locationID;
+  token.value = route.query.token; // Read token from route
 
-  if (!deliveryID.value || !locationID.value) {
-    error.value = "Missing Delivery ID or Location ID in the URL.";
+  // Check for all required parameters
+  if (!deliveryID.value || !locationID.value || !token.value) {
+    error.value = "Missing Delivery ID, Location ID, or Token in the URL.";
     loading.value = false;
     // Optionally, redirect or show a more prominent error
     // For example: router.push({ name: 'SomeErrorPage' });

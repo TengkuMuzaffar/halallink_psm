@@ -200,13 +200,13 @@ const routes = [
         component: VerifyDeliveryPage,
         meta: {
           requiresAuth: true,
-          requiresCompanyType: 'logistic', 
+          requiresCompanyType: 'logistic',
           title: 'Verify Delivery'
         },
         beforeEnter: (to, from, next) => {
-          // Only allow access if locationID and deliveryID are present in query params
-          if (!to.query.locationID || !to.query.deliveryID) {
-            next({ name: 'Deliveries' }); // Redirect to deliveries list or another appropriate page
+          // Only allow access if locationID, deliveryID, and token are present in query params
+          if (!to.query.locationID || !to.query.deliveryID || !to.query.token) {
+            next({ name: 'DeliveryManagement' }); // Redirect to deliveries list or another appropriate page
           } else {
             next();
           }

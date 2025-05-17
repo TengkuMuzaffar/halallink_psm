@@ -4,13 +4,16 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
-use App\Models\Verify;
-use App\Models\Checkpoint;
 use App\Models\Delivery;
+use App\Models\Verify;
+use App\Models\DeliveryLocationToken; // Import the model
+use Illuminate\Support\Str; // Import Str facade
+use Carbon\Carbon; // Import Carbon for time handling
+use App\Models\Checkpoint;
 use App\Models\Order;
 use App\Models\Location;
-use Illuminate\Support\Facades\Validator;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class QRcodeController extends Controller
@@ -132,11 +135,105 @@ class QRcodeController extends Controller
             
             // Determine if we should redirect to the verification page
             $shouldRedirect = count($verifyRecords) > 0 || count($existingVerifications) > 0;
-            $redirectUrl = "/verify?locationID={$locationID}&deliveryID={$deliveryID}";
-            
+            // Assuming you have the token available here, perhaps from the request or a lookup
+            // For this example, I'll assume the token is available in a variable $verificationToken
+            // You will need to implement the logic to retrieve or generate this token
+            // based on your application's requirements and the delivery/location pair.
+            // For instance, you might look it up in the delivery_location_token table.
+
+            // Example: Fetching the token (you need to implement the actual lookup logic)
+            $deliveryLocationToken = DeliveryLocationToken::where('deliveryID', $deliveryID)
+                                        ->where('locationID', $locationID)
+                                        ->first();
+
+            $verificationToken = $deliveryLocationToken ? $deliveryLocationToken->token : null;
+
+            // If no token exists for this delivery/location pair, create one
+            if (!$verificationToken) {
+                // Generate a new token and set expiration (e.g., 2 hours from now)
+                $newToken = $this->generateUniqueToken();
+                $expiresAt = Carbon::now()->addHours(2); // Token expires in 2 hours
+
+                try {
+                    $deliveryLocationToken = DeliveryLocationToken::create([
+                        'deliveryID' => $deliveryID,
+                        'locationID' => $locationID,
+                        'token' => $newToken,
+                        'expired_at' => $expiresAt,
+                    ]);
+                    $verificationToken = $newToken; // Use the newly created token
+                    Log::info('Created new DeliveryLocationToken', [
+                        'deliveryID' => $deliveryID,
+                        'locationID' => $locationID,
+                        'token' => $newToken,
+                        'expired_at' => $expiresAt,
+                    ]);
+                } catch (\Exception $e) {
+                    // Log error if token creation fails
+                    Log::error('Failed to create DeliveryLocationToken', [
+                        'deliveryID' => $deliveryID,
+                        'locationID' => $locationID,
+                        'error' => $e->getMessage(),
+                    ]);
+                    // If token creation fails, we cannot redirect
+                    $shouldRedirect = false;
+                    $redirectUrl = null;
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Failed to generate verification token.',
+                        'redirect' => false
+                    ], 500);
+                }
+            } else {
+                 // Check if the existing token has expired
+                 if ($deliveryLocationToken->expired_at && $deliveryLocationToken->expired_at->isPast()) {
+                     // Token expired, generate a new one and update the record
+                     $newToken = $this->generateUniqueToken();
+                     $expiresAt = Carbon::now()->addHours(2);
+
+                     try {
+                         $deliveryLocationToken->update([
+                             'token' => $newToken,
+                             'expired_at' => $expiresAt,
+                         ]);
+                         $verificationToken = $newToken; // Use the newly updated token
+                         Log::info('Updated expired DeliveryLocationToken', [
+                             'deliveryID' => $deliveryID,
+                             'locationID' => $locationID,
+                             'token' => $newToken,
+                             'expired_at' => $expiresAt,
+                         ]);
+                     } catch (\Exception $e) {
+                         Log::error('Failed to update expired DeliveryLocationToken', [
+                             'deliveryID' => $deliveryID,
+                             'locationID' => $locationID,
+                             'error' => $e->getMessage(),
+                         ]);
+                         $shouldRedirect = false;
+                         $redirectUrl = null;
+                         return response()->json([
+                             'status' => 'error',
+                             'message' => 'Failed to update expired verification token.',
+                             'redirect' => false
+                         ], 500);
+                     }
+                 }
+                 // If token exists and is not expired, $verificationToken is already set
+            }
+
+
+            // Only redirect if a token is found (either existing valid or newly created) and redirect is needed
+            if ($shouldRedirect && $verificationToken) {
+                 $redirectUrl = "/verify?locationID={$locationID}&deliveryID={$deliveryID}&token={$verificationToken}";
+            } else {
+                 $redirectUrl = null; // Or a default error/info page
+                 $shouldRedirect = false; // Don't redirect if no token
+            }
+
+
             return response()->json([
                 'status' => 'success',
-                'message' => count($verifyRecords) > 0 
+                'message' => count($verifyRecords) > 0
                     ? 'QR code processed successfully. Created ' . count($verifyRecords) . ' new verification records.'
                     : 'All checkpoints already have verification records.',
                 'data' => [
@@ -147,7 +244,7 @@ class QRcodeController extends Controller
                 'redirect' => $shouldRedirect,
                 'redirectUrl' => $redirectUrl
             ], 200);
-            
+
         } catch (\Exception $e) {
             Log::error('Error processing QR code', [
                 'error' => $e->getMessage(),
@@ -162,7 +259,21 @@ class QRcodeController extends Controller
             ], 500);
         }
     }
-    
+
+    /**
+     * Generate a unique token for delivery location verification.
+     *
+     * @return string
+     */
+    private function generateUniqueToken()
+    {
+        do {
+            $token = Str::random(60); // Generate a random string of 60 characters
+        } while (DeliveryLocationToken::where('token', $token)->exists()); // Ensure token is unique
+
+        return $token;
+    }
+
     /**
      * Generate QR code for location
      *

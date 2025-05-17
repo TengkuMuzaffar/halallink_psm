@@ -7,65 +7,74 @@
             <h5 class="modal-title">Edit Verification (ID: {{ localVerification?.verifyID }})</h5>
             <button type="button" class="btn-close" @click="closeModal" aria-label="Close"></button>
           </div>
-          <div class="modal-body" v-if="localVerification">
-            <div class="row">
-              <div class="col-md-6 mb-3">
-                <strong>Verification ID:</strong>
-                <p>{{ localVerification.verifyID }}</p>
-              </div>
-              <div class="col-md-6 mb-3">
-                <strong>Delivery ID:</strong>
-                <p>{{ localVerification.deliveryID }}</p>
-              </div>
+          <div class="modal-body">
+            <div v-if="loadingDetails" class="text-center p-4">
+                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                Loading verification details...
             </div>
-            <div class="row">
-              <div class="col-md-6 mb-3">
-                <strong>Checkpoint ID:</strong>
-                <p>{{ localVerification.checkID }}</p>
-              </div>
+            <div v-else-if="fetchError" class="alert alert-danger mt-3">
+                {{ fetchError }}
             </div>
-            <hr/>
+            <div v-else-if="localVerification">
+                <div class="row">
+                  <div class="col-md-6 mb-3">
+                    <strong>Verification ID:</strong>
+                    <p>{{ localVerification.verifyID }}</p>
+                  </div>
+                  <div class="col-md-6 mb-3">
+                    <strong>Delivery ID:</strong>
+                    <p>{{ localVerification.deliveryID }}</p>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="col-md-6 mb-3">
+                    <strong>Checkpoint ID:</strong>
+                    <p>{{ localVerification.checkID }}</p>
+                  </div>
+                </div>
+                <hr/>
 
-            <!-- Display Associated Items -->
-            <div v-if="localVerification.associated_items && localVerification.associated_items.length > 0" class="mb-3">
-                <strong>Associated Items:</strong>
-                <ul>
-                    <li v-for="item in localVerification.associated_items" :key="item.itemID">
-                        Item ID: {{ item.itemID }} - {{ item.item_name }} (Qty: {{ item.quantity }})
-                    </li>
-                </ul>
-            </div>
-             <div v-else class="mb-3">
-                <strong>Associated Items:</strong>
-                <p>No items associated with this verification checkpoint.</p>
-            </div>
-            <hr/>
+                <!-- Display Associated Items -->
+                <div v-if="localVerification.associated_items && localVerification.associated_items.length > 0" class="mb-3">
+                    <strong>Associated Items:</strong>
+                    <ul>
+                        <li v-for="item in localVerification.associated_items" :key="item.itemID">
+                            Item ID: {{ item.itemID }} - {{ item.item_name }} (Qty: {{ item.quantity }})
+                        </li>
+                    </ul>
+                </div>
+                 <div v-else class="mb-3">
+                    <strong>Associated Items:</strong>
+                    <p>No items associated with this verification checkpoint.</p>
+                </div>
+                <hr/>
 
-            <div class="row">
-              <div class="col-md-6 mb-3">
-                <label for="verify_status" class="form-label"><strong>Status:</strong></label>
-                <select class="form-select" id="verify_status" v-model="localVerification.verify_status" required>
-                  <option value="pending">Pending</option>
-                  <option value="verified">Verified</option>
-                  <option value="rejected">Rejected</option>
-                </select>
-              </div>
-            </div>
-            <div class="row">
-              <div class="col-md-12 mb-3">
-                <label for="verify_comment" class="form-label"><strong>Comment:</strong></label>
-                <textarea class="form-control" id="verify_comment" v-model="localVerification.verify_comment" rows="3"></textarea>
-              </div>
-            </div>
-            <div class="row">
-              <div class="col-md-6 mb-3">
-                <strong>Created At:</strong>
-                <p>{{ formatDate(localVerification.created_at) }}</p>
-              </div>
-              <div class="col-md-6 mb-3">
-                <strong>Updated At:</strong>
-                <p>{{ formatDate(localVerification.updated_at) }}</p>
-              </div>
+                <div class="row">
+                  <div class="col-md-6 mb-3">
+                    <label for="verify_status" class="form-label"><strong>Status:</strong></label>
+                    <select class="form-select" id="verify_status" v-model="localVerification.verify_status" required>
+                      <option value="pending">Pending</option>
+                      <option value="verified">Verified</option>
+                      <option value="rejected">Rejected</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="col-md-12 mb-3">
+                    <label for="verify_comment" class="form-label"><strong>Comment:</strong></label>
+                    <textarea class="form-control" id="verify_comment" v-model="localVerification.verify_comment" rows="3"></textarea>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="col-md-6 mb-3">
+                    <strong>Created At:</strong>
+                    <p>{{ formatDate(localVerification.created_at) }}</p>
+                  </div>
+                  <div class="col-md-6 mb-3">
+                    <strong>Updated At:</strong>
+                    <p>{{ formatDate(localVerification.updated_at) }}</p>
+                  </div>
+                </div>
             </div>
              <div v-if="submissionError" class="alert alert-danger mt-3">
                 {{ submissionError }}
@@ -76,7 +85,7 @@
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" @click="closeModal">Close</button>
-            <button type="submit" class="btn btn-primary" :disabled="isSubmitting">
+            <button type="submit" class="btn btn-primary" :disabled="isSubmitting || loadingDetails || !localVerification">
               <span v-if="isSubmitting" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
               {{ isSubmitting ? 'Saving...' : 'Save Changes' }}
             </button>
@@ -90,15 +99,27 @@
 
 <script setup>
 import { ref, watch, defineProps, defineEmits } from 'vue';
-import verifyDeliveryService from '../../services/verifyDeliveryService'; // Assuming you have this service
+import verifyDeliveryService from '../../services/verifyDeliveryService';
 
 const props = defineProps({
   show: {
     type: Boolean,
     required: true,
   },
-  verification: {
-    type: Object,
+  verifyId: {
+    type: [Number, String],
+    default: null,
+  },
+  deliveryId: { // New prop
+    type: [Number, String],
+    default: null,
+  },
+  locationId: { // New prop
+    type: [Number, String],
+    default: null,
+  },
+  token: { // New prop
+    type: String,
     default: null,
   },
 });
@@ -109,18 +130,50 @@ const localVerification = ref(null);
 const isSubmitting = ref(false);
 const submissionError = ref(null);
 const submissionSuccess = ref(false);
+const loadingDetails = ref(false);
+const fetchError = ref(null);
 
-// Watch for changes in the verification prop to update the local copy
-watch(() => props.verification, (newVal) => {
-  if (newVal) {
-    // Ensure associated_items is initialized if not present
-    localVerification.value = { ...newVal, associated_items: newVal.associated_items || [] }; // Create a reactive copy
-    submissionError.value = null; // Reset error on new data
-    submissionSuccess.value = false; // Reset success message
+// Watch for changes in the show prop and verifyId prop
+watch(() => [props.show, props.verifyId], async ([newShow, newVerifyId]) => {
+  if (newShow && newVerifyId) {
+    // Modal is shown and verifyId is available, fetch details
+    // Note: The fetchVerificationDetails function currently only uses verifyID.
+    // deliveryId, locationId, and token are now available as props if needed for future logic.
+    await fetchVerificationDetails(newVerifyId);
   } else {
+    // Modal is hidden or verifyId is null, reset states
     localVerification.value = null;
+    submissionError.value = null;
+    submissionSuccess.value = false;
+    fetchError.value = null;
   }
-}, { immediate: true, deep: true });
+}, { immediate: true });
+
+const fetchVerificationDetails = async (verifyID) => {
+    loadingDetails.value = true;
+    fetchError.value = null;
+    try {
+        // Pass deliveryId, locationId, and token props to the service function
+        const response = await verifyDeliveryService.getVerificationById(
+            verifyID,
+            props.deliveryId,
+            props.locationId,
+            props.token
+        );
+        console.log('Response from fetchVerificationDetails:', JSON.stringify(response, null, 2));
+        if (response.status === 'success') {
+            localVerification.value = { ...response.data, associated_items: response.data.associated_items || [] };
+        } else {
+            fetchError.value = response.message || 'Failed to load verification details.';
+        }
+    } catch (error) {
+        console.error('Error fetching verification details:', error);
+        fetchError.value = error.message || 'An unexpected error occurred while fetching details.';
+    } finally {
+        loadingDetails.value = false;
+    }
+};
+
 
 const closeModal = () => {
   emit('close');

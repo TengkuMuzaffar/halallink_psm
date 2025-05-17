@@ -4,31 +4,26 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use App\Models\Verify;
 use App\Models\Checkpoint;
-use App\Models\Delivery;
-use App\Models\Trip; // Import Trip model
-use App\Models\Item; // Import Item model
-use App\Models\Poultry; // Import Poultry model
+use App\Models\DeliveryLocationToken; // Import the model
+use App\Models\Trip; // Import the Trip model
+use App\Models\Item; // Import the Item model
+use Illuminate\Support\Facades\Log;
+use Carbon\Carbon; // Import Carbon for date comparison
 
 class VerifyController extends Controller
 {
-    /**
-     * Get verifications for a delivery and location
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\Response
-     */
     public function index(Request $request)
     {
         try {
             $validator = Validator::make($request->all(), [
                 'deliveryID' => 'required|exists:deliveries,deliveryID',
                 'locationID' => 'nullable|exists:locations,locationID',
+                'token' => 'required|string', // Add token validation
             ]);
-            
+
             if ($validator->fails()) {
                 return response()->json([
                     'status' => 'error',
@@ -36,9 +31,28 @@ class VerifyController extends Controller
                     'errors' => $validator->errors()
                 ], 422);
             }
-            
-            $query = Verify::where('deliveryID', $request->deliveryID);
-            
+
+            $deliveryID = $request->deliveryID;
+            $locationID = $request->locationID;
+            $token = $request->token;
+
+            // Check if the token is valid and not expired for the given deliveryID and locationID
+            $validToken = DeliveryLocationToken::where('deliveryID', $deliveryID)
+                                            ->where('locationID', $locationID)
+                                            ->where('token', $token)
+                                            ->where('expired_at', '>', Carbon::now()) // Check if token is not expired
+                                            ->first();
+
+            if (!$validToken) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Invalid or expired token. Access not permissible.'
+                ], 403); // Use 403 Forbidden status code
+            }
+
+            // If token is valid, proceed with fetching verifications
+            $query = Verify::where('deliveryID', $deliveryID);
+
             // If locationID is provided, filter by checkpoints at that location
             if ($request->has('locationID')) {
                 $checkpoints = Checkpoint::where('locationID', $request->locationID)->pluck('checkID');
@@ -51,7 +65,7 @@ class VerifyController extends Controller
                 'status' => 'success',
                 'data' => $verifications
             ], 200);
-            
+
         } catch (\Exception $e) {
             Log::error('Error fetching verifications', [
                 'error' => $e->getMessage(),
@@ -72,9 +86,42 @@ class VerifyController extends Controller
      * @param  int  $verifyID
      * @return \Illuminate\Http\Response
      */
-    public function show($verifyID)
+    public function show($verifyID, Request $request) // Add Request parameter
     {
         try {
+            // Add validation for deliveryID, locationID, and token
+            $validator = Validator::make($request->all(), [
+                'deliveryID' => 'required|exists:deliveries,deliveryID',
+                'locationID' => 'nullable|exists:locations,locationID',
+                'token' => 'required|string',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $deliveryID = $request->deliveryID;
+            $locationID = $request->locationID;
+            $token = $request->token;
+
+            // Check if the token is valid and not expired for the given deliveryID and locationID
+            $validToken = DeliveryLocationToken::where('deliveryID', $deliveryID)
+                                            ->where('locationID', $locationID)
+                                            ->where('token', $token)
+                                            ->where('expired_at', '>', Carbon::now()) // Check if token is not expired
+                                            ->first();
+
+            if (!$validToken) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Invalid or expired token. Access not permissible.'
+                ], 403); // Use 403 Forbidden status code
+            }
+
             // Eager load checkpoint
             $verify = Verify::with('checkpoint')->find($verifyID);
 
@@ -84,6 +131,15 @@ class VerifyController extends Controller
                     'message' => 'Verification not found'
                 ], 404);
             }
+
+            // Ensure the requested verifyID belongs to the deliveryID from the token
+            if ($verify->deliveryID != $deliveryID) {
+                 return response()->json([
+                    'status' => 'error',
+                    'message' => 'Verification ID does not match the provided Delivery ID.'
+                ], 403); // Use 403 Forbidden status code
+            }
+
 
             $checkID = $verify->checkID;
             $items = []; // Initialize items array
@@ -103,8 +159,8 @@ class VerifyController extends Controller
                     $startItemRecord = $startCheckpoint->item_record ?? [];
                     $endItemRecord = $endCheckpoint->item_record ?? [];
 
-                    // Items are those in start_checkID's item_record not in end_checkID's item_record
-                    $itemIDs = array_diff($startItemRecord, $endItemRecord);
+                    // Items are those in start_checkID's item_record that are ALSO in end_checkID's item_record
+                    $itemIDs = array_intersect($startItemRecord, $endItemRecord); // Changed from array_diff to array_intersect
                 }
             } elseif ($tripAsEnd) {
                 // If checkID is an end_checkID in a trip (and not a start_checkID)

@@ -106,7 +106,7 @@ export default {
       if (lastMessage !== decodedText) {
         lastMessage = decodedText;
         scanResult.value = decodedText;
-        
+
         // Process the QR code URL
         try {
           // Validate the URL
@@ -114,29 +114,30 @@ export default {
           if (!url.startsWith('http')) {
             url = window.location.origin + (url.startsWith('/') ? url : '/' + url);
           }
-          
+
           // Check if the URL is from the same domain for security
           const urlObj = new URL(url);
           const currentDomain = window.location.hostname;
-          
+
           if (urlObj.hostname !== currentDomain) {
             error.value = 'Security Error: QR code URL is from a different domain. Only URLs from the current domain are allowed.';
             scanResult.value = null;
             return;
           }
-          
+
           // Extract location ID and company ID from URL if possible
+          // This part is still needed to send the correct data to the backend
           let urlLocationID = props.locationID;
           let companyID = null;
-          
+
           try {
             // Try to extract IDs from URL path segments
             const pathSegments = urlObj.pathname.split('/').filter(segment => segment);
-            
+
             // The URL format is typically /api/qrcode/process/{locationID}/{companyID}
             // Find numeric segments that might be the IDs
             const numericSegments = pathSegments.filter(segment => !isNaN(segment));
-            
+
             if (numericSegments.length >= 2) {
               urlLocationID = parseInt(numericSegments[0]);
               companyID = parseInt(numericSegments[1]);
@@ -145,24 +146,24 @@ export default {
           } catch (err) {
             console.warn('Could not extract IDs from URL, using props value:', err);
           }
-          
+
           // Prepare data to post
           const postData = {
             deliveryID: props.deliveryID,
-            locationID: urlLocationID,
+            locationID: urlLocationID, // Use extracted or prop locationID
             checkpoints: props.checkpoints,
             companyID: companyID // Add company ID if available
           };
-          
+
           // Log the data being sent
           console.log('Sending data to server:', {
             url: url,
             postData: postData
           });
-          
+
           // Show success message
           scanResult.value = 'QR code detected! Processing...';
-          
+
           // Use the API utility instead of fetch
           post(url, postData, {
             onSuccess: (data) => {
@@ -170,14 +171,18 @@ export default {
                 // Close modal and redirect to verification page
                 setTimeout(() => {
                   closeModal();
-                  
-                  // Redirect to the verification page with proper parameter formatting
-                  const verifyUrl = `/verify?locationID=${urlLocationID}&deliveryID=${props.deliveryID}`;
-                  console.log('Navigating to:', verifyUrl);
-                  
-                  // Use window.location instead of router.push
-                  window.location.href = verifyUrl;
-                  
+                  console.log("url info: "+JSON.stringify(data, null, 2));
+                  // Use the redirectUrl from the API response if available
+                  if (data.redirect && data.redirectUrl) {
+                    console.log('Navigating to:', data.redirectUrl);
+                    window.location.href = data.redirectUrl;
+                  } else {
+                    // Handle cases where redirect is not needed or URL is missing
+                    console.log('API response indicates no redirect needed or URL missing.');
+                    // Optionally, show a success message or close the modal without redirecting
+                    scanResult.value = data.message || 'Processing complete.';
+                  }
+
                 }, 1000);
               } else {
                 // Show error message

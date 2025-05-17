@@ -15,10 +15,11 @@ export const verifyDeliveryService = {
     }
   },
   
-  // Get verifications for a delivery at a specific location
-  getVerifications: async (deliveryID, locationID) => {
+  // Get verifications for a delivery at a specific location using a token
+  getVerifications: async (deliveryID, locationID, token) => {
     try {
-      const response = await api.get(`/api/verifications?deliveryID=${deliveryID}&locationID=${locationID}`);
+      // Include the token in the query parameters
+      const response = await api.get(`/api/verifications?deliveryID=${deliveryID}&locationID=${locationID}&token=${token}`);
       return response;
     } catch (error) {
       console.error('Error fetching verifications:', error);
@@ -39,6 +40,27 @@ export const verifyDeliveryService = {
       return {
         status: 'error',
         message: error.message || 'Failed to fetch checkpoint details'
+      };
+    }
+  },
+  
+  // Get a single verification by ID
+  getVerificationById: async (verifyID, deliveryID, locationID, token) => { // Add new parameters
+    try {
+      // Include deliveryID, locationID, and token as query parameters
+      const response = await api.get(`/api/verifications/${verifyID}`, {
+        params: {
+          deliveryID: deliveryID,
+          locationID: locationID,
+          token: token
+        }
+      });
+      return response;
+    } catch (error) {
+      console.error('Error fetching verification by ID:', error);
+      return {
+        status: 'error',
+        message: error.message || 'Failed to fetch verification details'
       };
     }
   },
