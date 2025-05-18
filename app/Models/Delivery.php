@@ -16,13 +16,13 @@ class Delivery extends Model
         'vehicleID',
         'scheduled_date',
         'start_timestamp',
-        'arrive_timestamp'
+        'end_timestamp'
     ];
 
     protected $casts = [
         'scheduled_date' => 'date',
         'start_timestamp' => 'datetime',
-        'arrive_timestamp' => 'datetime',
+        'end_timestamp' => 'datetime',
         'created_at' => 'datetime',
         'updated_at' => 'datetime'
     ];

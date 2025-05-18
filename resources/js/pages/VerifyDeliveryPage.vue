@@ -5,15 +5,15 @@
     <!-- Verification Stats could be added here similar to EmployeeStats -->
     
     <!-- Verifications Table -->
-    <div class="card">
-      <div class="card-header d-flex justify-content-between align-items-center">
+    <div class="card theme-card">
+      <div class="card-header d-flex justify-content-between align-items-center theme-header">
         <h5 class="mb-0">Verifications</h5>
         <!-- Optional: Add a button here if needed -->
-        <!-- <button class="btn btn-primary" @click="someAction">
+        <!-- <button class="btn btn-sm theme-btn-outline" @click="someAction">
           <i class="fas fa-plus me-1"></i> Some Action
         </button> -->
       </div>
-      <div class="card-body">
+      <div class="card-body theme-body">
         <!-- Error State -->
         <div v-if="error" class="alert alert-danger" role="alert">
           {{ error }}
@@ -32,7 +32,7 @@
           
           <!-- Actions slot -->
           <template #actions="{ item }">
-            <button class="btn btn-sm btn-outline-primary" @click="openVerifiesModal(item)">
+            <button class="btn btn-sm theme-btn-info" @click="openVerifiesModal(item)">
               <i class="fas fa-edit"></i>
             </button>
           </template>
@@ -44,7 +44,7 @@
             <span class="text-muted">Showing {{ pagination.from || 0 }} to {{ pagination.to || 0 }} of {{ pagination.total || 0 }} entries</span>
           </div>
           <nav aria-label="Table pagination">
-            <ul class="pagination mb-0">
+            <ul class="pagination mb-0 theme-pagination">
               <li class="page-item" :class="{ disabled: currentPage === 1 || loading }">
                 <a class="page-link" href="#" @click.prevent="!loading && changePage(currentPage - 1)">
                   <i class="fas fa-chevron-left"></i>
@@ -174,6 +174,17 @@ const fetchVerifications = async () => {
     const fetchedData = response.data || response;
     verifications.value = fetchedData;
     
+    // Check if there are any pending verifications
+    const hasPendingVerifications = fetchedData.some(verification => 
+      verification.verify_status === 'pending'
+    );
+
+    // If no pending verifications, redirect to deliveries page
+    if (!hasPendingVerifications) {
+      window.location.href = '/deliveries';      
+      return;
+    }
+    
     // Update pagination state
     pagination.value.total = verifications.value.length;
     pagination.value.last_page = Math.ceil(verifications.value.length / perPage.value);
@@ -242,40 +253,124 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* Theme colors */
+.verify-delivery-management {
+  --primary-color: #123524;
+  --secondary-color: #EFE3C2;
+  --accent-color: #3E7B27;
+  --text-color: #333;
+  --light-text: #666;
+  --border-color: rgba(18, 53, 36, 0.2);
+  --light-bg: rgba(239, 227, 194, 0.2);
+  --lighter-bg: rgba(239, 227, 194, 0.1);
+}
+
 .verify-delivery-management h1 {
-  color: #123524;
+  color: var(--primary-color);
+}
+
+/* Card theme */
+.theme-card {
+  border-color: var(--border-color);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.theme-header {
+  background-color: var(--primary-color);
+  color: var(--secondary-color);
+  border-bottom: none;
+}
+
+.theme-body {
+  background-color: #fff;
+  color: var(--text-color);
+}
+
+/* Button styles */
+.theme-btn-info {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+  color: var(--secondary-color);
+}
+
+.theme-btn-info:hover {
+  background-color: #0a1f16;
+  border-color: #0a1f16;
+}
+
+.theme-btn-outline {
+  color: var(--secondary-color);
+  border-color: var(--secondary-color);
+  background-color: transparent;
+}
+
+.theme-btn-outline:hover {
+  color: var(--primary-color);
+  background-color: var(--secondary-color);
+  border-color: var(--secondary-color);
 }
 
 /* Pagination styling */
-.pagination {
+.theme-pagination {
   margin-bottom: 0;
 }
 
-.page-link {
-  color: #123524;
+.theme-pagination .page-link {
+  color: var(--primary-color);
 }
 
-.page-item.active .page-link {
-  background-color: #123524;
-  border-color: #123524;
-  color: #fff;
+.theme-pagination .page-item.active .page-link {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+  color: var(--secondary-color);
 }
 
-.page-item.disabled .page-link {
+.theme-pagination .page-item.disabled .page-link {
   color: #6c757d;
   pointer-events: none;
   background-color: #fff;
   border-color: #dee2e6;
 }
 
-.page-link:hover {
+.theme-pagination .page-link:hover {
   color: #0a1f15;
-  background-color: #e9ecef;
-  border-color: #dee2e6;
+  background-color: var(--light-bg);
+  border-color: var(--border-color);
 }
 
-.page-link:focus {
+.theme-pagination .page-link:focus {
   box-shadow: 0 0 0 0.25rem rgba(18, 53, 36, 0.25);
+}
+
+/* Badge styles */
+.theme-badge-success {
+  background-color: var(--accent-color);
+  color: var(--secondary-color);
+}
+
+.theme-badge-info {
+  background-color: var(--primary-color);
+  color: var(--secondary-color);
+}
+
+.theme-badge-warning {
+  background-color: #e0a800;
+  color: #212529;
+}
+
+.theme-badge-danger {
+  background-color: #dc3545;
+  color: white;
+}
+
+.theme-badge-secondary {
+  background-color: #6c757d;
+  color: white;
+}
+
+/* Spinner */
+.theme-spinner {
+  color: var(--accent-color);
 }
 
 @media (max-width: 768px) {

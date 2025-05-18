@@ -51,7 +51,8 @@ class VerifyController extends Controller
             }
 
             // If token is valid, proceed with fetching verifications
-            $query = Verify::where('deliveryID', $deliveryID);
+            $query = Verify::where('deliveryID', $deliveryID)
+                          ->where('verify_status', 'pending');
 
             // If locationID is provided, filter by checkpoints at that location
             if ($request->has('locationID')) {
@@ -181,15 +182,20 @@ class VerifyController extends Controller
 
             // Fetch item details for the determined item IDs
             if (!empty($itemIDs)) {
-                $items = Item::whereIn('itemID', $itemIDs)
+                // Join with carts to get orderID and sort by it
+                $items = Item::whereIn('items.itemID', $itemIDs)  // Specify the table name here
                              ->with('poultry') // Eager load poultry to get poultry_name
+                             ->leftJoin('carts', 'items.itemID', '=', 'carts.itemID')
+                             ->select('items.*', 'carts.orderID', 'carts.cartID')
+                             ->orderBy('carts.orderID')
                              ->get()
                              ->map(function ($item) {
                                  return [
                                      'itemID' => $item->itemID,
                                      'item_name' => $item->poultry ? $item->poultry->poultry_name : 'Unknown Poultry',
                                      'quantity' => 1, // Assuming quantity is 1 per item ID in the record
-                                     // Add other relevant item details if needed
+                                     'orderID' => $item->orderID, // Include orderID in the response
+                                     'cartID' => $item->cartID, // Include cartID in the response
                                  ];
                              });
             }
@@ -228,7 +234,7 @@ class VerifyController extends Controller
     {
         try {
             $validator = Validator::make($request->all(), [
-                'verify_status' => 'required|in:pending,verified,rejected',
+                'verify_status' => 'required|in:pending,complete,rejected',
                 'verify_comment' => 'nullable|string|max:500',
             ]);
             
@@ -253,10 +259,17 @@ class VerifyController extends Controller
             $verify->verify_comment = $request->verify_comment;
             $verify->save();
             
+            // Check if all verifications are complete and update delivery if needed
+            $deliveryCompleted = false;
+            if ($request->verify_status === 'complete') {
+                $deliveryCompleted = $this->checkAndUpdateDeliveryCompletion($verify->deliveryID);
+            }
+            
             return response()->json([
                 'status' => 'success',
                 'message' => 'Verification updated successfully',
-                'data' => $verify
+                'data' => $verify,
+                'delivery_completed' => $deliveryCompleted
             ], 200);
             
         } catch (\Exception $e) {
@@ -330,6 +343,67 @@ class VerifyController extends Controller
                 'message' => 'An error occurred while completing verification',
                 'error' => $e->getMessage()
             ], 500);
+        }
+    }
+    
+    /**
+     * Check if all verifications for a delivery are complete and update end_timestamp if needed
+     *
+     * @param  int  $deliveryID
+     * @return bool Whether all verifications are complete
+     */
+    private function checkAndUpdateDeliveryCompletion($deliveryID)
+    {
+        try {
+            // Get all checkpoints associated with this delivery from trips
+            $trips = Trip::where('deliveryID', $deliveryID)->get();
+            
+            if ($trips->isEmpty()) {
+                return false; // No trips found for this delivery
+            }
+            
+            // Collect all unique checkIDs from trips
+            $checkIDs = [];
+            foreach ($trips as $trip) {
+                $checkIDs[] = $trip->start_checkID;
+                $checkIDs[] = $trip->end_checkID;
+            }
+            
+            // Remove duplicates
+            $uniqueCheckIDs = array_unique($checkIDs);
+            
+            // Get all verifications for these checkpoints
+            $verifications = Verify::where('deliveryID', $deliveryID)
+                                  ->whereIn('checkID', $uniqueCheckIDs)
+                                  ->get();
+            
+            // If no verifications found or count doesn't match checkpoints, delivery is not complete
+            if ($verifications->isEmpty() || count($verifications) < count($uniqueCheckIDs)) {
+                return false;
+            }
+            
+            // Check if all verifications are complete
+            foreach ($verifications as $verify) {
+                if ($verify->verify_status !== 'complete') {
+                    return false; // At least one verification is not complete
+                }
+            }
+            
+            // All verifications are complete, update delivery end_timestamp
+            $delivery = \App\Models\Delivery::find($deliveryID);
+            if ($delivery) {
+                $delivery->end_timestamp = Carbon::now();
+                $delivery->save();
+                return true;
+            }
+            
+            return false;
+        } catch (\Exception $e) {
+            Log::error('Error checking delivery completion', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return false;
         }
     }
 }

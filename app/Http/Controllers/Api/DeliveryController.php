@@ -422,10 +422,10 @@ class DeliveryController extends Controller
             // If scheduled date is provided, filter out vehicles that are already assigned to deliveries on that date
             if ($scheduledDate) {
                 // Get IDs of vehicles that are already assigned to deliveries on the scheduled date
-                // and where the delivery is not completed (arrive_timestamp is null)
+                // and where the delivery is not completed (end_timestamp is null)
 
                 $assignedVehicleIds = Delivery::whereDate('scheduled_date', '=', $scheduledDate)
-                    ->whereNull('arrive_timestamp')
+                    ->whereNull('end_timestamp')
                     ->pluck('vehicleID')
                     ->toArray();
                 
@@ -506,7 +506,7 @@ class DeliveryController extends Controller
             // If scheduled date is provided, filter out drivers who are already assigned to deliveries on that date
             if ($scheduledDate) {
                 // Get IDs of drivers who are already assigned to deliveries on the scheduled date
-                // and where the delivery is not completed (arrive_timestamp is null)
+                // and where the delivery is not completed (end_timestamp is null)
                 $assignedDriverIds = Delivery::whereDate('scheduled_date', '=', $scheduledDate)
                     ->pluck('userID')
                     ->toArray();
@@ -554,7 +554,7 @@ class DeliveryController extends Controller
                 'vehicleID' => 'required|exists:vehicles,vehicleID',
                 'scheduled_date' => 'required|date|after_or_equal:today',
                 'start_timestamp' => 'nullable|date',
-                'arrive_timestamp' => 'nullable|date',
+                'end_timestamp' => 'nullable|date',
             ]);
             
             // Begin transaction
@@ -566,7 +566,7 @@ class DeliveryController extends Controller
             $delivery->vehicleID = $validated['vehicleID'];
             $delivery->scheduled_date = $validated['scheduled_date'];
             $delivery->start_timestamp = $validated['start_timestamp'] ?? null;
-            $delivery->arrive_timestamp = $validated['arrive_timestamp'] ?? null;
+            $delivery->end_timestamp = $validated['end_timestamp'] ?? null;
             $delivery->save();
             
             // Get driver and vehicle details for response
@@ -582,7 +582,7 @@ class DeliveryController extends Controller
                     'deliveryID' => $delivery->deliveryID,
                     'scheduledDate' => $delivery->scheduled_date,
                     'startTimestamp' => $delivery->start_timestamp,
-                    'arriveTimestamp' => $delivery->arrive_timestamp,
+                    'arriveTimestamp' => $delivery->end_timestamp,
                     'driver' => [
                         'userID' => $driver->userID,
                         'name' => $driver->name
@@ -592,7 +592,7 @@ class DeliveryController extends Controller
                         'vehicle_number' => $vehicle->vehicle_number,
                         'vehicle_type' => $vehicle->vehicle_type
                     ],
-                    'status' => $delivery->arrive_timestamp ? 'completed' : 
+                    'status' => $delivery->end_timestamp ? 'completed' : 
                                ($delivery->start_timestamp ? 'in_progress' : 'scheduled')
                 ]
             ]);
@@ -645,7 +645,7 @@ class DeliveryController extends Controller
             $delivery->vehicleID = $validated['vehicleID'];
             $delivery->scheduled_date = $validated['scheduledDate'];
             $delivery->start_timestamp = null;
-            $delivery->arrive_timestamp = null;
+            $delivery->end_timestamp = null;
             $delivery->save();
             
             // Get location details for response
@@ -713,6 +713,8 @@ class DeliveryController extends Controller
             
             $deliveries = Delivery::with(['user', 'vehicle', 'verifies'])
                 ->whereDate('scheduled_date', '>=', now()->format('Y-m-d'))  // Only future or today's deliveries
+                ->whereNull('end_timestamp')  // Exclude completed deliveries
+                ->whereNull('start_timestamp')  // Exclude in-progress deliveries
                 ->orderBy('scheduled_date', 'asc')  // Sort by nearest date first
                 ->paginate($perPage);
                 
@@ -818,7 +820,7 @@ class DeliveryController extends Controller
                 }
                 
                 // Determine status
-                if ($delivery->arrive_timestamp) {
+                if ($delivery->end_timestamp) {
                     $status = 'completed';
                 } else if ($delivery->start_timestamp) {
                     $status = 'in_progress';
@@ -828,7 +830,7 @@ class DeliveryController extends Controller
                     'deliveryID' => $delivery->deliveryID,
                     'scheduledDate' => $delivery->scheduled_date,
                     'startTimestamp' => $delivery->start_timestamp,
-                    'arriveTimestamp' => $delivery->arrive_timestamp,
+                    'arriveTimestamp' => $delivery->end_timestamp,
                     'from' => $fromLocation,
                     'to' => $toLocation,
                     'driver' => $driver,
@@ -891,9 +893,9 @@ class DeliveryController extends Controller
             $stats = [
                 'pending' => Delivery::whereNull('start_timestamp')->count(),
                 'inProgress' => Delivery::whereNotNull('start_timestamp')
-                    ->whereNull('arrive_timestamp')->count(),
-                'completedToday' => Delivery::whereNotNull('arrive_timestamp')
-                    ->whereDate('arrive_timestamp', now()->toDateString())->count(),
+                    ->whereNull('end_timestamp')->count(),
+                'completedToday' => Delivery::whereNotNull('end_timestamp')
+                    ->whereDate('end_timestamp', now()->toDateString())->count(),
                 'issues' => Verify::where('verify_status', 'rejected')->count()
             ];
             
@@ -982,7 +984,7 @@ class DeliveryController extends Controller
                 }
                 
                 // Determine status
-                if ($delivery->arrive_timestamp) {
+                if ($delivery->end_timestamp) {
                     $status = 'completed';
                 } else if ($delivery->start_timestamp) {
                     $status = 'in_progress';
@@ -1009,7 +1011,7 @@ class DeliveryController extends Controller
                 'deliveryID' => $delivery->deliveryID,
                 'scheduledDate' => $delivery->scheduled_date,
                 'startTimestamp' => $delivery->start_timestamp,
-                'arriveTimestamp' => $delivery->arrive_timestamp,
+                'arriveTimestamp' => $delivery->end_timestamp,
                 'from' => $fromLocation,
                 'to' => $toLocation,
                 'driver' => $driver,

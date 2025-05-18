@@ -150,7 +150,7 @@ export default {
           // Prepare data to post
           const postData = {
             deliveryID: props.deliveryID,
-            locationID: urlLocationID, // Use extracted or prop locationID
+            locationID:  props.locationID, // Use extracted or prop locationID
             checkpoints: props.checkpoints,
             companyID: companyID // Add company ID if available
           };

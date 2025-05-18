@@ -188,10 +188,22 @@ const routes = [
         name: 'OrderManagement',
         component: OrderManagement,
         meta: { 
-          requiresAuth: true, 
-          requiresCompanyType: 'broiler', // For frontend route guard if you have one
+          requiresAuth: true,
+          requiresCompanyTypes: ['broiler', 'slaughterhouse'],
           title: 'Order Management'
-
+        },
+        beforeEnter: (to, from, next) => {
+          const user = store.getters.user;
+          const companyType = user?.company?.company_type;
+          
+          if (!companyType || !['broiler', 'slaughterhouse'].includes(companyType)) {
+            next({ name: 'Unauthorized' });
+            return;
+          }
+          
+          // Set dynamic title based on company type
+          to.meta.title = `Order Management ${companyType.charAt(0).toUpperCase() + companyType.slice(1)}`;
+          next();
         }
       },
       {
@@ -262,9 +274,19 @@ router.beforeEach(async (to, from, next) => {
     }
     
     // Check if route requires specific company type
-    if (requiresCompanyType && to.meta.requiresCompanyType && user.company?.company_type !== to.meta.requiresCompanyType) {
-      next({ name: 'Unauthorized' });
-      return;
+    if (requiresCompanyType && to.meta.requiresCompanyType) {
+      // Handle array of allowed company types
+      if (Array.isArray(to.meta.requiresCompanyTypes)) {
+        if (!to.meta.requiresCompanyTypes.includes(user.company?.company_type)) {
+          next({ name: 'Unauthorized' });
+          return;
+        }
+      } 
+      // Handle single company type requirement
+      else if (user.company?.company_type !== to.meta.requiresCompanyType) {
+        next({ name: 'Unauthorized' });
+        return;
+      }
     }
   }
   

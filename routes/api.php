@@ -100,7 +100,7 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
  
-    Route::middleware('role.company:both,sme,broiler')->group(function () {
+    Route::middleware('role.company:both,sme,broiler,slaughterhouse')->group(function () {
         Route::get('/orders/stats', [OrderController::class, 'getStats']);
         Route::get('/orders', [OrderController::class, 'index']);
         Route::get('/orders/{order}', [OrderController::class, 'show']);

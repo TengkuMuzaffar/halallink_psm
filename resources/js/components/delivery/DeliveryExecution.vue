@@ -70,23 +70,11 @@
             <!-- Actions column slot -->
             <template #actions="{ item }">
               <div class="btn-group">
-                <button class="btn btn-sm theme-btn-info" @click="viewDelivery(item)">
-                  <i class="fas fa-eye"></i>
+                <button class="btn btn-sm btn-primary" @click="viewDelivery(item)">
+                  <i class="fas fa-edit"></i>                
                 </button>
-                <button 
-                  class="btn btn-sm theme-btn-success" 
-                  @click="generateQRCode(item)"
-                  :disabled="item.status === 'completed'"
-                >
-                  <i class="fas fa-qrcode"></i>
-                </button>
-                <button 
-                  class="btn btn-sm theme-btn-warning" 
-                  @click="updateStatus(item)"
-                  :disabled="item.status === 'completed'"
-                >
-                  <i class="fas fa-edit"></i>
-                </button>
+               
+               
               </div>
             </template>
           </ResponsiveTable>
@@ -181,7 +169,8 @@ export default {
     viewDelivery(delivery) {
       // Transform the delivery object to match the expected format in the modal
       this.modalLoading = true;
-      
+      console.log("selected deliveries: "+ JSON.stringify(delivery, null, 3));
+
       // Create a copy of the delivery to avoid modifying the original
       const transformedDelivery = { ...delivery };
       
@@ -229,7 +218,6 @@ export default {
       
       // Set the transformed delivery
       this.selectedDelivery = transformedDelivery;
-      console.log("selelected deliveries: "+ JSON.stringify(this.selectedDelivery, null, 3));
       // Show the modal
       this.$nextTick(() => {
         this.modalLoading = false;
@@ -296,38 +284,6 @@ export default {
       }
     },
     
-    generateQRCode(delivery) {
-      this.selectedDelivery = delivery;
-      
-      // Generate QR code URL - in a real app, you would use a QR code library or API
-      this.qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=delivery:${delivery.deliveryID}`;
-      
-      modalUtil.showModal({
-        type: 'info',
-        title: 'Delivery QR Code',
-        message: `
-          <div class="text-center">
-            <p>Scan this QR code to update delivery status:</p>
-            <div class="mb-3">
-              <img src="${this.qrCodeUrl}" alt="QR Code" class="img-fluid" style="max-width: 200px;">
-            </div>
-            <p class="mb-0">
-              <strong>Delivery ID:</strong> ${delivery.deliveryID}<br>
-              <strong>From:</strong> ${delivery.from?.company_address || 'N/A'}<br>
-              <strong>To:</strong> ${delivery.to?.company_address || 'N/A'}
-            </p>
-          </div>
-        `,
-        buttons: [
-          { label: 'Close', type: 'secondary', dismiss: true },
-          { 
-            label: 'Print', 
-            type: 'primary',
-            onClick: () => this.printQRCode(delivery)
-          }
-        ]
-      });
-    },
     
     printQRCode(delivery) {
       const printWindow = window.open('', '_blank');
@@ -366,46 +322,6 @@ export default {
         printWindow.print();
         printWindow.close();
       }, 250);
-    },
-    
-    updateStatus(delivery) {
-      this.selectedDelivery = delivery;
-      
-      modalUtil.showModal({
-        type: 'warning',
-        title: 'Update Delivery Status',
-        customModalBody: (modalType, message) => `
-          <div class="modal-body">
-            <div class="form-group mb-3">
-              <label for="newStatus" class="form-label">Status</label>
-              <select id="newStatus" class="form-select">
-                <option value="pending" ${delivery.status === 'pending' ? 'selected' : ''}>Pending</option>
-                <option value="in_progress" ${delivery.status === 'in_progress' ? 'selected' : ''}>In Progress</option>
-                <option value="completed" ${delivery.status === 'completed' ? 'selected' : ''}>Completed</option>
-                <option value="failed" ${delivery.status === 'failed' ? 'selected' : ''}>Failed</option>
-              </select>
-            </div>
-            <div class="form-group mb-3">
-              <label for="statusNotes" class="form-label">Notes</label>
-              <textarea id="statusNotes" class="form-control" rows="3"></textarea>
-            </div>
-          </div>
-        `,
-        buttons: [
-          { label: 'Cancel', type: 'secondary', dismiss: true },
-          { 
-            label: 'Update', 
-            type: 'primary',
-            onClick: (event) => {
-              const modal = event.target.closest('.modal');
-              const newStatus = modal.querySelector('#newStatus').value;
-              const statusNotes = modal.querySelector('#statusNotes').value;
-              
-              this.submitStatusUpdate(delivery, newStatus, statusNotes);
-            }
-          }
-        ]
-      });
     },
     
     async submitStatusUpdate(delivery, newStatus, statusNotes) {

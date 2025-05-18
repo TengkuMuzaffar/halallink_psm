@@ -64,11 +64,11 @@ class ExecuteDeliveriesController extends Controller
             
             $tripsQuery->whereHas('delivery', function($q) use ($status) {
                 if ($status === 'pending') {
-                    $q->whereNull('start_timestamp')->whereNull('arrive_timestamp');
+                    $q->whereNull('start_timestamp')->whereNull('end_timestamp');
                 } else if ($status === 'in_progress') {
-                    $q->whereNotNull('start_timestamp')->whereNull('arrive_timestamp');
+                    $q->whereNotNull('start_timestamp')->whereNull('end_timestamp');
                 } else if ($status === 'completed') {
-                    $q->whereNotNull('arrive_timestamp');
+                    $q->whereNotNull('end_timestamp');
                 }
             });
         }
@@ -111,11 +111,11 @@ class ExecuteDeliveriesController extends Controller
                     'vehicleID' => $delivery->vehicle->vehicleID ?? null,
                     'vehicle_plate' => $delivery->vehicle->vehicle_plate ?? 'Unknown'
                 ],
-                'status' => $delivery->arrive_timestamp ? 'completed' : 
+                'status' => $delivery->end_timestamp ? 'completed' : 
                         ($delivery->start_timestamp ? 'in_progress' : 'pending'),
                 'scheduled_date' => $delivery->scheduled_date,
                 'start_timestamp' => $delivery->start_timestamp,
-                'arrive_timestamp' => $delivery->arrive_timestamp,
+                'end_timestamp' => $delivery->end_timestamp,
                 'routes' => []
             ];
             
@@ -566,7 +566,7 @@ class ExecuteDeliveriesController extends Controller
      */
     private function determineDeliveryStatus($delivery)
     {
-        if ($delivery->arrive_timestamp) {
+        if ($delivery->end_timestamp) {
             return 'completed';
         } else if ($delivery->start_timestamp) {
             return 'in_progress';

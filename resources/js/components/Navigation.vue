@@ -80,7 +80,7 @@ export default {
         items.push({ label: 'Marketplace', path: '/marketplace', icon: 'fas fa-store' });
       }
       // Add Order Management link for broiler and sme
-      if (companyType === 'broiler' || companyType === 'sme') {
+      if (companyType === 'slaughterhouse'|| companyType === 'broiler' || companyType === 'sme') {
         items.push({ label: 'Order Management', path: '/orders', icon: 'fas fa-receipt' });
       }
       return items;

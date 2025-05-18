@@ -53,37 +53,51 @@
         </div>
         
         <!-- Filters -->
-        <div class="mb-4 d-flex gap-2">
-          <div class="input-group">
-            <input 
-              type="text" 
-              class="form-control" 
-              placeholder="Search orders..." 
-              v-model="searchQuery"
-              @input="debounceSearch"
-            />
-            <button class="btn btn-outline-secondary" type="button">
-              <i class="fas fa-search"></i>
+        <div class="mb-4">
+          <div class="row g-2">
+            <div class="col-12 col-md-6 col-lg-4">
+              <div class="input-group">
+                <input 
+                  type="text" 
+                  class="form-control" 
+                  placeholder="Search orders..." 
+                  v-model="searchQuery"
+                  @input="debounceSearch"
+                />
+                <button class="btn btn-outline-secondary" type="button">
+                  <i class="fas fa-search"></i>
+                </button>
+              </div>
+            </div>
+            
+            <div class="col-12 col-md-6 col-lg-2">
+              <select class="form-select" v-model="statusFilter" @change="applyFilters">
+                <option value="">All Statuses</option>
+                <option value="waiting_for_delivery">Waiting for Delivery</option>
+                <option value="in_progress">In Progress</option>
+                <option value="complete">Complete</option>
+              </select>
+            </div>
+            
+            <div class="col-12 col-sm-6 col-lg-3">
+              <div class="input-group">
+                <span class="input-group-text">From</span>
+                <input type="date" class="form-control" v-model="dateRangeFilter.from" @change="applyFilters">
+              </div>
+            </div>
+            
+            <div class="col-12 col-sm-6 col-lg-3">
+              <div class="input-group">
+                <span class="input-group-text">To</span>
+                <input type="date" class="form-control" v-model="dateRangeFilter.to" @change="applyFilters">
+              </div>
+            </div>
+          </div>
+          
+          <div class="d-flex justify-content-end mt-2">
+            <button class="btn btn-sm btn-outline-secondary" @click="resetFilters">
+              <i class="fas fa-times"></i> Clear Filters
             </button>
-          </div>
-          
-          <select class="form-select" v-model="statusFilter" @change="applyFilters">
-            <option value="">All Statuses</option>
-            <option value="pending">Pending</option>
-            <option value="processing">Processing</option>
-            <option value="complete">Complete</option>
-            <option value="waiting_delivery">Waiting Delivery</option>
-            <option value="paid">Paid</option>
-          </select>
-          
-          <div class="input-group">
-            <span class="input-group-text">From</span>
-            <input type="date" class="form-control" v-model="dateRangeFilter.from" @change="applyFilters">
-          </div>
-          
-          <div class="input-group">
-            <span class="input-group-text">To</span>
-            <input type="date" class="form-control" v-model="dateRangeFilter.to" @change="applyFilters">
           </div>
         </div>
         
@@ -105,20 +119,22 @@
         <div v-if="!loading && locations && locations.length > 0">
           <div v-for="(location, locationIndex) in locations" :key="location.locationID" class="location-card mb-4">
             <div class="card theme-inner-card">
-              <div class="card-header theme-card-header d-flex justify-content-between align-items-center">
-                <div>
-                  <span class="badge theme-badge-secondary me-2">{{ location.location_type }}</span>
-                  <strong>{{ location.company_address }}</strong>
-                </div>
-                <div class="d-flex align-items-center">
-                  <span class="badge theme-badge-primary me-3">{{ location.orders.length }} orders</span>
-                  <button 
-                    class="btn btn-sm btn-primary" 
-                    @click="generateLocationQR(location.locationID, location.companyID || 0)"
-                    title="Generate QR Code for this location"
-                  >
-                    <i class="fas fa-qrcode"></i>
-                  </button>
+              <div class="card-header theme-card-header">
+                <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center">
+                  <div class="mb-2 mb-md-0">
+                    <span class="badge theme-badge-secondary me-2">{{ location.location_type }}</span>
+                    <strong>{{ location.company_address }}</strong>
+                  </div>
+                  <div class="d-flex justify-content-between align-items-center">
+                    <span class="badge theme-badge-primary me-3">{{ location.orders.length }} orders</span>
+                    <button 
+                      class="btn btn-sm btn-primary" 
+                      @click="generateLocationQR(location.locationID, location.companyID || 0)"
+                      title="Generate QR Code for this location"
+                    >
+                      <i class="fas fa-qrcode"></i>
+                    </button>
+                  </div>
                 </div>
               </div>
               <div class="card-body p-0">
@@ -164,34 +180,25 @@
                         <tr v-if="expandedOrders[order.orderID]">
                           <td colspan="6" class="p-0">
                             <div class="p-3 theme-details">
-                              <h6 class="mb-3 theme-subtitle">Order Checkpoints</h6>
+                              <h6 class="mb-3 theme-subtitle">Order Items</h6>
                               
-                              <!-- Checkpoints -->
-                              <div v-for="(checkpoint, checkpointIndex) in order.checkpoints" :key="checkpoint.checkID" class="mb-4">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                  <h6 class="mb-0">
-                                    <span class="badge theme-badge-secondary me-2">Checkpoint #{{ checkpoint.arrange_number }}</span>
-                                    <span class="badge theme-badge-primary">
-                                      {{ formatStatus(checkpoint.checkpoint_status) }}
-                                    </span>
-                                  </h6>
-                                </div>
-                                
-                                <!-- Items Table -->
-                                <div class="table-responsive">
-                                  <table class="table table-sm table-bordered theme-inner-table">
-                                    <thead class="theme-table-header">
+                              <!-- Consolidated Items Table -->
+                              <div class="table-responsive">
+                                <table class="table table-sm table-bordered theme-inner-table">
+                                  <thead class="theme-table-header">
                                       <tr>
+                                        <th style="width: auto; white-space: nowrap;">Cart ID</th>
                                         <th>Item</th>
-                                        <th>Quantity</th>
-                                        <th>Price</th>
-                                        <th>Total</th>
-                                        <th>Supplier</th>
-                                        <th>Slaughterhouse</th>
+                                        <th style="width: auto; white-space: nowrap;">Quantity</th>
+                                        <th style="width: auto; white-space: nowrap;" class="text-center">
+                                          <span class="d-none d-sm-inline">QR Download</span>
+                                          <span class="d-inline d-sm-none">Download</span>
+                                        </th>
                                       </tr>
                                     </thead>
                                     <tbody>
-                                      <tr v-for="(item, itemIndex) in checkpoint.items" :key="`${checkpoint.checkID}-${item.itemID}`">
+                                      <tr v-for="item in getAllOrderItems(order)" :key="`${order.orderID}-${item.cartID}-${item.itemID}`">
+                                        <td>{{ item.cartID }}</td>
                                         <td>
                                           <div class="d-flex align-items-center">
                                             <div>
@@ -201,18 +208,19 @@
                                           </div>
                                         </td>
                                         <td>{{ item.quantity }}</td>
-                                        <td>{{ formatCurrency(item.price_at_purchase) }}</td>
-                                        <td>{{ formatCurrency(item.total_price) }}</td>
-                                        <td>
-                                          <small>{{ item.supplier_location_address }}</small>
-                                        </td>
-                                        <td>
-                                          <small>{{ item.slaughterhouse_location_address }}</small>
+                                        <td class="text-center">
+                                          <button 
+                                            class="btn btn-sm btn-outline-primary" 
+                                            @click="generateOrderQR(order.orderID)"
+                                            title="Download QR Code"
+                                          >
+                                            <i class="fas fa-qrcode"></i>
+                                            <span class="d-inline d-sm-none ms-1">QR</span>
+                                          </button>
                                         </td>
                                       </tr>
-                                    </tbody>
-                                  </table>
-                                </div>
+                                  </tbody>
+                                </table>
                               </div>
                             </div>
                           </td>
@@ -540,6 +548,15 @@ export default {
       fetchOrderStats();
     };
     
+    // Reset filters
+    const resetFilters = () => {
+      searchQuery.value = '';
+      statusFilter.value = '';
+      dateRangeFilter.from = '';
+      dateRangeFilter.to = '';
+      applyFilters();
+    };
+    
     // Lifecycle hooks
     onMounted(() => {
       fetchOrders();
@@ -562,22 +579,14 @@ export default {
       error,
       locations,
       orderStats,
-      selectedOrderId,
-      selectedOrder,
-      orderDetailModalRef,
       expandedOrders,
-      
-      // Filters
       searchQuery,
       statusFilter,
       dateRangeFilter,
-      
-      // Pagination
       currentPage,
+      getAllOrderItems,
       pagination,
       paginationRange,
-      
-      // Methods
       formatLargeNumber,
       formatCurrency,
       formatDate,
@@ -589,11 +598,30 @@ export default {
       debounceSearch,
       applyFilters,
       changePage,
-      refreshData,  // Add this line
-      viewOrder
+      refreshData,
+      resetFilters,  // Add this new function
+      selectedOrderId,
+      selectedOrder,
+      orderDetailModalRef
     };
   }
 }
+
+// Helper function to get all items from all checkpoints in an order
+const getAllOrderItems = (order) => {
+  if (!order || !order.checkpoints) return [];
+  
+  // Flatten all items from all checkpoints into a single array
+  const allItems = [];
+  
+  for (const checkpoint of order.checkpoints) {
+    if (checkpoint.items && checkpoint.items.length) {
+      allItems.push(...checkpoint.items);
+    }
+  }
+  
+  return allItems;
+};
 </script>
 
 <style scoped>

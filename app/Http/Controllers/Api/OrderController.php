@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Models\Company;
 use App\Models\Checkpoint;
 use App\Models\Verify;
+use App\Models\Task;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
@@ -39,7 +40,18 @@ class OrderController extends Controller
             $page = $request->input('page', 1);
             
             // Get locations belonging to the company
-            $locations = Location::where('companyID', $companyID)->get();
+            $locationsQuery = Location::where('companyID', $companyID);
+            
+            // Apply search filter if provided (search by company_name)
+            if ($request->has('search') && !empty($request->search)) {
+                $searchTerm = '%' . $request->search . '%';
+                $locationsQuery->where(function($q) use ($searchTerm) {
+                    $q->where('company_address', 'LIKE', $searchTerm)
+                      ->orWhere('company_name', 'LIKE', $searchTerm);
+                });
+            }
+            
+            $locations = $locationsQuery->get();
             $locationIDs = $locations->pluck('locationID')->toArray();
             
             // Initialize array for organizing data
@@ -60,19 +72,59 @@ class OrderController extends Controller
                 }
                 
                 // Initialize location data structure
-                // Initialize location data structure
                 $groupedData[$locationID] = [
                     'locationID' => $locationID,
-                    'companyID' => $location->companyID, // Add this line to include companyID
+                    'companyID' => $location->companyID,
                     'company_address' => $location->company_address ?? 'Unknown Location',
+                    'company_name' => $location->company_name ?? '',
                     'location_type' => $location->location_type ?? 'Unknown Type',
                     'orders' => []
                 ];
                 
+                // Collect all order IDs for this location
+                $orderIDs = $checkpoints->pluck('orderID')->filter()->unique()->values()->toArray();
+                
+                // Apply date range filters if provided
+                $filteredOrderIDs = $orderIDs;
+                if (!empty($orderIDs) && ($request->has('date_from') || $request->has('date_to'))) {
+                    $orderQuery = Order::whereIn('orderID', $orderIDs);
+                    
+                    if ($request->has('date_from') && !empty($request->date_from)) {
+                        $orderQuery->whereDate('created_at', '>=', $request->date_from);
+                    }
+                    
+                    if ($request->has('date_to') && !empty($request->date_to)) {
+                        $orderQuery->whereDate('created_at', '<=', $request->date_to);
+                    }
+                    
+                    $filteredOrderIDs = $orderQuery->pluck('orderID')->toArray();
+                }
+                
+                // If no orders match the date filter, skip this location
+                if (empty($filteredOrderIDs)) {
+                    continue;
+                }
+                
+                // Preload all cart items for these orders to reduce database queries
+                $cartItemsByOrder = [];
+                if (!empty($filteredOrderIDs)) {
+                    $allCartItems = Cart::whereIn('orderID', $filteredOrderIDs)
+                        ->with(['item.poultry', 'item.location', 'item.slaughterhouse'])
+                        ->get();
+                    
+                    // Group cart items by order ID
+                    foreach ($allCartItems as $cartItem) {
+                        if (!isset($cartItemsByOrder[$cartItem->orderID])) {
+                            $cartItemsByOrder[$cartItem->orderID] = [];
+                        }
+                        $cartItemsByOrder[$cartItem->orderID][] = $cartItem;
+                    }
+                }
+                
                 // Group checkpoints by order
                 $orderCheckpoints = [];
                 foreach ($checkpoints as $checkpoint) {
-                    if (!$checkpoint->orderID) continue;
+                    if (!$checkpoint->orderID || !in_array($checkpoint->orderID, $filteredOrderIDs)) continue;
                     
                     $orderID = $checkpoint->orderID;
                     if (!isset($orderCheckpoints[$orderID])) {
@@ -84,10 +136,10 @@ class OrderController extends Controller
                 
                 // Process each order
                 foreach ($orderCheckpoints as $orderID => $checkpointList) {
-                    $order = Order::with(['user'])->find($orderID); // Removed payment from eager loading
+                    $order = Order::with(['user'])->find($orderID);
                     if (!$order) continue;
                     
-                    // Initialize order data - removed payment and items array
+                    // Initialize order data
                     $orderData = [
                         'orderID' => $orderID,
                         'order_status' => $order->order_status,
@@ -96,18 +148,55 @@ class OrderController extends Controller
                         'checkpoints' => []
                     ];
                     
+                    // Initialize status tracking variables
+                    $hasNoVerification = false;
+                    $hasIncompleteVerification = false;
+                    $allComplete = true;
+                    
                     // Process checkpoints for this order
                     foreach ($checkpointList as $checkpoint) {
+                        // Skip checkpoint with arrange_number 2 if its task is complete
+                        // or skip checkpoint with arrange_number 3 if the task for arrange_number 2 is pending
+                        if ($checkpoint->arrange_number == 2 || $checkpoint->arrange_number == 3) {
+                            // Find the checkpoint with arrange_number 2 for this order
+                            $checkpoint2 = null;
+                            foreach ($checkpointList as $cp) {
+                                if ($cp->arrange_number == 2) {
+                                    $checkpoint2 = $cp;
+                                    break;
+                                }
+                            }
+                            
+                            if ($checkpoint2) {
+                                // Get task for checkpoint with arrange_number 2
+                                $task = Task::where('checkID', $checkpoint2->checkID)->first();
+                                
+                                // Skip checkpoint 2 if its task is complete
+                                if ($checkpoint->arrange_number == 2 && $task && $task->task_status == 'complete') {
+                                    continue;
+                                }
+                                
+                                // Skip checkpoint 3 if the task for checkpoint 2 is pending
+                                if ($checkpoint->arrange_number == 3 && $task && $task->task_status == 'pending') {
+                                    continue;
+                                }
+                            }
+                        }
+                        
                         // Determine checkpoint status based on verifies
                         $checkpointStatus = 'pending';
                         
                         if (!$checkpoint->verifies || $checkpoint->verifies->isEmpty()) {
                             $checkpointStatus = 'pending';
+                            $hasNoVerification = true;
+                            $allComplete = false;
                         } else {
                             $hasIncomplete = false;
                             foreach ($checkpoint->verifies as $verify) {
                                 if ($verify->verify_status !== 'complete') {
                                     $hasIncomplete = true;
+                                    $hasIncompleteVerification = true;
+                                    $allComplete = false;
                                     break;
                                 }
                             }
@@ -126,19 +215,19 @@ class OrderController extends Controller
                                 ? $checkpoint->item_record 
                                 : json_decode($checkpoint->item_record, true);
                             
-                            if (is_array($itemIDs)) {
-                                // Get cart items for this order
-                                $cartItems = Cart::where('orderID', $orderID)
-                                    ->whereIn('itemID', $itemIDs)
-                                    ->get();
+                            if (is_array($itemIDs) && isset($cartItemsByOrder[$orderID])) {
+                                // Filter cart items for this checkpoint
+                                $relevantCartItems = array_filter($cartItemsByOrder[$orderID], function($cartItem) use ($itemIDs) {
+                                    return in_array($cartItem->itemID, $itemIDs);
+                                });
                                 
-                                foreach ($cartItems as $cartItem) {
-                                    $item = Item::with(['poultry', 'location', 'slaughterhouse'])
-                                        ->find($cartItem->itemID);
+                                foreach ($relevantCartItems as $cartItem) {
+                                    $item = $cartItem->item;
                                     
                                     if ($item) {
                                         $checkpointItems[] = [
                                             'itemID' => $item->itemID,
+                                            'cartID' => $cartItem->cartID,
                                             'item_name' => $item->poultry ? $item->poultry->poultry_name : 'Unknown',
                                             'measurement_type' => $item->measurement_type,
                                             'measurement_value' => $item->measurement_value,
@@ -165,30 +254,25 @@ class OrderController extends Controller
                         ];
                     }
                     
-                    // Calculate overall order status based on checkpoints
-                    $orderStatus = 'pending';
-                    $allCheckpointsHaveVerifies = true;
-                    $allCheckpointsComplete = true;
-                    
-                    foreach ($orderData['checkpoints'] as $checkpoint) {
-                        if ($checkpoint['checkpoint_status'] === 'pending') {
-                            $allCheckpointsHaveVerifies = false;
-                            $allCheckpointsComplete = false;
-                            break;
-                        } else if ($checkpoint['checkpoint_status'] === 'processing') {
-                            $allCheckpointsComplete = false;
-                        }
-                    }
-                    
-                    if (!$allCheckpointsHaveVerifies) {
-                        $orderStatus = 'waiting_verification';
-                    } else if (!$allCheckpointsComplete) {
-                        $orderStatus = 'processing';
+                    // Calculate order status based on the new requirements
+                    if ($hasNoVerification) {
+                        $orderStatus = 'waiting_for_delivery'; // Status 1: waiting for delivery
+                    } else if ($hasIncompleteVerification) {
+                        $orderStatus = 'in_progress'; // Status 2: in progress
+                    } else if ($allComplete) {
+                        $orderStatus = 'complete'; // Status 3: complete
                     } else {
-                        $orderStatus = 'complete';
+                        $orderStatus = 'waiting_for_delivery'; // Default to waiting for delivery
                     }
                     
                     $orderData['calculated_status'] = $orderStatus;
+                    
+                    // Apply status filter if provided
+                    if ($request->has('status') && !empty($request->status)) {
+                        if ($orderStatus !== $request->status) {
+                            continue; // Skip this order if it doesn't match the status filter
+                        }
+                    }
                     
                     // Add order data to location
                     $groupedData[$locationID]['orders'][$orderID] = $orderData;
@@ -196,6 +280,11 @@ class OrderController extends Controller
                 
                 // Convert orders from associative to indexed array
                 $groupedData[$locationID]['orders'] = array_values($groupedData[$locationID]['orders']);
+                
+                // Remove locations with no orders after filtering
+                if (empty($groupedData[$locationID]['orders'])) {
+                    unset($groupedData[$locationID]);
+                }
             }
             
             // Convert to array and paginate manually
@@ -497,7 +586,7 @@ class OrderController extends Controller
                             $locationMap[$locationID]['checkpoints'][] = [
                                 'checkID' => $checkpoint->checkID,
                                 'checkpoint_status' => $checkpointStatus,
-                                'timestamp' => $checkpoint->timestamp,
+                                'end_timestamp' => $checkpoint->end_timestamp,
                                 'notes' => $checkpoint->notes,
                                 'items' => $checkpointItems
                             ];

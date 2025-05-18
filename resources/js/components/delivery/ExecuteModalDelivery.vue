@@ -120,7 +120,7 @@
                                       </button>
                                       
                                       <button 
-                                        v-if="canScanLocation(route[1], 'start', startLocationID)" 
+                                        v-if="canScanLocation(route[1], 'start', startLocationID) && startLocation.location_status !== 'complete'" 
                                         class="btn btn-sm btn-primary"
                                         @click="scanQRCode(startLocation.checkpoints)"
                                       >
@@ -144,7 +144,7 @@
                                     </button>
                                     
                                     <button 
-                                      v-if="canScanLocation(route[1], 'start', startLocationID)" 
+                                      v-if="canScanLocation(route[1], 'start', startLocationID) && startLocation.location_status !== 'complete'" 
                                       class="btn btn-sm btn-primary"
                                       @click="scanQRCode(startLocation.checkpoints)"
                                     >
@@ -218,11 +218,11 @@
                                       </button>
                                       
                                       <button 
-                                        v-if="canScanLocation(route[1], 'end', endLocationID)" 
+                                        v-if="canScanLocation(route[1], 'end', endLocationID) && endLocation.location_status !== 'complete'" 
                                         class="btn btn-sm btn-primary"
                                         @click="scanQRCode(endLocation.checkpoints)"
                                       >
-                                        <i class="fas fa-qrcode me-1"></i> <span class="d-none d-sm-inline">Scan QR</span>
+                                        <i class="fas fa-qrcode me-1"></i> <span>Scan QR</span>
                                       </button>
                                     </div>
                                   </div>
@@ -234,7 +234,7 @@
                                     </button>
                                     
                                     <button 
-                                      v-if="canScanLocation(route[1], 'end', endLocationID)" 
+                                      v-if="canScanLocation(route[1], 'end', endLocationID) && endLocation.location_status !== 'complete'" 
                                       class="btn btn-sm btn-primary"
                                       @click="scanQRCode(endLocation.checkpoints)"
                                     >
