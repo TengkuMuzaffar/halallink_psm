@@ -122,7 +122,7 @@
               <div class="card-header theme-card-header">
                 <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center">
                   <div class="mb-2 mb-md-0">
-                    <span class="badge theme-badge-secondary me-2">{{ location.location_type }}</span>
+                    <span class="badge theme-badge-location me-2">{{ location.location_type }}</span>
                     <strong>{{ location.company_address }}</strong>
                   </div>
                   <div class="d-flex justify-content-between align-items-center">
@@ -168,7 +168,7 @@
                           </td>
                           <td><strong>#{{ order.orderID }}</strong></td>
                           <td>
-                            <span class="badge theme-badge-primary">
+                            <span class="badge" :class="`theme-badge-${getStatusColor(order.calculated_status || order.order_status)}`">
                               {{ formatStatus(order.calculated_status || order.order_status) }}
                             </span>
                           </td>
@@ -190,7 +190,7 @@
                                         <th style="width: auto; white-space: nowrap;">Cart ID</th>
                                         <th>Item</th>
                                         <th style="width: auto; white-space: nowrap;">Quantity</th>
-                                        <th style="width: auto; white-space: nowrap;" class="text-center">
+                                        <th v-if="isBroilerCompany" style="width: auto; white-space: nowrap;" class="text-center">
                                           <span class="d-none d-sm-inline">QR Download</span>
                                           <span class="d-inline d-sm-none">Download</span>
                                         </th>
@@ -208,7 +208,7 @@
                                           </div>
                                         </td>
                                         <td>{{ item.quantity }}</td>
-                                        <td class="text-center">
+                                        <td v-if="isBroilerCompany" class="text-center">
                                           <button 
                                             class="btn btn-sm btn-outline-primary" 
                                             @click="generateOrderQR(order.orderID)"
@@ -287,6 +287,7 @@ import OrderDetailModal from '../components/order/OrderDetailModal.vue';
 import { orderService } from '../services/orderService';
 import formatter from '../utils/formatter';
 import * as bootstrap from 'bootstrap';
+import { useStore } from 'vuex'; // Add this import
 
 export default {
   name: 'OrderManagement',
@@ -297,6 +298,9 @@ export default {
     OrderDetailModal
   },
   setup() {
+    // Add store
+    const store = useStore();
+    
     // State variables
     const loading = ref(true);
     const error = ref(null);
@@ -524,6 +528,15 @@ export default {
       }
     };
     
+    // Add computed property to check if user's company is a broiler
+    const isBroilerCompany = computed(() => {
+      const user = store.getters.user;
+      if (user && user.company) {
+        return user.company.company_type === 'broiler';
+      }
+      return false;
+    });
+    
     // Apply filters (status and date range)
     const applyFilters = () => {
       currentPage.value = 1; // Reset to first page when filtering
@@ -602,7 +615,8 @@ export default {
       resetFilters,  // Add this new function
       selectedOrderId,
       selectedOrder,
-      orderDetailModalRef
+      orderDetailModalRef,
+      isBroilerCompany, // Add this to the returned object
     };
   }
 }
@@ -712,6 +726,161 @@ const getAllOrderItems = (order) => {
   color: var(--primary-color);
 }
 
+.theme-badge-accent {
+  background-color: var(--accent-color);
+  color: var(--secondary-color);
+}
+
+/* List styles */
+.theme-list-item {
+  border-color: var(--border-color);
+  transition: background-color 0.2s ease;
+}
+
+.theme-list-item:hover {
+  background-color: var(--lighter-bg);
+}
+
+.theme-list-item-active {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+  color: var(--secondary-color);
+}
+
+.theme-list-item-active .text-muted {
+  color: rgba(239, 227, 194, 0.7) !important;
+}
+
+/* Table styles */
+.theme-table {
+  border-color: var(--border-color);
+}
+
+.theme-table-header {
+  background-color: var(--light-bg);
+  color: var(--primary-color);
+}
+
+.theme-inner-table {
+  border-color: var(--border-color);
+}
+
+/* Icon styles */
+.theme-icon {
+  color: var(--accent-color);
+}
+
+.theme-list-item-active .theme-icon {
+  color: var(--secondary-color);
+}
+
+/* Spinner */
+.theme-spinner {
+  color: var(--accent-color);
+}
+
+/* Details section */
+.theme-details {
+  background-color: var(--lighter-bg);
+}
+
+.theme-subtitle {
+  color: var(--primary-color);
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+/* Pagination */
+.theme-pagination-container {
+  background-color: var(--lighter-bg);
+  border-top: 1px solid var(--border-color);
+  padding: 0.75rem 1rem;
+}
+
+.theme-pagination-text {
+  color: var(--text-color);
+}
+
+.theme-pagination-link {
+  color: var(--primary-color);
+  border-color: var(--border-color);
+}
+
+.theme-pagination-link:hover {
+  background-color: var(--light-bg);
+  color: var(--primary-color);
+  border-color: var(--border-color);
+}
+
+.page-item.active .theme-pagination-link {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+  color: var(--secondary-color);
+}
+
+/* Base badge styles */
+.theme-badge {
+    color: #fff;
+    background-color: #123524;
+    padding: 0.35em 0.65em;
+    font-size: 0.75em;
+    font-weight: 700;
+    line-height: 1;
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: baseline;
+    border-radius: 0.25rem;
+}
+.theme-badge-location {
+    color: #fff;
+    background-color: #123524;
+    padding: 0.35em 0.65em;
+    font-size: 0.75em;
+    font-weight: 700;
+    line-height: 1;
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: baseline;
+    border-radius: 0.25rem;
+  }
+/* Badge color variants */
+.theme-badge-primary {
+  color: #fff;
+  background-color: #0d6efd;
+}
+
+.theme-badge-secondary {
+  color: #fff;
+  background-color: #6c757d;
+}
+
+.theme-badge-success {
+  color: #fff;
+  background-color: #198754;
+}
+
+.theme-badge-info {
+  color: #000;
+  background-color: #0dcaf0;
+}
+
+.theme-badge-warning {
+  color: #000;
+  background-color: #ffc107;
+}
+
+.theme-badge-danger {
+  color: #fff;
+  background-color: #dc3545;
+}
+
+.theme-badge-dark {
+  color: #fff;
+  background-color: #212529;
+}
+
+/* Other existing styles */
 .theme-badge-accent {
   background-color: var(--accent-color);
   color: var(--secondary-color);
