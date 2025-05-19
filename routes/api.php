@@ -108,7 +108,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/orders/{order}', [OrderController::class, 'update']);
 
     });
-
+    Route::middleware('role.company:both,slaughterhouse')->group(function () {
+        // Task routes
+        Route::get('/tasks', 'App\Http\Controllers\Api\TaskController@index');
+        Route::put('/tasks/{id}', 'App\Http\Controllers\Api\TaskController@update');
+    });
 
     // SME company type routes
     Route::middleware('role.company:both,sme')->group(function () {

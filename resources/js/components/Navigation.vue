@@ -5,7 +5,10 @@
         <li class="nav-item" v-for="item in navItems" :key="item.path">
           <router-link :to="item.path" class="nav-link" :class="{ active: isActive(item.path) }">
             <i :class="item.icon"></i>
-            <span>{{ item.label }}</span>
+            <span>
+              <span class="root-label">{{ item.rootLabel }}</span>
+              <span class="management-text">{{ item.managementText }}</span>
+            </span>
           </router-link>
         </li>
       </ul>
@@ -47,43 +50,70 @@ export default {
       return {};
     });
     
+    // Helper function to split label into root and management text
+    const splitLabel = (label) => {
+      if (label.includes('Management')) {
+        const parts = label.split(' Management');
+        return {
+          rootLabel: parts[0],
+          managementText: ' Management'
+        };
+      }
+      return {
+        rootLabel: label,
+        managementText: ''
+      };
+    };
+    
     // Define navigation items based on user role and company type
     const navItems = computed(() => {
-      const items = [
+      const baseItems = [
         { label: 'Dashboard', path: '/', icon: 'fas fa-tachometer-alt' }
       ];
       
       // Only show employee management for admins
       if (user.value && user.value.role === 'admin') {
-        items.push({ label: 'Employee Management', path: '/employees', icon: 'fas fa-users' });
+        baseItems.push({ label: 'Employee Management', path: '/employees', icon: 'fas fa-users' });
       }
       
       const companyType = userCompany.value?.company_type;
   
       if (companyType === 'admin') {
-        items.push({ label: 'Company Management', path: '/companies', icon: 'fas fa-building' });
-        items.push({ label: 'Poultry Management', path: '/poultries', icon: 'fas fa-feather' });
+        baseItems.push({ label: 'Company Management', path: '/companies', icon: 'fas fa-building' });
+        baseItems.push({ label: 'Poultry Management', path: '/poultries', icon: 'fas fa-feather' });
       }
       
       if (companyType === 'broiler') {
-        items.push({ label: 'Items Management', path: '/items', icon: 'fas fa-boxes' });
+        baseItems.push({ label: 'Items Management', path: '/items', icon: 'fas fa-boxes' });
       }
       
       // Add Vehicle Management for logistics companies
       if (companyType === 'logistic') {
-        items.push({ label: 'Vehicle Management', path: '/vehicles', icon: 'fas fa-truck' });
-        items.push({ label: 'Delivery Management', path: '/deliveries', icon: 'fas fa-route' }); // Add Delivery Management link
+        baseItems.push({ label: 'Vehicle Management', path: '/vehicles', icon: 'fas fa-truck' });
+        baseItems.push({ label: 'Delivery Management', path: '/deliveries', icon: 'fas fa-route' });
       }
       
       // Add Marketplace for SME users
       if (companyType === 'sme') {
-        items.push({ label: 'Marketplace', path: '/marketplace', icon: 'fas fa-store' });
+        baseItems.push({ label: 'Marketplace', path: '/marketplace', icon: 'fas fa-store' });
       }
       // Add Order Management link for broiler and sme
       if (companyType === 'slaughterhouse'|| companyType === 'broiler' || companyType === 'sme') {
-        items.push({ label: 'Order Management', path: '/orders', icon: 'fas fa-receipt' });
+        baseItems.push({ label: 'Order Management', path: '/orders', icon: 'fas fa-receipt' });
       }
-      return items;
+        // Add Task Management for slaughterhouse only
+        if (companyType === 'slaughterhouse') {
+          baseItems.push({ label: 'Task Management', path: '/tasks', icon: 'fas fa-tasks' });
+        }
+      // Process each item to split labels
+      return baseItems.map(item => {
+        const { rootLabel, managementText } = splitLabel(item.label);
+        return {
+          ...item,
+          rootLabel,
+          managementText
+        };
+      });
     });
     
     // Watch for changes to the user and log for debugging
@@ -154,6 +184,13 @@ export default {
   .nav-link i {
     margin-right: 0;
     font-size: 1.2rem;
+  }
+}
+
+/* Hide "Management" text on medium screens */
+@media (max-width: 992px) and (min-width: 769px) {
+  .management-text {
+    display: none;
   }
 }
 </style>

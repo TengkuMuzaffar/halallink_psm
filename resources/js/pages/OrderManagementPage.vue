@@ -3,7 +3,7 @@
     <h1 class="mb-4">Order Management</h1>
     
     <!-- Order Stats -->
-    <div class="row mb-4">
+    <div  v-if="isSMECompany"  class="row mb-4">
       <div class="col-md-3 col-sm-6 mb-3">
         <StatsCard 
           title="Total Orders" 
@@ -14,24 +14,24 @@
       </div>
       <div class="col-md-3 col-sm-6 mb-3">
         <StatsCard 
-          title="Pending Orders" 
-          :count="formatLargeNumber(orderStats.pending_orders)" 
+          title="Waiting For Delivery" 
+          :count="formatLargeNumber(orderStats.waiting_for_delivery_orders)" 
           icon="fas fa-hourglass-half" 
           bg-color="bg-warning"
         />
       </div>
       <div class="col-md-3 col-sm-6 mb-3">
         <StatsCard 
-          title="Processing Orders" 
-          :count="formatLargeNumber(orderStats.processing_orders)" 
+          title="In Progress" 
+          :count="formatLargeNumber(orderStats.in_progress_orders)" 
           icon="fas fa-cogs" 
           bg-color="bg-info"
         />
       </div>
       <div class="col-md-3 col-sm-6 mb-3">
         <StatsCard 
-          title="Completed Orders" 
-          :count="formatLargeNumber(orderStats.completed_orders)" 
+          title="Complete" 
+          :count="formatLargeNumber(orderStats.complete_orders)" 
           icon="fas fa-check-circle" 
           bg-color="bg-success"
         />
@@ -522,7 +522,20 @@ export default {
     const fetchOrderStats = async () => {
       try {
         const stats = await orderService.fetchOrderStats();
-        orderStats.value = stats;
+        console.log('Order stats response:', JSON.stringify(stats)); // Add debugging
+        
+        // Check if stats exist and have the expected format
+        if (stats && typeof stats === 'object') {
+          // Map the backend stats to our frontend structure
+          orderStats.value = {
+            total_orders: stats.total_orders || 0,
+            waiting_for_delivery_orders: stats.waiting_for_delivery_orders || 0,
+            in_progress_orders: stats.in_progress_orders || 0,
+            complete_orders: stats.complete_orders || 0
+          };
+        } else {
+          console.error('Invalid stats format received:', stats);
+        }
       } catch (err) {
         console.error('Error fetching order stats:', err);
       }
@@ -536,7 +549,14 @@ export default {
       }
       return false;
     });
-    
+    const isSMECompany = computed(() => {
+      const user = store.getters.user;
+      if (user && user.company) {
+        return user.company.company_type === 'sme';
+      }
+      return false;
+    });
+
     // Apply filters (status and date range)
     const applyFilters = () => {
       currentPage.value = 1; // Reset to first page when filtering

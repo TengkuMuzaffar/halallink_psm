@@ -420,7 +420,7 @@ class OrderController extends Controller
     /**
      * Get order statistics
      */
-    public function getStats()
+    public function getStats(Request $request)
     {
         try {
             $user = Auth::user();
@@ -515,22 +515,9 @@ class OrderController extends Controller
                         if (!isset($locationMap[$locationID])) {
                             $locationMap[$locationID] = [
                                 'locationID' => $locationID,
-                                'location_name' => $item->location ? $item->location->company_address : 'Unknown',
-                                'companyID' => $item->location? $item->location->companyID : 'Unknown',
-                                'location_status' => 'pending',
-                                'checkpoints' => [],
-                                'items' => []
+                                'checkpoints' => []
                             ];
                         }
-                        
-                        // Add item to the location's items list
-                        $locationMap[$locationID]['items'][$item->itemID] = [
-                            'itemID' => $item->itemID,
-                            'item_name' => $item->poultry ? $item->poultry->poultry_name : 'Unknown',
-                            'quantity' => $cartItem->quantity,
-                            'price_at_purchase' => $cartItem->price_at_purchase,
-                            'item_info' => $item
-                        ];
                     }
                 }
                 
@@ -603,7 +590,7 @@ class OrderController extends Controller
                 
                 // Calculate overall order status for broiler companies
                 if ($companyType === 'broiler') {
-                    $orderStatus = 'waiting_delivery';
+                    $orderStatus = 'waiting_for_delivery';
                     
                     if (count($locationMap) > 0) {
                         $allLocationsComplete = true;
@@ -639,7 +626,7 @@ class OrderController extends Controller
                         }
                         
                         if (!$allLocationsHaveVerifies) {
-                            $orderStatus = 'waiting_delivery';
+                            $orderStatus = 'waiting_for_delivery';
                         } else if (!$allLocationsComplete) {
                             $orderStatus = 'processing';
                         } else {

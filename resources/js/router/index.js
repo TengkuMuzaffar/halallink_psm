@@ -155,6 +155,16 @@ const routes = [
         }
       },
       {
+        path: '/tasks',
+        name: 'TaskManagement',
+        component: () => import('../pages/TaskManagementPage.vue'),
+        meta: {
+          requiresAuth: true,
+          requiresCompanyType: 'slaughterhouse', // Only for slaughterhouse
+          title: 'Task Management'
+        }
+      },
+      {
         path: '/vehicles',
         name: 'Vehicles',
         component: VehicleManagement,
