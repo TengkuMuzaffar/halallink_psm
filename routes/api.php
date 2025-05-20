@@ -112,6 +112,7 @@ Route::middleware('auth:sanctum')->group(function () {
         // Task routes
         Route::get('/tasks', 'App\Http\Controllers\Api\TaskController@index');
         Route::put('/tasks/{id}', 'App\Http\Controllers\Api\TaskController@update');
+        Route::get('/slaughterers/search', 'App\Http\Controllers\Api\TaskController@searchSlaughterers');
     });
 
     // SME company type routes

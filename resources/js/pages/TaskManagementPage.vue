@@ -7,7 +7,7 @@
       <div class="col-md-4 mb-3 mb-md-0">
         <StatsCard 
           title="Total Tasks" 
-          :count="taskStats.total || 0" 
+          :count="taskStats?.total || 0" 
           icon="fas fa-tasks" 
           bg-color="bg-primary"
         />
@@ -15,7 +15,7 @@
       <div class="col-md-4 mb-3 mb-md-0">
         <StatsCard 
           title="Completed Tasks" 
-          :count="taskStats.completed || 0" 
+          :count="taskStats?.completed || 0" 
           icon="fas fa-check-circle" 
           bg-color="bg-success"
         />
@@ -23,7 +23,7 @@
       <div class="col-md-4">
         <StatsCard 
           title="Pending Tasks" 
-          :count="taskStats.pending || 0" 
+          :count="taskStats?.pending || 0" 
           icon="fas fa-clock" 
           bg-color="bg-warning"
         />
@@ -82,7 +82,6 @@
     </div>
     
     <!-- Task Details Modal -->
-    <!-- Task Details Modal -->
     <div class="modal fade" id="taskDetailsModal" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog modal-lg">
         <div class="modal-content theme-modal">
@@ -135,6 +134,39 @@
                     <span class="info-label">Measurement:</span>
                     <span class="info-value">{{ selectedTask.measurement_value }} {{ selectedTask.measurement_type }}</span>
                   </div>
+                </div>
+              </div>
+              
+              <!-- Assigned User Section -->
+              <div class="mt-3 border-top pt-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <h6 class="mb-0">Assigned To</h6>
+                  <button 
+                    class="btn btn-sm btn-outline-primary" 
+                    @click="openAssignUserModal()"
+                    v-if="!selectedTask.userID"
+                  >
+                    <i class="fas fa-user-plus"></i> Assign
+                  </button>
+                  <button 
+                    class="btn btn-sm btn-outline-secondary" 
+                    @click="openAssignUserModal()"
+                    v-else
+                  >
+                    <i class="fas fa-user-edit"></i> Change
+                  </button>
+                </div>
+                <div v-if="selectedTask.userID && selectedTask.user_name" class="d-flex align-items-center">
+                  <div class="user-avatar me-2">
+                    <i class="fas fa-user-circle fa-2x text-primary"></i>
+                  </div>
+                  <div>
+                    <div class="fw-bold">{{ selectedTask.user_name }}</div>
+                    <div class="small text-muted">{{ selectedTask.user_email || 'No email available' }}</div>
+                  </div>
+                </div>
+                <div v-else class="text-muted fst-italic">
+                  No user assigned
                 </div>
               </div>
             </div>
@@ -320,6 +352,75 @@
         </div>
       </div>
     </div>
+    
+    <!-- Assign User Modal -->
+    <div class="modal fade" id="assignUserModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content theme-modal">
+          <div class="modal-header theme-header">
+            <h5 class="modal-title">Assign User to Task</h5>
+            <button type="button" class="btn-close theme-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body theme-body">
+            <div class="mb-3">
+              <label for="userSearch" class="form-label">Search Users</label>
+              <div class="input-group">
+                <input 
+                  type="text" 
+                  class="form-control" 
+                  id="userSearch" 
+                  v-model="userSearchQuery"
+                  @input="searchUsers"
+                  placeholder="Search by name or email"
+                >
+                <button class="btn btn-outline-secondary" type="button" @click="searchUsers">
+                  <i class="fas fa-search"></i>
+                </button>
+              </div>
+            </div>
+            
+            <div v-if="searchingUsers" class="text-center py-3">
+              <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+              </div>
+            </div>
+            
+            <div v-else-if="userSearchResults.length === 0" class="text-center py-3">
+              <p class="text-muted mb-0">No users found</p>
+            </div>
+            
+            <div v-else class="user-search-results" style="max-height: 300px; overflow-y: auto;">
+              <div 
+                v-for="user in userSearchResults" 
+                :key="user.userID"
+                class="user-search-item p-2 border-bottom d-flex align-items-center"
+                :class="{'selected': selectedUserId === user.userID}"
+                @click="selectUser(user)"
+              >
+                <div class="user-avatar me-2">
+                  <i class="fas fa-user-circle fa-2x text-primary"></i>
+                </div>
+                <div>
+                    <div class="fw-bold">{{ user.fullname || user.name }}</div>
+                    <div class="small text-muted">{{ user.email }}</div>
+                  </div>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer theme-footer">
+            <button type="button" class="btn btn-secondary" @click="cancelAssignUser()">Cancel</button>
+            <button 
+              type="button" 
+              class="btn btn-primary theme-btn-primary" 
+              @click="confirmAssignUser()"
+              :disabled="!selectedUserId"
+            >
+              Assign
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -350,6 +451,13 @@ export default {
     });
     const selectedTask = ref(null);
     
+    // User search state
+    const userSearchQuery = ref('');
+    const userSearchResults = ref([]);
+    const searchingUsers = ref(false);
+    const selectedUserId = ref(null);
+    const selectedUserData = ref(null);
+    
     // Table columns configuration
     const columns = [
       { key: 'deliveryID', label: 'Delivery ID', sortable: true },
@@ -374,6 +482,7 @@ export default {
     let taskDetailsModal = null;
     let startTaskConfirmModal = null;
     let completeTaskConfirmModal = null;
+    let assignUserModal = null;
     
     // Fetch tasks with current filters and pagination
     const fetchTasks = async () => {
@@ -593,6 +702,101 @@ export default {
       }
     };
     
+    // Search for users (slaughterers)
+    const searchUsers = async () => {
+      searchingUsers.value = true;
+      userSearchResults.value = [];
+      
+      try {
+        // Call the API even if search query is empty
+        const response = await taskService.searchSlaughterers(userSearchQuery.value);
+        console.log('Search Response:', JSON.stringify(response)); // Log the response to the console
+        if (response.success && response.data) {
+          userSearchResults.value = response.data;
+        } else {
+          console.error('Failed to search users:', response);
+          userSearchResults.value = [];
+        }
+      } catch (err) {
+        console.error('Error searching users:', err);
+        userSearchResults.value = [];
+      } finally {
+        searchingUsers.value = false;
+      }
+    };
+
+    // Select a user from search results
+    const selectUser = (user) => {
+      selectedUserId.value = user.userID;
+      selectedUserData.value = user;
+    };
+
+    // Open assign user modal
+    const openAssignUserModal = () => {
+      // Hide the task details modal
+      taskDetailsModal.hide();
+      
+      // Reset user search state
+      userSearchQuery.value = '';
+      userSearchResults.value = [];
+      selectedUserId.value = null;
+      selectedUserData.value = null;
+      
+      // Initialize and show the assign user modal
+      if (!assignUserModal) {
+        assignUserModal = new bootstrap.Modal(document.getElementById('assignUserModal'));
+      }
+      
+      assignUserModal.show();
+      searchUsers(); // Search immediately when opening the modal
+    };
+
+    // Cancel assign user
+    const cancelAssignUser = () => {
+      assignUserModal.hide();
+      
+      // Show the task details modal again
+      setTimeout(() => {
+        taskDetailsModal.show();
+      }, 500);
+    };
+
+    // Confirm assign user
+    const confirmAssignUser = async () => {
+      if (!selectedUserId.value) return;
+      
+      try {
+        const response = await taskService.updateTask(selectedTask.value.taskID, {
+          userID: selectedUserId.value
+        });
+        
+        // Hide the assign user modal
+        assignUserModal.hide();
+        
+        // Refresh the tasks data
+        await fetchTasks();
+        
+        // Show the task details modal again with refreshed data
+        setTimeout(() => {
+          // Find the updated task in the refreshed data
+          const updatedTask = tasks.value.find(t => t.taskID === selectedTask.value.taskID);
+          if (updatedTask) {
+            // Add user name and email to the task object for display
+            updatedTask.user_name = selectedUserData.value.fullname || selectedUserData.value.name;
+            updatedTask.user_email = selectedUserData.value.email;
+            selectedTask.value = updatedTask;
+          }
+          taskDetailsModal.show();
+        }, 500);
+      } catch (err) {
+        console.error('Error assigning user:', err);
+        alert('Failed to assign user. Please try again.');
+        
+        // Hide the assign user modal
+        assignUserModal.hide();
+      }
+    };
+    
     // Initialize component
     onMounted(() => {
       fetchTasks();
@@ -617,7 +821,18 @@ export default {
       cancelStartTask,
       cancelCompleteTask,
       confirmStartTask,
-      confirmCompleteTask
+      confirmCompleteTask,
+      
+      // Add user search related functions and state
+      userSearchQuery,
+      userSearchResults,
+      searchingUsers,
+      selectedUserId,
+      searchUsers,
+      selectUser,
+      openAssignUserModal,
+      cancelAssignUser,
+      confirmAssignUser
     };
   }
 };
@@ -819,5 +1034,35 @@ export default {
 
 .task-timeline > div:last-child {
   margin-bottom: 0;
+}
+
+.user-search-item {
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.user-search-item:hover {
+  background-color: rgba(0, 123, 255, 0.05);
+}
+
+.user-search-item.selected {
+  background-color: rgba(0, 123, 255, 0.1);
+}
+
+.user-avatar {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.info-item {
+  margin-bottom: 0.5rem;
+}
+
+.info-label {
+  font-weight: 600;
+  margin-right: 0.5rem;
 }
 </style>

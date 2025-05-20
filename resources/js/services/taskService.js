@@ -38,6 +38,21 @@ export const taskService = {
       method: 'put',
       data: taskData
     });
+  },
+  
+  /**
+   * Search for slaughterers (employees) by name
+   * @param {string} search - Search term
+   * @param {number} companyId - Optional company ID
+   * @returns {Promise} - Promise with search results
+   */
+  searchSlaughterers(search = '', companyId = null) {
+    const params = {};
+    // Only add search param if it's not empty
+    if (search) params.search = search;
+    if (companyId) params.company_id = companyId;
+    
+    return fetchData('/api/slaughterers/search', { params });
   }
 };
 

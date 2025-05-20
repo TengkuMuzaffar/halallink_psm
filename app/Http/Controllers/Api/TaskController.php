@@ -7,7 +7,8 @@ use Illuminate\Http\Request;
 use App\Models\Task;
 use App\Models\Verify;
 use App\Models\Cart;
-use App\Models\Location; // Added import for Location model
+use App\Models\Location;
+use App\Models\User; // Added import for User model
 use Illuminate\Support\Facades\DB;
 
 class TaskController extends Controller
@@ -25,7 +26,9 @@ class TaskController extends Controller
             ->select(
                 'tasks.*',
                 'trips.deliveryID',
-                'trips.orderID' // Added trips.orderID here
+                'trips.orderID',
+                'users.fullname as user_name',  // Add user name
+                'users.email as user_email' // Add user email
             )
             ->join('verifies', 'tasks.checkID', '=', 'verifies.checkID')
             ->join('checkpoints', 'tasks.checkID', '=', 'checkpoints.checkID')
@@ -33,7 +36,7 @@ class TaskController extends Controller
                 $join->on('tasks.checkID', '=', 'trips.start_checkID')
                     ->orOn('tasks.checkID', '=', 'trips.end_checkID');
             })
-            // Remove the problematic joins
+            ->leftJoin('users', 'tasks.userID', '=', 'users.userID') // Join users table
             ->where('verifies.verify_status', 'complete')
             ->orderBy('tasks.start_timestamp', 'asc'); // Oldest first (FIFO)
         
@@ -44,7 +47,8 @@ class TaskController extends Controller
                 $q->where('tasks.checkID', 'like', "%{$searchTerm}%")
                   ->orWhere('tasks.task_type', 'like', "%{$searchTerm}%")
                   ->orWhere('trips.deliveryID', 'like', "%{$searchTerm}%")
-                  ->orWhere('trips.orderID', 'like', "%{$searchTerm}%"); // Added trips.orderID to search
+                  ->orWhere('trips.orderID', 'like', "%{$searchTerm}%")
+                  ->orWhere('users.fullname', 'like', "%{$searchTerm}%"); // Add search by user name
             });
         }
         
@@ -138,6 +142,47 @@ class TaskController extends Controller
     }
 
     /**
+     * Search for slaughterers (employees) by name
+     * 
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+     */
+    public function searchSlaughterers(Request $request)
+    {
+        // Validate request
+        $request->validate([
+            'search' => 'nullable|string',
+            'company_id' => 'nullable|integer'
+        ]);
+        
+        // Get the authenticated user's company ID if not provided
+        $companyID = $request->input('company_id') ?? auth()->user()->companyID;
+        $searchTerm = $request->input('search', '');
+        
+        // Query users with slaughterhouse role from the same company
+        $query = User::where('companyID', $companyID)
+            ->where('role', 'employee');
+            
+        // Apply search if provided
+        if (!empty($searchTerm)) {
+            $query->where(function($q) use ($searchTerm) {
+                $q->where('fullname', 'like', "%{$searchTerm}%")
+                  ->orWhere('email', 'like', "%{$searchTerm}%");
+            });
+        }
+        
+        // Get results
+        $users = $query->select('userID', 'fullname', 'email')
+            ->orderBy('fullname')
+            ->get();
+            
+        return response()->json([
+            'success' => true,
+            'data' => $users
+        ]);
+    }
+    
+    /**
      * Update the specified task.
      *
      * @param  \Illuminate\Http\Request  $request
@@ -151,7 +196,8 @@ class TaskController extends Controller
             'task_status' => 'sometimes|string',
             'notes' => 'sometimes|string',
             'start_timestamp' => 'sometimes|date',
-            'finish_timestamp' => 'sometimes|date'
+            'finish_timestamp' => 'sometimes|date',
+            'userID' => 'sometimes|integer' // Added userID validation
         ]);
 
         // Find the task
