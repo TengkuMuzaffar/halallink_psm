@@ -240,6 +240,7 @@ export default {
           per_page: this.pagination.per_page
         });
 
+        console.log('API Response:', JSON.stringify(response, null, 4));
         if (response.success) {
           this.groupedDeliveries = response.data;
           this.pagination = response.pagination;

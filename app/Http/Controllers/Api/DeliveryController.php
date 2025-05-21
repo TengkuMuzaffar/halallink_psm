@@ -164,36 +164,43 @@ class DeliveryController extends Controller
                 $startCheckpoint = $trip->startCheckpoint;
                 
                 if (!$endCheckpoint || !$startCheckpoint) continue;
-                // Skip if not a slaughterhouse location
-                // Determine which checkpoint to use based on task status
+                // Determine which checkpoint to use based on task status and phase
                 $checkpointToUse = null;
                 $locationID = null;
                 
                 // Get the task for the end checkpoint
                 $task = Task::where('checkID', $endCheckpoint->checkID)->first();
                 
-                if ($task) {
-                    if ($task->task_status !== 'complete' && $task->start_timestamp === null) {
-                        // If task is not complete and hasn't started, use end checkpoint
-                        $checkpointToUse = $endCheckpoint;
-                    } else if ($task->task_status === 'complete' && 
-                              $task->start_timestamp !== null && 
-                              $task->finish_timestamp !== null) {
-                        // If task is complete with timestamps, use start checkpoint
-                        $checkpointToUse = $startCheckpoint;
+                // For phase 2 trips, we need to use the start checkpoint (which should be a slaughterhouse)
+                if ($item['phase'] == 2) {
+                    $checkpointToUse = $startCheckpoint;
+                } else {
+                    // For phase 1 trips, use the logic you already have
+                    if ($task) {
+                        if ($task->task_status !== 'complete' && $task->start_timestamp === null) {
+                            // If task is not complete and hasn't started, use end checkpoint
+                            $checkpointToUse = $endCheckpoint;
+                        } else if ($task->task_status === 'complete' && 
+                                  $task->start_timestamp !== null && 
+                                  $task->finish_timestamp !== null) {
+                            // If task is complete with timestamps, use start checkpoint
+                            $checkpointToUse = $startCheckpoint;
+                        } else {
+                            // Default to end checkpoint for other cases
+                            $checkpointToUse = $endCheckpoint;
+                        }
                     } else {
-                        // Default to end checkpoint for other cases
+                        // If no task found, default to end checkpoint
                         $checkpointToUse = $endCheckpoint;
                     }
-                } else {
-                    // If no task found, default to end checkpoint
-                    $checkpointToUse = $endCheckpoint;
                 }
                 
                 $locationID = $checkpointToUse->locationID;
                 $location = Location::find($locationID);
                 
-                if (!$location || $location->location_type !== 'slaughterhouse') continue;
+                // For phase 2, we need to check if the start location is a slaughterhouse
+                // For phase 1, we check if the end location is a slaughterhouse
+                if (!$location || ($item['phase'] == 1 && $location->location_type !== 'slaughterhouse')) continue;
 
                 if (!isset($groupedData[$locationID])) {
                     $groupedData[$locationID] = [
