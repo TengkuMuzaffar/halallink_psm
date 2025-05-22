@@ -26,6 +26,7 @@ class Cart extends Model
         'orderID',
         'quantity',
         'price_at_purchase',
+        'item_cart_delivered',
     ];
 
     /**
@@ -35,6 +36,7 @@ class Cart extends Model
      */
     protected $casts = [
         'price_at_purchase' => 'decimal:2',
+        'item_cart_delivered' => 'boolean',
     ];
 
     /**

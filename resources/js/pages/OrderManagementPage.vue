@@ -636,7 +636,8 @@ export default {
       selectedOrderId,
       selectedOrder,
       orderDetailModalRef,
-      isBroilerCompany, // Add this to the returned object
+      isBroilerCompany,
+      isSMECompany
     };
   }
 }

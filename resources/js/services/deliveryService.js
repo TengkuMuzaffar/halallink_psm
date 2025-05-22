@@ -18,7 +18,7 @@ const deliveryService = {
    * @param {Number} perPage - Items per page
    * @returns {Promise} - API response
    */
-  async getCreatedDeliveries(page = 1, perPage = 10) {
+  async getCreatedDeliveries(page = 1, perPage = 3) {
     return fetchData('/api/deliveries/created', {
       params: {
         page,
@@ -66,6 +66,18 @@ const deliveryService = {
       params: {
         scheduled_date
       }
+    });
+  },
+
+  /**
+   * Assign a single trip to a delivery
+   * @param {Object} data - Assignment data (deliveryID, tripID)
+   * @returns {Promise} - API response
+   */
+  async assignSingleTrip(data) {
+    return fetchData('/api/deliveries/assign-trip', {
+      method: 'POST',
+      data
     });
   },
 
@@ -165,16 +177,27 @@ const deliveryService = {
     }
   },
   
+  /**
+   * Assign a single trip to a delivery, and update delivery details.
+   * @param {Object} data - Assignment data (deliveryID, tripID, userID, vehicleID, scheduledDate)
+   * @returns {Promise} - API response
+   */
   async assignDelivery(data) {
-    // Ensure we have the minimum required fields
-    const assignmentData = {
-      deliveryID: data.deliveryID,
-      trips: data.trips || []
-    };
-    
     return fetchData('/api/deliveries/assign', {
-      method: 'post',
-      data: assignmentData
+      method: 'POST',
+      data
+    });
+  },
+
+  /**
+   * Create a new delivery record.
+   * @param {Object} deliveryData - Data for creating the delivery (e.g., phase, status)
+   * @returns {Promise} - API response
+   */
+  async createDelivery(deliveryData) {
+    return fetchData('/api/deliveries', { // Assuming POST /api/deliveries creates a delivery
+      method: 'POST',
+      data: deliveryData,
     });
   },
   

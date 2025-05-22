@@ -140,7 +140,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/deliveries/stats', [App\Http\Controllers\Api\DeliveryController::class, 'getDeliveryStats']);
         Route::get('/deliveries/{deliveryID}', [App\Http\Controllers\Api\DeliveryController::class, 'getDeliveryDetails']);
         Route::post('/deliveries/create', [App\Http\Controllers\Api\DeliveryController::class, 'createDelivery']);
-        Route::post('/deliveries/assign', [App\Http\Controllers\Api\DeliveryController::class, 'assignDelivery']);
+        // Route::post('/deliveries/assign', [App\Http\Controllers\Api\DeliveryController::class, 'assignDelivery']);
+        Route::post('/deliveries/assign-trip', [App\Http\Controllers\Api\DeliveryController::class, 'assignSingleTrip']);
         Route::put('/deliveries/{deliveryID}/status', [App\Http\Controllers\Api\DeliveryController::class, 'updateDeliveryStatus']);
         
         // Add the new route for execution deliveries

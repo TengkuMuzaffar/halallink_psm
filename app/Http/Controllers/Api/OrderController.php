@@ -238,7 +238,8 @@ class OrderController extends Controller
                                             'supplier_locationID' => $item->locationID,
                                             'supplier_location_address' => $item->location ? $item->location->company_address : 'Unknown',
                                             'slaughterhouse_locationID' => $item->slaughterhouse_locationID,
-                                            'slaughterhouse_location_address' => $item->slaughterhouse ? $item->slaughterhouse->company_address : 'N/A'
+                                            'slaughterhouse_location_address' => $item->slaughterhouse ? $item->slaughterhouse->company_address : 'N/A',
+                                            'item_cart_delivered' => $cartItem->item_cart_delivered
                                         ];
                                     }
                                 }

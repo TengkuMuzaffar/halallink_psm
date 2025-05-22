@@ -259,6 +259,25 @@ class VerifyController extends Controller
             $verify->verify_comment = $request->verify_comment;
             $verify->save();
             
+            // Check if verification has a checkID and update cart items if arrange_number is 4
+            $cartsUpdated = false;
+            if ($verify->checkID && $request->verify_status === 'complete') {
+                $checkpoint = Checkpoint::find($verify->checkID);
+                
+                if ($checkpoint && $checkpoint->arrange_number === 4) {
+                    // Get the order ID from the checkpoint
+                    $orderID = $checkpoint->orderID;
+                    
+                    if ($orderID) {
+                        // Update all cart items for this order to mark them as delivered
+                        $updated = Cart::where('orderID', $orderID)
+                            ->update(['item_cart_delivered' => true]);
+                        
+                        $cartsUpdated = $updated > 0;
+                    }
+                }
+            }
+            
             // Check if all verifications are complete and update delivery if needed
             $deliveryCompleted = false;
             if ($request->verify_status === 'complete') {
@@ -269,7 +288,8 @@ class VerifyController extends Controller
                 'status' => 'success',
                 'message' => 'Verification updated successfully',
                 'data' => $verify,
-                'delivery_completed' => $deliveryCompleted
+                'delivery_completed' => $deliveryCompleted,
+                'carts_updated' => $cartsUpdated
             ], 200);
             
         } catch (\Exception $e) {

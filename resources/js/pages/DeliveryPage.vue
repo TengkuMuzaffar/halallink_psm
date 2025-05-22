@@ -72,23 +72,18 @@
       
       <!-- Right column: DeliveryAssignment component -->
       <div class="col-lg-8 col-md-12">
-        <!-- Update the DeliveryAssignment component -->
         <DeliveryAssignment 
           v-if="activeTab === 'assign'"
           :loading="assignDeliveriesLoading"
           :error="assignError"
-          :locations="locations"
-          :selectedLocationID="selectedLocationID"
-          :groupedDeliveries="groupedDeliveries"
-          :pagination="pagination"
-          :isOrderExpanded="isOrderExpanded"
-          :calculateTotalMeasurement="calculateTotalMeasurement"
+          :trips="trips"
+          :pagination="tripsPagination"
           :selectedDeliveryID="selectedDeliveryID"
-          @change-location="handleLocationChange"
-          @change-page="changePage"
-          @toggle-details="toggleOrderDetails"
-          @assign-delivery="assignDelivery"
-          @refresh="refreshAssignDeliveries"
+          :activePhase="activePhase"
+          @refresh="fetchTrips"
+          @assign-trip="assignTrip"
+          @change-phase="handlePhaseChange"
+          @change-page="handleTripsPageChange"
         />
       </div>
     </div>
@@ -105,7 +100,7 @@
       />
     </div>
     <!-- Assign Delivery Modal Component -->
-    <DeliveryAssignmentModal
+    <!-- <DeliveryAssignmentModal
       ref="assignmentModal"
       :form="assignmentForm"
       :loading="assignmentLoading"
@@ -115,7 +110,7 @@
       :orderInfo="selectedOrderInfo"
       @submit="submitAssignment"
       @validation-error="handleValidationError"
-    />
+    /> -->
      <!-- Create Delivery Modal Component -->
     <DeliveryFormModal ref="deliveryFormModal" @delivery-created="onDeliveryCreated" />
   </div>
@@ -152,7 +147,15 @@ export default {
       // Separate error states for each tab
       assignError: null,
       executeError: null,
-      groupedDeliveries: {},
+      trips: [],
+      tripsPagination: {
+        current_page: 1,
+        last_page: 1,
+        per_page: 10,
+        total: 0,
+        from: 0,
+        to: 0
+      },
       executionDeliveries: {},
       pagination: {
         current_page: 1,
@@ -165,7 +168,7 @@ export default {
       createdDeliveriesPagination: {
         current_page: 1,
         last_page: 1,
-        per_page: 3,
+        per_page: 10,
         total: 0,
         from: 0,
         to: 0
@@ -206,60 +209,121 @@ export default {
       selectedOrderInfo: null,
       expandedDeliveries: {}, // Add this line to fix the error
       deliveryFormModal: null,
+      // Add active phase for filtering
+      activePhase: 1
     };
   },
   mounted() {
-    this.fetchDeliveryAssignmentTrips();
+    this.fetchTrips();
     this.fetchDeliveryStats();
     this.fetchCreatedDeliveries();
   },
   
   watch: {
-    // Add this watcher to load data when tab changes
-    activeTab(newTab) {
-      if (newTab === 'execute' && Object.keys(this.executionDeliveries).length === 0) {
-        this.refreshExecutionDeliveries();
-      } else if (newTab === 'assign') {
-        // Clear execute error when switching to assign tab
-        this.executeError = null;
-      } else if (newTab === 'execute') {
-        // Clear assign error when switching to execute tab
-        this.assignError = null;
+    activeTab: {
+      immediate: true,
+      handler(newTab) {
+        if (newTab === 'assign') {
+          this.fetchTrips();
+        } else if (newTab === 'execute' && Object.keys(this.executionDeliveries).length === 0) {
+          this.refreshExecutionDeliveries();
+        } else if (newTab === 'assign') {
+          // Clear execute error when switching to assign tab
+          this.executeError = null;
+        } else if (newTab === 'execute') {
+          // Clear assign error when switching to execute tab
+          this.assignError = null;
+        }
       }
     }
   },
   methods: {
-    async fetchDeliveryAssignmentTrips() {
+    async fetchTrips() {
       try {
         this.assignDeliveriesLoading = true;
-        this.assignError = null; // Reset assign error
+        this.assignError = null;
         
         const response = await deliveryService.getTrips({
           locationID: this.selectedLocationID,
-          page: this.pagination.current_page,
-          per_page: this.pagination.per_page
+          page: this.tripsPagination.current_page,
+          per_page: this.tripsPagination.per_page,
+          phase: this.activePhase
         });
-
+        
         console.log('API Response:', JSON.stringify(response, null, 4));
+        
         if (response.success) {
-          this.groupedDeliveries = response.data;
-          this.pagination = response.pagination;
+          this.trips = response.data;
+          this.tripsPagination = response.pagination;
         } else {
-          this.assignError = response.message || 'Failed to load delivery data';
+          this.assignError = 'Failed to fetch trips';
         }
       } catch (error) {
-        console.error('Error fetching delivery data:', error);
-        this.assignError = 'An unexpected error occurred while loading delivery data';
+        console.error('Error fetching trips:', error);
+        this.assignError = error.message || 'An error occurred while fetching trips';
       } finally {
         this.assignDeliveriesLoading = false;
       }
     },
-    
+    handlePhaseChange(phase) {
+      this.activePhase = phase;
+      this.fetchTrips();
+    },
+
+    handleTripsPageChange(page) {
+      this.currentPage = page;
+      this.fetchTrips();
+    },
+
+    async assignTrip(trip) {
+      try {
+        if (!this.selectedDeliveryID) {
+          this.assignError = 'Please select a delivery first';
+          return;
+        }
+
+        const response = await deliveryService.assignSingleTrip({
+          deliveryID: this.selectedDeliveryID,
+          tripID: trip.tripID
+        });
+
+        if (response && response.success) {
+          await this.fetchTrips();
+          await this.refreshCreatedDeliveries();
+           // Use showModal instead of modalUtil.showSuccess
+          showModal({
+            type: 'success',
+            title: 'Success',
+            message: response.message || 'Delivery assigned successfully',
+            buttons: [
+              { 
+                label: 'OK', 
+                type: 'success', 
+                dismiss: true,
+                onClick: () => {
+                  this.fetchTrips();
+                  this.fetchDeliveryStats();
+                  this.fetchCreatedDeliveries();
+                }
+              }
+            ]
+          });
+          // this.$toast.success('Trip assigned successfully');
+        } else {
+          this.assignError = (response && response.message) || 'Failed to assign trip';
+        }
+      } catch (error) {
+        console.error('Error assigning trip:', error);
+        this.assignError = error.message || 'An error occurred while assigning trip';
+      }
+    },
     // Add this new method
     deselectDelivery() {
+      console.log('Deselecting delivery, current selectedDeliveryID:', this.selectedDeliveryID);
       this.selectedDeliveryID = null;
-      // Refresh the delivery assignment data without a selected delivery
-      this.fetchDeliveryAssignmentTrips();
+      console.log('After deselection, selectedDeliveryID:', this.selectedDeliveryID);
+      // Use the correct method name
+      this.fetchTrips();
     },
     
     onDeliveryCreated() {
@@ -316,7 +380,7 @@ export default {
     selectDelivery(deliveryID) {
       this.selectedDeliveryID = deliveryID;
       // Refresh the delivery assignment data based on selected delivery
-      this.fetchDeliveryAssignmentTrips();
+      this.fetchTrips();
     },
     
     changeCreatedDeliveriesPage(page) {
@@ -351,7 +415,7 @@ export default {
     handleLocationChange(locationID) {
       this.selectedLocationID = locationID;
       this.pagination.current_page = 1;
-      this.fetchDeliveryAssignmentTrips();
+      this.fetchTrips();
     },
     
     refreshData() {
@@ -402,13 +466,14 @@ export default {
         
         const response = await deliveryService.getTrips({
           locationID: this.selectedLocationID,
-          page: this.pagination.current_page,
-          per_page: this.pagination.per_page
+          page: this.tripsPagination.current_page,
+          per_page: this.tripsPagination.per_page,
+          phase: this.activePhase // Add phase parameter to API request
         });
-        
+        console.log('API Response Assign Deliveries:', JSON.stringify(response, null, 4));
         if (response.success) {
           this.groupedDeliveries = response.data;
-          this.pagination = response.pagination;
+          this.tripsPagination = response.pagination;
         } else {
           this.assignError = response.message || 'Failed to load delivery data';
         }
@@ -428,7 +493,7 @@ export default {
       }
       
       this.pagination.current_page = page;
-      this.fetchDeliveryAssignmentTrips();
+      this.fetchTrips();
     },
     
     getPageNumbers() {
@@ -564,14 +629,14 @@ export default {
             // Set the order info
             this.selectedOrderInfo = orderData;
           } else {
-            console.log('Order not found in location data');
+            // console.log('Order not found in location data');
           }
         } else {
-          console.log('Location not found in groupedDeliveries');
+          // console.log('Location not found in groupedDeliveries');
         }
         
-        console.log('Final locationInfo:', this.locationInfo);
-        console.log('Final selectedOrderInfo:', this.selectedOrderInfo);
+        // console.log('Final locationInfo:', this.locationInfo);
+        // console.log('Final selectedOrderInfo:', this.selectedOrderInfo);
         
         // Show the modal
         this.$refs.assignmentModal.show();
@@ -604,51 +669,51 @@ export default {
       };
     },
     
-    async submitAssignment(data) {
-      try {
-        this.assignmentLoading = true;
-        const response = await deliveryService.assignDelivery(data);
+    // async submitAssignment(data) {
+    //   try {
+    //     this.assignmentLoading = true;
+    //     const response = await deliveryService.assignDelivery(data);
         
-        if (response.success) {
-          // this.selectedDeliveryID = null;
-          this.selectedOrderInfo = null;
+    //     if (response.success) {
+    //       // this.selectedDeliveryID = null;
+    //       this.selectedOrderInfo = null;
           
-          // Use showModal instead of modalUtil.showSuccess
-          showModal({
-            type: 'success',
-            title: 'Success',
-            message: response.message || 'Delivery assigned successfully',
-            buttons: [
-              { 
-                label: 'OK', 
-                type: 'success', 
-                dismiss: true,
-                onClick: () => {
-                  this.fetchDeliveryAssignmentTrips();
-                  this.fetchDeliveryStats();
-                  this.fetchCreatedDeliveries();
-                }
-              }
-            ]
-          });
-        } else {
-          showModal({
-            type: 'danger',
-            title: 'Error',
-            message: response.message || 'Failed to assign delivery'
-          });
-        }
-      } catch (error) {
-        console.error('Error assigning delivery:', error);
-        showModal({
-          type: 'danger',
-          title: 'Error',
-          message: error.message || 'An unexpected error occurred'
-        });
-      } finally {
-        this.assignmentLoading = false;
-      }
-    },
+    //       // Use showModal instead of modalUtil.showSuccess
+    //       showModal({
+    //         type: 'success',
+    //         title: 'Success',
+    //         message: response.message || 'Delivery assigned successfully',
+    //         buttons: [
+    //           { 
+    //             label: 'OK', 
+    //             type: 'success', 
+    //             dismiss: true,
+    //             onClick: () => {
+    //               this.fetchTrips();
+    //               this.fetchDeliveryStats();
+    //               this.fetchCreatedDeliveries();
+    //             }
+    //           }
+    //         ]
+    //       });
+    //     } else {
+    //       showModal({
+    //         type: 'danger',
+    //         title: 'Error',
+    //         message: response.message || 'Failed to assign delivery'
+    //       });
+    //     }
+    //   } catch (error) {
+    //     console.error('Error assigning delivery:', error);
+    //     showModal({
+    //       type: 'danger',
+    //       title: 'Error',
+    //       message: error.message || 'An unexpected error occurred'
+    //     });
+    //   } finally {
+    //     this.assignmentLoading = false;
+    //   }
+    // },
     
     handleValidationError(message) {
       // Use showModal for validation errors
@@ -718,81 +783,81 @@ export default {
     handleExecutionFilterChange(filters) {
       this.refreshExecutionDeliveries(filters);
     },
-    async submitAssignment(formData) {
-      this.assignmentLoading = true;
+    // async submitAssignment(formData) {
+    //   this.assignmentLoading = true;
       
-      try {
-        console.log('Submitting assignment with data:', formData);
+    //   try {
+    //     console.log('Submitting assignment with data:', formData);
         
-        // Prepare the data for the API call
-        const assignmentData = {
-          locationID: formData.locationID,
-          orderID: formData.orderID,
-          userID: formData.userID,
-          vehicleID: formData.vehicleID,
-          scheduledDate: formData.scheduledDate,
-          deliveryID: formData.deliveryID || null
-        };
+    //     // Prepare the data for the API call
+    //     const assignmentData = {
+    //       locationID: formData.locationID,
+    //       orderID: formData.orderID,
+    //       userID: formData.userID,
+    //       vehicleID: formData.vehicleID,
+    //       scheduledDate: formData.scheduledDate,
+    //       deliveryID: formData.deliveryID || null
+    //     };
         
-        // If trips are available, include them
-        if (formData.trips && formData.trips.length > 0) {
-          assignmentData.trips = formData.trips;
-        }
+    //     // If trips are available, include them
+    //     if (formData.trips && formData.trips.length > 0) {
+    //       assignmentData.trips = formData.trips;
+    //     }
         
-        // Include fromLocation and toLocation if available
-        if (formData.fromLocation) {
-          assignmentData.fromLocation = formData.fromLocation;
-        }
+    //     // Include fromLocation and toLocation if available
+    //     if (formData.fromLocation) {
+    //       assignmentData.fromLocation = formData.fromLocation;
+    //     }
         
-        if (formData.toLocation) {
-          assignmentData.toLocation = formData.toLocation;
-        }
+    //     if (formData.toLocation) {
+    //       assignmentData.toLocation = formData.toLocation;
+    //     }
         
-        const response = await deliveryService.assignDelivery(assignmentData);
+    //     const response = await deliveryService.assignDelivery(assignmentData);
         
-        if (response.success) {
-          // Reset the selected order info
-          this.selectedOrderInfo = null;
+    //     if (response.success) {
+    //       // Reset the selected order info
+    //       this.selectedOrderInfo = null;
           
-          // Use showModal instead of modalUtil.showSuccess
-          showModal({
-            type: 'success',
-            title: 'Success',
-            message: response.message || 'Delivery assigned successfully',
-            buttons: [
-              { 
-                label: 'OK', 
-                type: 'success', 
-                dismiss: true,
-                onClick: () => {
-                  this.$refs.assignmentModal.hide();
-                  this.fetchDeliveryAssignmentTrips();
-                  this.fetchDeliveryStats();
-                  this.fetchCreatedDeliveries();
-                }
-              }
-            ]
-          });
-        } else {
-          // Use showModal for error messages too
-          showModal({
-            type: 'danger',
-            title: 'Error',
-            message: response.message || 'Failed to assign delivery'
-          });
-        }
-      } catch (error) {
-        console.error('Error assigning delivery:', error);
-        // Use showModal for caught errors
-        showModal({
-          type: 'danger',
-          title: 'Error',
-          message: error.message || 'An unexpected error occurred'
-        });
-      } finally {
-        this.assignmentLoading = false;
-      }
-    },
+    //       // Use showModal instead of modalUtil.showSuccess
+    //       showModal({
+    //         type: 'success',
+    //         title: 'Success',
+    //         message: response.message || 'Delivery assigned successfully',
+    //         buttons: [
+    //           { 
+    //             label: 'OK', 
+    //             type: 'success', 
+    //             dismiss: true,
+    //             onClick: () => {
+    //               this.$refs.assignmentModal.hide();
+    //               this.fetchTrips();
+    //               this.fetchDeliveryStats();
+    //               this.fetchCreatedDeliveries();
+    //             }
+    //           }
+    //         ]
+    //       });
+    //     } else {
+    //       // Use showModal for error messages too
+    //       showModal({
+    //         type: 'danger',
+    //         title: 'Error',
+    //         message: response.message || 'Failed to assign delivery'
+    //       });
+    //     }
+    //   } catch (error) {
+    //     console.error('Error assigning delivery:', error);
+    //     // Use showModal for caught errors
+    //     showModal({
+    //       type: 'danger',
+    //       title: 'Error',
+    //       message: error.message || 'An unexpected error occurred'
+    //     });
+    //   } finally {
+    //     this.assignmentLoading = false;
+    //   }
+    // },
     openCreateDeliveryModal() {
       const modalElement = document.getElementById('deliveryFormModal');
       if (modalElement) {

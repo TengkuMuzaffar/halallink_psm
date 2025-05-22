@@ -199,14 +199,14 @@ const routes = [
         component: OrderManagement,
         meta: { 
           requiresAuth: true,
-          requiresCompanyTypes: ['broiler', 'slaughterhouse'],
+          requiresCompanyTypes: ['broiler', 'slaughterhouse','sme'],
           title: 'Order Management'
         },
         beforeEnter: (to, from, next) => {
           const user = store.getters.user;
           const companyType = user?.company?.company_type;
           
-          if (!companyType || !['broiler', 'slaughterhouse'].includes(companyType)) {
+          if (!companyType || !['broiler', 'slaughterhouse','sme'].includes(companyType)) {
             next({ name: 'Unauthorized' });
             return;
           }
