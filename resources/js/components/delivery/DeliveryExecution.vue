@@ -3,20 +3,13 @@
     <div class="card theme-card">
       <div class="card-header d-flex justify-content-between align-items-center theme-header">
         <h5 class="mb-0">Execute Deliveries</h5>
-        <button class="btn btn-sm theme-btn-outline" @click="$emit('refresh')">
+        <button class="btn btn-sm theme-btn-outline" @click="handleRefresh">
           <i class="fas fa-sync-alt"></i>
         </button>
       </div>
       
       <div class="card-body theme-body">
-        <div v-if="loading" class="text-center p-4">
-          <div class="spinner-border theme-spinner" role="status">
-            <span class="visually-hidden">Loading...</span>
-          </div>
-          <p class="mt-2 theme-text">Loading delivery data...</p>
-        </div>
-        
-        <div v-else-if="error" class="alert alert-danger">
+        <div v-if="error" class="alert alert-danger">
           {{ error }}
         </div>
         
@@ -57,7 +50,7 @@
             :columns="columns"
             :items="filteredDeliveries"
             :loading="loading"
-            :has-actions="false"
+            :has-actions="true"
             item-key="deliveryID"
           >
             <!-- Status column slot -->
@@ -98,13 +91,15 @@ import { fetchData } from '../../utils/api';
 import * as modalUtil from '../../utils/modal';
 import ResponsiveTable from '../ui/ResponsiveTable.vue';
 import ExecuteModalDelivery from './ExecuteModalDelivery.vue';
+import LoadingSpinner from '../ui/LoadingSpinner.vue';
 import deliveryService from '../../services/deliveryService';
 
 export default {
   name: 'DeliveryExecution',
   components: {
     ResponsiveTable,
-    ExecuteModalDelivery
+    ExecuteModalDelivery,
+    LoadingSpinner
   },
   props: {
     deliveries: {
@@ -114,11 +109,14 @@ export default {
     drivers: {
       type: Array,
       default: () => []
+    },
+    loading: {
+      type: Boolean,
+      default: false
     }
   },
   data() {
     return {
-      loading: false,
       modalLoading: false,
       error: null,
       selectedDelivery: null,
@@ -130,7 +128,6 @@ export default {
         { key: 'driver.fullname', label: 'Driver', sortable: true },
         { key: 'vehicle.vehicle_plate', label: 'Vehicle', sortable: true },
         { key: 'status', label: 'Status', sortable: true },
-        { key: 'actions', label: 'Actions', sortable: false }
       ]
     };
   },
@@ -223,6 +220,9 @@ export default {
         this.modalLoading = false;
         this.$refs.executeModal.showModal();
       });
+    },
+    handleRefresh() {
+      this.$emit('refresh');
     },
      // Add this new method to apply filters
     applyFilters(deliveriesArray) {

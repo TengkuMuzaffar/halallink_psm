@@ -101,9 +101,6 @@
             </table>
           </div>
 
-          <!-- Pagination -->
-          <!-- Replace the existing pagination div with: -->
-          <!-- Replace this condition -->
           <!-- Show pagination whenever we have pagination data -->
           <div v-if="pagination" class="p-3 border-top">
             <Pagination 
