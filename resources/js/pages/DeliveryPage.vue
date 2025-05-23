@@ -225,8 +225,9 @@ export default {
       handler(newTab) {
         if (newTab === 'assign') {
           this.fetchTrips();
-        } else if (newTab === 'execute' && Object.keys(this.executionDeliveries).length === 0) {
-          this.refreshExecutionDeliveries();
+        } else if (newTab === 'execute') {
+          // Pass filters when switching to execute tab
+          this.refreshExecutionDeliveries({});
         } else if (newTab === 'assign') {
           // Clear execute error when switching to assign tab
           this.executeError = null;

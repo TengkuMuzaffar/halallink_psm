@@ -40,17 +40,20 @@
                 >
               </div>
             </div>
+            <!-- Add Search Input -->
             <div class="col-md-4">
               <div class="form-group">
-                <label for="driverFilter" class="form-label theme-label">Filter by Driver</label>
-                <select id="driverFilter" v-model="driverFilter" class="form-select theme-select">
-                  <option value="">All Drivers</option>
-                  <option v-for="driver in drivers" :key="driver.userID" :value="driver.userID">
-                    {{ driver.name }}
-                  </option>
-                </select>
+                <label for="searchInput" class="form-label theme-label">Search</label>
+                <input 
+                  type="text" 
+                  id="searchInput" 
+                  v-model="searchTerm" 
+                  class="form-control theme-input"
+                  placeholder="Search by ID, Driver, Vehicle..."
+                >
               </div>
             </div>
+           
           </div>
           
           <ResponsiveTable
@@ -58,6 +61,7 @@
             :items="filteredDeliveries"
             :loading="loading"
             :has-actions="true"
+            :show-filters="false"
             item-key="deliveryID"
           >
             <!-- Status column slot -->
@@ -129,7 +133,7 @@ export default {
       selectedDelivery: null,
       statusFilter: '',
       dateFilter: '',
-      driverFilter: '',
+      searchTerm: '', // Add searchTerm data property
       columns: [
         { key: 'deliveryID', label: 'ID', sortable: true },
         { key: 'driver.fullname', label: 'Driver', sortable: true },
@@ -181,7 +185,7 @@ export default {
 
       // Create a copy of the delivery to avoid modifying the original
       const transformedDelivery = { ...delivery };
-      
+
       // Transform routes from object to array if it's an object
       if (transformedDelivery.routes && typeof transformedDelivery.routes === 'object' && !Array.isArray(transformedDelivery.routes)) {
         transformedDelivery.routes = Object.values(transformedDelivery.routes).map(route => {
@@ -189,11 +193,11 @@ export default {
           if (!route.routeID && route.start_location && route.end_location) {
             route.routeID = `${route.start_location.locationID}-${route.end_location.locationID}`;
           }
-          
+
           // Transform start_location
           if (route.start_location) {
             route.start_location.address = route.start_location.company_address;
-            
+
             // Transform checkpoints to items if needed
             if (route.start_location.checkpoints && Array.isArray(route.start_location.checkpoints)) {
               route.start_location.items = {};
@@ -204,11 +208,11 @@ export default {
               });
             }
           }
-          
+
           // Transform end_location
           if (route.end_location) {
             route.end_location.address = route.end_location.company_address;
-            
+
             // Transform checkpoints to items if needed
             if (route.end_location.checkpoints && Array.isArray(route.end_location.checkpoints)) {
               route.end_location.items = {};
@@ -219,11 +223,11 @@ export default {
               });
             }
           }
-          
+
           return route;
         });
       }
-      
+
       // Set the transformed delivery
       this.selectedDelivery = transformedDelivery;
       // Show the modal
@@ -237,16 +241,17 @@ export default {
       this.$emit('refresh', {
         status: this.statusFilter,
         date: this.dateFilter,
-        driver: this.driverFilter
+        searchTerm: this.searchTerm // Include searchTerm
       });
     },
      applyFilters(deliveriesArray) {
+       const lowerSearchTerm = this.searchTerm.toLowerCase(); // Convert search term to lowercase once
        return deliveriesArray.filter(delivery => {
          // Status filter
          if (this.statusFilter && delivery.status !== this.statusFilter) {
            return false;
          }
-         
+
          // Date filter
          if (this.dateFilter) {
            const utcDate = new Date(delivery.scheduled_date);
@@ -256,12 +261,22 @@ export default {
              return false;
            }
          }
-         
-         // Driver filter
-         if (this.driverFilter && delivery.userID !== this.driverFilter) {
-           return false;
+
+         // Search filter
+         if (lowerSearchTerm) {
+           const deliveryID = delivery.deliveryID ? String(delivery.deliveryID).toLowerCase() : '';
+           const driverName = delivery.driver?.fullname ? delivery.driver.fullname.toLowerCase() : '';
+           const vehiclePlate = delivery.vehicle?.vehicle_plate ? delivery.vehicle.vehicle_plate.toLowerCase() : '';
+
+           if (
+             !deliveryID.includes(lowerSearchTerm) &&
+             !driverName.includes(lowerSearchTerm) &&
+             !vehiclePlate.includes(lowerSearchTerm)
+           ) {
+             return false;
+           }
          }
-         
+
          return true;
        });
      },
@@ -269,7 +284,7 @@ export default {
     startDelivery(deliveryID) {
       // Implement your logic to start the delivery
       console.log('Starting delivery:', deliveryID);
-      
+
       // Example implementation:
       this.loading = true;
       deliveryService.startDelivery(deliveryID)
@@ -304,47 +319,7 @@ export default {
       this.$emit('filter-changed', {
         statusFilter: this.statusFilter,
         dateFilter: this.dateFilter,
-        driverFilter: this.driverFilter
       });
-    },
-    
-    printQRCode(delivery) {
-      const printWindow = window.open('', '_blank');
-      printWindow.document.write(`
-        <html>
-          <head>
-            <title>Delivery QR Code - #${delivery.deliveryID}</title>
-            <style>
-              body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
-              .container { max-width: 400px; margin: 0 auto; }
-              img { max-width: 100%; height: auto; }
-              .info { margin-top: 20px; text-align: left; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <h2>Delivery QR Code</h2>
-              <img src="${this.qrCodeUrl}" alt="QR Code">
-              <div class="info">
-                <p><strong>Delivery ID:</strong> ${delivery.deliveryID}</p>
-                <p><strong>From:</strong> ${delivery.from?.company_address || 'N/A'}</p>
-                <p><strong>To:</strong> ${delivery.to?.company_address || 'N/A'}</p>
-                <p><strong>Driver:</strong> ${delivery.driver?.name || 'N/A'}</p>
-                <p><strong>Vehicle:</strong> ${delivery.vehicle?.vehicle_plate || 'N/A'}</p>
-              </div>
-            </div>
-          </body>
-        </html>
-      `);
-      
-      printWindow.document.close();
-      printWindow.focus();
-      
-      // Print after a short delay to ensure content is loaded
-      setTimeout(() => {
-        printWindow.print();
-        printWindow.close();
-      }, 250);
     },
     
     async submitStatusUpdate(delivery, newStatus, statusNotes) {
@@ -382,22 +357,17 @@ export default {
       this.$emit('filter-changed', {
         status: this.statusFilter,
         date: this.dateFilter,
-        driver: this.driverFilter
       });
     },
     dateFilter() {
       this.$emit('filter-changed', {
         status: this.statusFilter,
         date: this.dateFilter,
-        driver: this.driverFilter
       });
     },
-    driverFilter() {
-      this.$emit('filter-changed', {
-        status: this.statusFilter,
-        date: this.dateFilter,
-        driver: this.driverFilter
-      });
+    searchTerm() { // Add watch for searchTerm
+       // No need to emit filter-changed here, as filteredDeliveries computed property will react
+       // and update the table automatically.
     }
     
   }

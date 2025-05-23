@@ -244,7 +244,7 @@ const deliveryService = {
       params: {
         statusFilter: filters.status || '',
         dateFilter: filters.date || '',
-        driverFilter: filters.driver || ''
+        searchTerm: filters.searchTerm || '', // Add searchTerm parameter
       }
     });
   },

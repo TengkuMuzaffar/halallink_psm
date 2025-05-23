@@ -21,11 +21,17 @@ use DateTimeZone;
 
 class ExecuteDeliveriesController extends Controller
 {
+    /**
+     * Get deliveries for execution based on user role and filters.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function index(Request $request)
     {
         try {
             Log::info('ExecuteDeliveriesController: Starting index method');
-            
+
             // Get the authenticated user
             $user = Auth::user();
             Log::info('ExecuteDeliveriesController: Authenticated user', [
@@ -33,11 +39,11 @@ class ExecuteDeliveriesController extends Controller
                 'role' => $user->role,
                 'companyID' => $user->companyID ?? 'null'
             ]);
-            
+
             // Start with a base query to get all trips with non-null deliveryID
             Log::info('ExecuteDeliveriesController: Building base query for trips');
             $tripsQuery = Trip::whereNotNull('deliveryID');
-            
+
             // Apply role-based filtering
             if ($user->role === 'employee') {
                 Log::info('ExecuteDeliveriesController: Applying employee filter', [
@@ -54,14 +60,14 @@ class ExecuteDeliveriesController extends Controller
                     $q->where('companyID', $user->companyID);
                 });
             }
-            
+
             // Apply status filter if provided
             if ($request->has('statusFilter') && !empty($request->statusFilter)) {
                 $status = $request->statusFilter;
                 Log::info('ExecuteDeliveriesController: Applying status filter', [
                     'status' => $status
                 ]);
-                
+
                 $tripsQuery->whereHas('delivery', function($q) use ($status) {
                     if ($status === 'pending') {
                         $q->whereNull('start_timestamp')->whereNull('end_timestamp');
@@ -72,52 +78,63 @@ class ExecuteDeliveriesController extends Controller
                     }
                 });
             }
-            
+
             // Apply date filter if provided
             if ($request->has('dateFilter') && !empty($request->dateFilter)) {
                 $date = $request->dateFilter;
                 Log::info('ExecuteDeliveriesController: Applying date filter', [
                     'date' => $date
                 ]);
-                
+
                 $tripsQuery->whereHas('delivery', function($q) use ($date) {
-                    // Convert the input date to UTC before comparison
-                    $utcDate = new DateTime($date, new DateTimeZone('Asia/Kuala_Lumpur'));
-                    $utcDate->setTimezone(new DateTimeZone('UTC'));
-                    $q->whereDate('scheduled_date', $utcDate->format('Y-m-d'));
+                    $q->whereDate('scheduled_date', $date);
                 });
             }
-            
-            // Apply driver filter if provided
-            if ($request->has('driverFilter') && !empty($request->driverFilter)) {
-                $driverID = $request->driverFilter;
-                Log::info('ExecuteDeliveriesController: Applying driver filter', [
-                    'driverID' => $driverID
+
+           
+
+            // Apply search term filter
+            if ($request->has('searchTerm') && !empty($request->searchTerm)) {
+                $searchTerm = $request->searchTerm;
+                Log::info('ExecuteDeliveriesController: Applying search term filter', [
+                    'searchTerm' => $searchTerm
                 ]);
-                
-                $tripsQuery->whereHas('delivery', function($q) use ($driverID) {
-                    $q->where('userID', $driverID);
+
+                $tripsQuery->where(function($query) use ($searchTerm) {
+                    // Search by Delivery ID
+                    $query->whereHas('delivery', function($q) use ($searchTerm) {
+                        $q->where('deliveryID', 'like', '%' . $searchTerm . '%');
+                    })
+                    // Search by Driver Name
+                    ->orWhereHas('delivery.user', function($q) use ($searchTerm) {
+                        $q->where('fullname', 'like', '%' . $searchTerm . '%');
+                    })
+                    // Search by Vehicle Plate
+                    ->orWhereHas('delivery.vehicle', function($q) use ($searchTerm) {
+                        $q->where('vehicle_plate', 'like', '%' . $searchTerm . '%');
+                    });
                 });
             }
-            
+
+
             // Eager load relationships
             $tripsQuery->with([
-                'delivery.user', 
+                'delivery.user',
                 'delivery.vehicle',
                 'startCheckpoint.location',
                 'endCheckpoint.location',
                 'order.carts.item.poultry'
             ]);
-            
+
             // Execute the query
             $trips = $tripsQuery->get();
             Log::info('ExecuteDeliveriesController: Found ' . $trips->count() . ' trips');
-            
+
             // Group trips by deliveryID
             $deliveryGroups = $trips->groupBy('deliveryID');
-            
+
             $result = [];
-            
+
             // If no trips found, return empty data array
             if ($trips->isEmpty()) {
                 return response()->json([
@@ -125,16 +142,16 @@ class ExecuteDeliveriesController extends Controller
                     'data' => []
                 ]);
             }
-            
+
             foreach ($deliveryGroups as $deliveryID => $deliveryTrips) {
                 Log::info('ExecuteDeliveriesController: Processing delivery', [
                     'deliveryID' => $deliveryID,
                     'trip_count' => $deliveryTrips->count()
                 ]);
-                
+
                 // Get the delivery details
                 $delivery = $deliveryTrips->first()->delivery;
-                
+
                 // Initialize the delivery data structure
                 $deliveryData = [
                     'deliveryID' => $deliveryID,
@@ -146,29 +163,29 @@ class ExecuteDeliveriesController extends Controller
                         'vehicleID' => $delivery->vehicle->vehicleID ?? null,
                         'vehicle_plate' => $delivery->vehicle->vehicle_plate ?? 'Unknown'
                     ],
-                    'status' => $delivery->end_timestamp ? 'completed' : 
+                    'status' => $delivery->end_timestamp ? 'completed' :
                             ($delivery->start_timestamp ? 'in_progress' : 'pending'),
                     'scheduled_date' => $delivery->scheduled_date,
                     'start_timestamp' => $delivery->start_timestamp,
                     'end_timestamp' => $delivery->end_timestamp,
                     'routes' => []
                 ];
-                
+
                 // Collect all unique locations
                 $startLocations = [];
                 $endLocations = [];
                 $locationCheckpoints = [];
                 $locationItems = [];
-                
+
                 // First pass: collect all locations and their checkpoints
                 foreach ($deliveryTrips as $trip) {
                     if (!$trip->startCheckpoint || !$trip->endCheckpoint) {
                         continue;
                     }
-                    
+
                     $startLocationID = $trip->startCheckpoint->locationID;
                     $endLocationID = $trip->endCheckpoint->locationID;
-                    
+
                     // Add start location if not already added
                     if (!isset($startLocations[$startLocationID])) {
                         $startLocations[$startLocationID] = [
@@ -176,7 +193,7 @@ class ExecuteDeliveriesController extends Controller
                             'company_address' => $trip->startCheckpoint->location->company_address
                         ];
                     }
-                    
+
                     // Add end location if not already added
                     if (!isset($endLocations[$endLocationID])) {
                         $endLocations[$endLocationID] = [
@@ -184,7 +201,7 @@ class ExecuteDeliveriesController extends Controller
                             'company_address' => $trip->endCheckpoint->location->company_address
                         ];
                     }
-                    
+
                     // Add checkpoint to location
                     if (!isset($locationCheckpoints[$startLocationID])) {
                         $locationCheckpoints[$startLocationID] = [];
@@ -192,17 +209,17 @@ class ExecuteDeliveriesController extends Controller
                     if (!isset($locationCheckpoints[$endLocationID])) {
                         $locationCheckpoints[$endLocationID] = [];
                     }
-                    
+
                     // Process start checkpoint
                     $startCheckpoint = $trip->startCheckpoint;
                     $startCheckpointData = [
                         'checkID' => $startCheckpoint->checkID,
                         'items' => []
                     ];
-                    
+
                     // Get orderID from trip or checkpoint
                     $orderID = $trip->orderID ?? $startCheckpoint->orderID;
-                    
+
                     // Process items in the checkpoint
                     if ($startCheckpoint->item_record) {
                         foreach ($startCheckpoint->item_record as $itemID) {
@@ -210,7 +227,7 @@ class ExecuteDeliveriesController extends Controller
                             if (isset($startCheckpointData['items'][$itemID])) {
                                 continue;
                             }
-                            
+
                             // Get quantity from cart
                             $quantity = 0;
                             if ($orderID) {
@@ -221,7 +238,7 @@ class ExecuteDeliveriesController extends Controller
                                     $quantity = $cart->quantity;
                                 }
                             }
-                            
+
                             // Get item details
                             $item = Item::with('poultry')->find($itemID);
                             if ($item) {
@@ -230,7 +247,7 @@ class ExecuteDeliveriesController extends Controller
                                     'quantity' => $quantity,
                                     'orderID' => $orderID
                                 ];
-                                
+
                                 // Track items for validation later
                                 if (!isset($locationItems[$startLocationID])) {
                                     $locationItems[$startLocationID] = [];
@@ -242,7 +259,7 @@ class ExecuteDeliveriesController extends Controller
                             }
                         }
                     }
-                    
+
                     // Add checkpoint to location if not already added
                     $checkpointExists = false;
                     foreach ($locationCheckpoints[$startLocationID] as $checkpoint) {
@@ -251,18 +268,18 @@ class ExecuteDeliveriesController extends Controller
                             break;
                         }
                     }
-                    
+
                     if (!$checkpointExists) {
                         $locationCheckpoints[$startLocationID][] = $startCheckpointData;
                     }
-                    
+
                     // Process end checkpoint
                     $endCheckpoint = $trip->endCheckpoint;
                     $endCheckpointData = [
                         'checkID' => $endCheckpoint->checkID,
                         'items' => []
                     ];
-                    
+
                     // Process items in the end checkpoint
                     if ($endCheckpoint->item_record) {
                         foreach ($endCheckpoint->item_record as $itemID) {
@@ -270,7 +287,7 @@ class ExecuteDeliveriesController extends Controller
                             if (isset($endCheckpointData['items'][$itemID])) {
                                 continue;
                             }
-                            
+
                             // Get quantity from cart
                             $quantity = 0;
                             if ($orderID) {
@@ -281,7 +298,7 @@ class ExecuteDeliveriesController extends Controller
                                     $quantity = $cart->quantity;
                                 }
                             }
-                            
+
                             // Get item details
                             $item = Item::with('poultry')->find($itemID);
                             if ($item) {
@@ -290,7 +307,7 @@ class ExecuteDeliveriesController extends Controller
                                     'quantity' => $quantity,
                                     'orderID' => $endCheckpoint->orderID
                                 ];
-                                
+
                                 // Track items for validation later
                                 if (!isset($locationItems[$endLocationID])) {
                                     $locationItems[$endLocationID] = [];
@@ -302,7 +319,7 @@ class ExecuteDeliveriesController extends Controller
                             }
                         }
                     }
-                    
+
                     // Add checkpoint to location if not already added
                     $checkpointExists = false;
                     foreach ($locationCheckpoints[$endLocationID] as $checkpoint) {
@@ -311,22 +328,22 @@ class ExecuteDeliveriesController extends Controller
                             break;
                         }
                     }
-                    
+
                     if (!$checkpointExists) {
                         $locationCheckpoints[$endLocationID][] = $endCheckpointData;
                     }
                 }
-                
+
                 // Identify all connections between start and end locations
                 $locationConnections = [];
                 foreach ($deliveryTrips as $trip) {
                     if (!$trip->startCheckpoint || !$trip->endCheckpoint) {
                         continue;
                     }
-                    
+
                     $startLocationID = $trip->startCheckpoint->locationID;
                     $endLocationID = $trip->endCheckpoint->locationID;
-                    
+
                     // Track connections
                     if (!isset($locationConnections[$startLocationID])) {
                         $locationConnections[$startLocationID] = [];
