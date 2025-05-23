@@ -759,12 +759,12 @@ export default {
       }
     },
     
-    async refreshExecutionDeliveries() {
+    async refreshExecutionDeliveries(filters = {}) {
       try {
         this.executeDeliveriesLoading = true;
         this.executeError = null; // Reset error before fetching
-        
-        const response = await deliveryService.getExecutionDeliveries();
+        console.log('Fetching execution deliveries with filters:', filters);
+        const response = await deliveryService.getExecutionDeliveries(filters);
         console.log('execution deliveries structure:', JSON.stringify(response, null, 2));
 
         if (response.success) {

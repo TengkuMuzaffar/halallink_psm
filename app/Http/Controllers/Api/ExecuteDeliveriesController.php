@@ -16,6 +16,8 @@ use App\Models\Verify;
 use App\Models\Cart;
 use App\Models\Item;
 use App\Models\Order;
+use DateTime;
+use DateTimeZone;
 
 class ExecuteDeliveriesController extends Controller
 {
@@ -38,7 +40,6 @@ class ExecuteDeliveriesController extends Controller
             
             // Apply role-based filtering
             if ($user->role === 'employee') {
-                // If user is an employee, only show trips for deliveries assigned to them
                 Log::info('ExecuteDeliveriesController: Applying employee filter', [
                     'userID' => $user->userID
                 ]);
@@ -46,7 +47,6 @@ class ExecuteDeliveriesController extends Controller
                     $q->where('userID', $user->userID);
                 });
             } else if ($user->role === 'admin') {
-                // If user is an admin, show all trips for deliveries from their company
                 Log::info('ExecuteDeliveriesController: Applying admin filter', [
                     'companyID' => $user->companyID
                 ]);
@@ -56,8 +56,8 @@ class ExecuteDeliveriesController extends Controller
             }
             
             // Apply status filter if provided
-            if ($request->has('status') && !empty($request->status)) {
-                $status = $request->status;
+            if ($request->has('statusFilter') && !empty($request->statusFilter)) {
+                $status = $request->statusFilter;
                 Log::info('ExecuteDeliveriesController: Applying status filter', [
                     'status' => $status
                 ]);
@@ -70,6 +70,33 @@ class ExecuteDeliveriesController extends Controller
                     } else if ($status === 'completed') {
                         $q->whereNotNull('end_timestamp');
                     }
+                });
+            }
+            
+            // Apply date filter if provided
+            if ($request->has('dateFilter') && !empty($request->dateFilter)) {
+                $date = $request->dateFilter;
+                Log::info('ExecuteDeliveriesController: Applying date filter', [
+                    'date' => $date
+                ]);
+                
+                $tripsQuery->whereHas('delivery', function($q) use ($date) {
+                    // Convert the input date to UTC before comparison
+                    $utcDate = new DateTime($date, new DateTimeZone('Asia/Kuala_Lumpur'));
+                    $utcDate->setTimezone(new DateTimeZone('UTC'));
+                    $q->whereDate('scheduled_date', $utcDate->format('Y-m-d'));
+                });
+            }
+            
+            // Apply driver filter if provided
+            if ($request->has('driverFilter') && !empty($request->driverFilter)) {
+                $driverID = $request->driverFilter;
+                Log::info('ExecuteDeliveriesController: Applying driver filter', [
+                    'driverID' => $driverID
+                ]);
+                
+                $tripsQuery->whereHas('delivery', function($q) use ($driverID) {
+                    $q->where('userID', $driverID);
                 });
             }
             
@@ -90,6 +117,14 @@ class ExecuteDeliveriesController extends Controller
             $deliveryGroups = $trips->groupBy('deliveryID');
             
             $result = [];
+            
+            // If no trips found, return empty data array
+            if ($trips->isEmpty()) {
+                return response()->json([
+                    'success' => true,
+                    'data' => []
+                ]);
+            }
             
             foreach ($deliveryGroups as $deliveryID => $deliveryTrips) {
                 Log::info('ExecuteDeliveriesController: Processing delivery', [

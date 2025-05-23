@@ -30,7 +30,14 @@
             <div class="col-md-4">
               <div class="form-group">
                 <label for="dateFilter" class="form-label theme-label">Filter by Date</label>
-                <input type="date" id="dateFilter" v-model="dateFilter" class="form-control theme-input">
+                <input 
+                  type="date" 
+                  id="dateFilter" 
+                  v-model="dateFilter" 
+                  class="form-control theme-input"
+                  :min="minDate"
+                  required
+                >
               </div>
             </div>
             <div class="col-md-4">
@@ -132,6 +139,10 @@ export default {
     };
   },
   computed: {
+    minDate() {
+      const today = new Date();
+      return today.toISOString().split('T')[0];
+    },
     filteredDeliveries() {
       
       if (!this.deliveries) {
@@ -222,32 +233,38 @@ export default {
       });
     },
     handleRefresh() {
-      this.$emit('refresh');
-    },
-     // Add this new method to apply filters
-    applyFilters(deliveriesArray) {
-      return deliveriesArray.filter(delivery => {
-        // Status filter
-        if (this.statusFilter && delivery.status !== this.statusFilter) {
-          return false;
-        }
-        
-        // Date filter
-        if (this.dateFilter) {
-          const deliveryDate = new Date(delivery.scheduled_date).toISOString().split('T')[0];
-          if (deliveryDate !== this.dateFilter) {
-            return false;
-          }
-        }
-        
-        // Driver filter
-        if (this.driverFilter && delivery.userID !== this.driverFilter) {
-          return false;
-        }
-        
-        return true;
+      // Pass current filters when refreshing
+      this.$emit('refresh', {
+        status: this.statusFilter,
+        date: this.dateFilter,
+        driver: this.driverFilter
       });
     },
+     applyFilters(deliveriesArray) {
+       return deliveriesArray.filter(delivery => {
+         // Status filter
+         if (this.statusFilter && delivery.status !== this.statusFilter) {
+           return false;
+         }
+         
+         // Date filter
+         if (this.dateFilter) {
+           const utcDate = new Date(delivery.scheduled_date);
+           const localDate = new Date(utcDate.getTime() - (utcDate.getTimezoneOffset() * 60000));
+           const deliveryDate = localDate.toISOString().split('T')[0];
+           if (deliveryDate !== this.dateFilter) {
+             return false;
+           }
+         }
+         
+         // Driver filter
+         if (this.driverFilter && delivery.userID !== this.driverFilter) {
+           return false;
+         }
+         
+         return true;
+       });
+     },
     // Add the missing startDelivery method
     startDelivery(deliveryID) {
       // Implement your logic to start the delivery
@@ -283,7 +300,13 @@ export default {
           return 'bg-secondary text-white';
       }
     },
-    
+    handleFiltersChanged() {
+      this.$emit('filter-changed', {
+        statusFilter: this.statusFilter,
+        dateFilter: this.dateFilter,
+        driverFilter: this.driverFilter
+      });
+    },
     
     printQRCode(delivery) {
       const printWindow = window.open('', '_blank');
@@ -376,8 +399,10 @@ export default {
         driver: this.driverFilter
       });
     }
+    
   }
 }
+
 </script>
 
 <style scoped>

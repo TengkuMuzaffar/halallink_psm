@@ -239,9 +239,13 @@ const deliveryService = {
    * @param {Object} params - Query parameters
    * @returns {Promise} - API response
    */
-  async getExecutionDeliveries(params = {}) {
+  async getExecutionDeliveries(filters = {}) {
     return fetchData('/api/deliveries/get/execution', {
-      params
+      params: {
+        statusFilter: filters.status || '',
+        dateFilter: filters.date || '',
+        driverFilter: filters.driver || ''
+      }
     });
   },
   
