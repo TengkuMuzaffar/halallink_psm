@@ -52,7 +52,7 @@
     <!-- Two-column layout for Assign tab -->
     <div v-if="activeTab === 'assign'" class="row">
       <!-- Left column: List of created deliveries -->
-      <div class="col-lg-4 col-md-12 mb-4">
+      <div class="col-lg-3 col-md-12 mb-4">
         <CreatedDeliveriesList
           :deliveries="createdDeliveries"
           :loading="createdDeliveriesLoading"
@@ -71,7 +71,7 @@
       </div>
       
       <!-- Right column: DeliveryAssignment component -->
-      <div class="col-lg-8 col-md-12">
+      <div class="col-lg-9 col-md-12">
         <DeliveryAssignment 
           v-if="activeTab === 'assign'"
           :loading="assignDeliveriesLoading"
@@ -99,18 +99,8 @@
         @filter-changed="handleExecutionFilterChange"
       />
     </div>
-    <!-- Assign Delivery Modal Component -->
-    <!-- <DeliveryAssignmentModal
-      ref="assignmentModal"
-      :form="assignmentForm"
-      :loading="assignmentLoading"
-      :drivers="drivers"
-      :vehicles="vehicles"
-      :locationInfo="locationInfo"
-      :orderInfo="selectedOrderInfo"
-      @submit="submitAssignment"
-      @validation-error="handleValidationError"
-    /> -->
+ 
+  
      <!-- Create Delivery Modal Component -->
     <DeliveryFormModal ref="deliveryFormModal" @delivery-created="onDeliveryCreated" />
   </div>
@@ -123,7 +113,6 @@ import deliveryService from '../services/deliveryService';
 import StatsCard from '../components/delivery/StatsCard.vue'; // Updated import
 import DeliveryAssignment from '../components/delivery/DeliveryAssignment.vue';
 import DeliveryExecution from '../components/delivery/DeliveryExecution.vue';
-import DeliveryAssignmentModal from '../components/delivery/DeliveryAssignmentModal.vue';
 import DeliveryFormModal from '../components/delivery/DeliveryFormModal.vue';
 import CreatedDeliveriesList from '../components/delivery/CreatedDeliveriesList.vue';
 
@@ -133,7 +122,6 @@ export default {
     StatsCard,
     DeliveryAssignment,
     DeliveryExecution,
-    DeliveryAssignmentModal,
     DeliveryFormModal,
     CreatedDeliveriesList
   },

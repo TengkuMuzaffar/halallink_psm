@@ -466,7 +466,20 @@ class DeliveryController extends Controller
             // Get the company ID of the authenticated user
             $companyID = $user->companyID;
             
-            // Get the scheduled date from the request
+            // If user is an employee, only return their own information
+            if ($user->role === 'employee') {
+                $drivers = User::where('userID', $user->userID)
+                    ->where('status', 'active')
+                    ->select('userID', 'fullname', 'tel_number', 'email')
+                    ->get();
+                    
+                return response()->json([
+                    'success' => true,
+                    'data' => $drivers,
+                ]);
+            }
+            
+            // For non-employee roles, continue with existing logic
             $scheduledDate = $request->input('scheduled_date');
             
             // Get all active employees from the same company who can be drivers
@@ -682,7 +695,14 @@ class DeliveryController extends Controller
             $perPage = $request->input('per_page', 3);
             $page = $request->input('page', 1);
             
-            $deliveries = Delivery::with(['user', 'vehicle', 'verifies'])
+            $query = Delivery::with(['user', 'vehicle', 'verifies']);
+            
+            // Check if authenticated user is an employee
+            if (auth()->user()->role === 'employee') {
+                $query->where('userID', auth()->user()->userID);
+            }
+            
+            $deliveries = $query
                 ->whereDate('scheduled_date', '>=', now()->format('Y-m-d'))  // Only future or today's deliveries
                 ->whereNull('end_timestamp')  // Exclude completed deliveries
                 ->whereNull('start_timestamp')  // Exclude in-progress deliveries
@@ -861,13 +881,49 @@ class DeliveryController extends Controller
     public function getDeliveryStats()
     {
         try {
+            // Get authenticated user
+            $user = auth()->user();
+            $companyID = $user->companyID;
+            
+            // Base query builder for Delivery
+            $deliveryQuery = Delivery::query();
+            $verifyQuery = Verify::query();
+            
+            // Apply filters based on user role
+            if ($user->role === 'employee') {
+                // Employee can only see their own deliveries
+                $deliveryQuery->where('userID', $user->userID);
+                $verifyQuery->whereHas('checkpoint.delivery', function($query) use ($user) {
+                    $query->where('userID', $user->userID);
+                });
+            } else if ($user->role === 'admin') {
+                // Admin can see all deliveries in their company
+                $deliveryQuery->whereHas('user', function($query) use ($companyID) {
+                    $query->where('companyID', $companyID);
+                });
+                $verifyQuery->whereHas('checkpoint.delivery.user', function($query) use ($companyID) {
+                    $query->where('companyID', $companyID);
+                });
+            }
+            
             $stats = [
-                'pending' => Delivery::whereNull('start_timestamp')->count(),
-                'inProgress' => Delivery::whereNotNull('start_timestamp')
-                    ->whereNull('end_timestamp')->count(),
-                'completedToday' => Delivery::whereNotNull('end_timestamp')
-                    ->whereDate('end_timestamp', now()->toDateString())->count(),
-                'issues' => Verify::where('verify_status', 'rejected')->count()
+                'pending' => (clone $deliveryQuery)
+                    ->whereNull('start_timestamp')
+                    ->count(),
+                    
+                'inProgress' => (clone $deliveryQuery)
+                    ->whereNotNull('start_timestamp')
+                    ->whereNull('end_timestamp')
+                    ->count(),
+                    
+                'completedToday' => (clone $deliveryQuery)
+                    ->whereNotNull('end_timestamp')
+                    ->whereDate('end_timestamp', now()->toDateString())
+                    ->count(),
+                    
+                'issues' => $verifyQuery
+                    ->where('verify_status', 'rejected')
+                    ->count()
             ];
             
             return response()->json([

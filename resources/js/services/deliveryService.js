@@ -87,7 +87,7 @@ const deliveryService = {
    * @returns {Promise} - API response
    */
   async updateDeliveryStatus(deliveryID, data) {
-    return fetchData(`/api/deliveries/${deliveryID}/status`, {
+    return fetchData(`/api/deliveries/${deliveryID}/start`, {
       method: 'put',
       data
     });
@@ -198,18 +198,6 @@ const deliveryService = {
     return fetchData('/api/deliveries', { // Assuming POST /api/deliveries creates a delivery
       method: 'POST',
       data: deliveryData,
-    });
-  },
-  
-  /**
-   * Update delivery status
-   * @param {Object} data - Status update data
-   * @returns {Promise} - API response
-   */
-  async updateDeliveryStatus(deliveryID, data) {
-    return fetchData(`/api/deliveries/${deliveryID}/status`, {
-      method: 'put',
-      data
     });
   },
   

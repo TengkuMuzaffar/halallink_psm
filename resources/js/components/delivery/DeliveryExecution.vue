@@ -1,5 +1,12 @@
 <template>
   <div class="delivery-execution">
+    <!-- Add LoadingSpinner component -->
+    <LoadingSpinner 
+      v-if="localLoading" 
+      size="md"
+      message="Starting delivery..."
+      :overlay="true"
+    />
     <div class="card theme-card">
       <div class="card-header d-flex justify-content-between align-items-center theme-header">
         <h5 class="mb-0">Execute Deliveries</h5>
@@ -63,6 +70,7 @@
             :has-actions="true"
             :show-filters="false"
             item-key="deliveryID"
+            class="delivery-table"
           >
             <!-- Status column slot -->
             <template #status="{ item }">
@@ -128,12 +136,13 @@ export default {
   },
   data() {
     return {
+      localLoading: false, // Add local loading state
       modalLoading: false,
       error: null,
       selectedDelivery: null,
       statusFilter: '',
       dateFilter: '',
-      searchTerm: '', // Add searchTerm data property
+      searchTerm: '',
       columns: [
         { key: 'deliveryID', label: 'ID', sortable: true },
         { key: 'driver.fullname', label: 'Driver', sortable: true },
@@ -280,24 +289,19 @@ export default {
          return true;
        });
      },
-    // Add the missing startDelivery method
     startDelivery(deliveryID) {
-      // Implement your logic to start the delivery
       console.log('Starting delivery:', deliveryID);
-
-      // Example implementation:
-      this.loading = true;
+      
+      this.localLoading = true; // Use localLoading instead of prop
       deliveryService.startDelivery(deliveryID)
         .then(response => {
-          // Handle success
-          this.$emit('refresh'); // Refresh the list
+          this.$emit('refresh');
         })
         .catch(error => {
-          // Handle error
           console.error('Error starting delivery:', error);
         })
         .finally(() => {
-          this.loading = false;
+          this.localLoading = false; // Use localLoading instead of prop
         });
     },
     
@@ -540,5 +544,73 @@ export default {
 
 .btn-group .btn:last-child {
   margin-right: 0;
+}
+
+/* Add responsive table styles */
+.delivery-table {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 768px) {
+  .delivery-table :deep(table) {
+    min-width: 600px; /* Ensure minimum width for content */
+  }
+
+  .delivery-table :deep(th),
+  .delivery-table :deep(td) {
+    white-space: nowrap;
+    padding: 8px;
+  }
+
+  .delivery-table :deep(.btn-group) {
+    display: flex;
+    flex-direction: row;
+    gap: 4px;
+  }
+
+  .delivery-table :deep(.btn-group .btn) {
+    padding: 4px 8px;
+    font-size: 0.875rem;
+  }
+
+  /* Improve badge readability on mobile */
+  .delivery-table :deep(.badge) {
+    font-size: 0.75rem;
+    padding: 4px 8px;
+    white-space: nowrap;
+  }
+
+  /* Adjust filter section for mobile */
+  .row.mb-4 > div {
+    margin-bottom: 1rem;
+  }
+
+  /* Make form controls more touch-friendly */
+  .theme-input,
+  .theme-select {
+    height: 42px;
+    padding: 8px 12px;
+  }
+
+  /* Improve button touch targets */
+  .btn-sm {
+    min-height: 32px;
+    min-width: 32px;
+  }
+}
+
+/* Add smooth scrolling for better mobile experience */
+.delivery-table {
+  scroll-behavior: smooth;
+}
+
+/* Optimize table header for mobile */
+.theme-table-header th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background-color: var(--primary-color);
 }
 </style>

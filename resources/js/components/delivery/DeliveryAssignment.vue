@@ -61,53 +61,60 @@
         </div>
         
         <div v-else>
-          <!-- Display individual trips in a table -->
           <div class="table-responsive">
             <table class="table table-hover theme-table">
               <thead class="theme-table-header">
                 <tr>
-                  <th>Trip ID</th>
-                  <th>Order ID</th>
+                  <th style="width: 5vw;">Trip ID</th>
+                  <th style="width: 5vw;">Order ID</th>
                   <th>Start Location</th>
                   <th>End Location</th>
-                  <th>Items</th>
                   <th>Action</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="trip in trips" :key="trip.tripID">
-                  <td>{{ trip.tripID }}</td>
-                  <td>{{ trip.orderID }}</td>
-                  <td>{{ trip.start_location.address }} ({{ trip.start_location.type }})</td>
-                  <td>{{ trip.end_location.address }} ({{ trip.end_location.type }})</td>
-                  <td>
-                    <ul class="list-unstyled mb-0">
-                      <li v-for="item in trip.items" :key="item.itemID">
-                        {{ item.name }} ({{ item.measurement_value }} {{ item.measurement_type }})
-                      </li>
-                    </ul>
+                  <td class="text-nowrap">{{ trip.tripID }}</td>
+                  <td class="text-nowrap">{{ trip.orderID }}</td>
+                  <td class="location-cell">
+                    <div class="location-type">{{ trip.start_location.type }}</div>
+                    <div class="location-address">{{ trip.start_location.address }}</div>
+                  </td>
+                  <td class="location-cell">
+                    <div class="location-type">{{ trip.end_location.type }}</div>
+                    <div class="location-address">{{ trip.end_location.address }}</div>
                   </td>
                   <td>
-                    <button 
-                      class="btn btn-sm btn-primary theme-btn-primary"
-                      @click="$emit('assign-trip', trip)"
-                      :disabled="!selectedDeliveryID"
-                    >
-                      <i class="fas fa-plus-circle me-1"></i> Assign
-                    </button>
+                    <div class="d-flex gap-2 flex-wrap justify-content-start">
+                      <button 
+                        class="btn btn-sm btn-outline-secondary"
+                        data-bs-toggle="modal"
+                        :data-bs-target="`#itemModal-${trip.tripID}`"
+                      >
+                        <i class="fas fa-box me-1"></i>
+                        <span class="ms-1 d-none d-sm-inline">Items</span>
+                      </button>
+                      <button 
+                        class="btn btn-sm btn-primary theme-btn-primary"
+                        @click="$emit('assign-trip', trip)"
+                        :disabled="!selectedDeliveryID"
+                      >
+                        <i class="fas fa-plus-circle me-1"></i>
+                        <span class="ms-1 d-none d-sm-inline">Assign</span>
+                      </button>
+                    </div>
                   </td>
                 </tr>
               </tbody>
             </table>
           </div>
-
-          <!-- Show pagination whenever we have pagination data -->
-          <div v-if="pagination" class="p-3 border-top">
-            <Pagination 
-              :pagination="pagination"
-              @page-changed="$emit('change-page', $event)"
-            />
-          </div>
+          <!-- Add modals for each trip -->
+          <ItemModal
+            v-for="trip in trips"
+            :key="`modal-${trip.tripID}`"
+            :modal-id="`itemModal-${trip.tripID}`"
+            :items="trip.items"
+          />
         </div>
       </div>
     </div>
@@ -116,11 +123,13 @@
 
 <script>
 import Pagination from '../ui/Pagination.vue';
+import ItemModal from './ItemModal.vue';
 
 export default {
   name: 'DeliveryAssignment',
   components: {
-    Pagination
+    Pagination,
+    ItemModal
   },
   props: {
     loading: Boolean,
@@ -136,114 +145,95 @@ export default {
       required: true
     }
   },
-  emits: ['refresh', 'assign-trip', 'change-phase', 'change-page'], // Added 'assign-trip'
+  data() {
+    return {}; // Remove expandedTrip since we're using modal now
+  },
+  emits: ['refresh', 'assign-trip', 'change-phase', 'change-page'],
   methods: {
     changePhase(phase) {
       this.$emit('change-phase', phase);
-    },
-    // Removed methods related to groupedDeliveries like getLocationName, getFilteredDeliveries, etc.
-    // as the data structure is now a flat list of trips.
+    }
+    // Remove toggleItems method since we're using modal now
   }
 };
 </script>
 
 <style scoped>
+/* Updated theme colors from CreatedDeliveriesList.vue */
 .delivery-assignment .card {
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-  overflow: hidden; /* Ensures child elements conform to border radius */
+  --primary-color: #123524;
+  --secondary-color: #EFE3C2;
+  --accent-color: #3E7B27;
+  --text-color: #333;
+  --light-text: #666;
+  --border-color: rgba(18, 53, 36, 0.2);
+  --light-bg: rgba(239, 227, 194, 0.2);
+  --lighter-bg: rgba(239, 227, 194, 0.1);
+  
+  border-color: var(--border-color);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .theme-header {
-  background-color: #f8f9fa; /* Light grey background */
-  color: #333; /* Darker text color */
-  padding: 0.75rem 1.25rem;
-  border-bottom: 1px solid #e0e0e0;
+  background-color: var(--primary-color);
+  color: var(--secondary-color);
+  border-bottom: none;
 }
 
 .theme-btn-outline {
-  color: #007bff; /* Primary color for outline button */
-  border-color: #007bff;
+  color: var(--secondary-color);
+  border-color: var(--secondary-color);
+  background-color: transparent;
 }
 
 .theme-btn-outline:hover {
-  background-color: #007bff;
-  color: #fff;
+  color: var(--primary-color);
+  background-color: var(--secondary-color);
+  border-color: var(--secondary-color);
 }
 
 .phase-tabs .nav-tabs {
-  border-bottom: 1px solid #dee2e6;
-  background-color: #fff; /* White background for tabs */
+  background-color: var(--lighter-bg);
 }
 
 .phase-tabs .nav-link {
-  color: #495057; /* Standard tab text color */
-  border: 1px solid transparent;
-  border-bottom: none;
-  padding: 0.75rem 1.25rem;
-  font-weight: 500;
+  color: var(--text-color);
 }
 
 .phase-tabs .nav-link.active {
-  color: #007bff; /* Primary color for active tab */
-  background-color: #fff;
-  border-color: #dee2e6 #dee2e6 #fff;
-  border-bottom: 2px solid #007bff; /* Highlight active tab */
-}
-
-.phase-tabs .nav-link i {
-  margin-right: 0.5rem;
+  color: var(--accent-color);
+  border-bottom-color: var(--accent-color);
 }
 
 .theme-spinner {
-  color: #007bff; /* Primary color for spinner */
+  color: var(--accent-color);
 }
 
 .theme-alert-info {
-  background-color: #e6f7ff; /* Light blue for info alerts */
-  color: #005c99; /* Darker blue text for info alerts */
-  border: 1px solid #b3e0ff; /* Border for info alerts */
-}
-
-.table-responsive {
-  margin-top: 0; /* Remove any top margin if card-body has p-0 */
+  background-color: var(--light-bg);
+  color: var(--primary-color);
+  border-color: var(--border-color);
 }
 
 .theme-table {
-  margin-bottom: 0; /* Remove bottom margin if it's the last element in card-body */
+  --table-border-color: var(--border-color);
 }
 
-.theme-table-header th {
-  background-color: #f1f3f5; /* Slightly different shade for table header */
-  color: #333;
-  font-weight: 600;
-  border-bottom: 2px solid #dee2e6;
-  text-align: left;
-  padding: 0.75rem;
-}
-
-.theme-table td {
-  vertical-align: middle;
-  padding: 0.75rem;
-  border-top: 1px solid #e9ecef; /* Lighter border for table rows */
-}
-
-.theme-table tbody tr:hover {
-  background-color: #f8f9fa; /* Hover effect for table rows */
+.theme-table-header {
+  background-color: var(--primary-color);
+  color: var(--secondary-color);
 }
 
 .theme-btn-primary {
-  background-color: #007bff;
-  border-color: #007bff;
-  color: #fff;
+  background-color: var(--accent-color);
+  border-color: var(--accent-color);
+  color: white;
 }
 
 .theme-btn-primary:hover {
-  background-color: #0056b3;
-  border-color: #0056b3;
+  background-color: #2e5c1d;
+  border-color: #2e5c1d;
 }
-
 .theme-btn-primary:disabled {
   background-color: #6c757d; /* Disabled state color */
   border-color: #6c757d;
@@ -273,4 +263,69 @@ export default {
     border-top: 1px solid #e0e0e0; /* Add a top border if needed */
 }
 
+.items-carousel {
+  overflow-x: auto;
+  padding: 1rem 0;
+}
+
+.item-card {
+  min-width: 200px;
+  max-width: 250px;
+}
+
+.item-card .card {
+  background-color: white;
+  border: 1px solid var(--border-color);
+  transition: transform 0.2s;
+}
+
+.item-card .card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Responsive styles for mobile */
+@media (max-width: 768px) {
+  .table > :not(caption) > * > * {
+    padding: 0.5rem;
+  }
+
+  .location-cell {
+    min-width: 200px;
+  }
+
+  .location-type {
+    font-weight: bold;
+    color: var(--accent-color);
+    text-transform: capitalize;
+    font-size: 0.875rem;
+  }
+
+  .location-address {
+    font-size: 0.875rem;
+    word-break: break-word;
+  }
+
+  .item-card {
+    min-width: 160px;
+    max-width: 200px;
+  }
+
+  .items-carousel {
+    margin: 0 -0.5rem;
+    padding: 0.5rem;
+  }
+
+  .card-body {
+    padding: 0.75rem;
+  }
+
+  .card-title {
+    font-size: 1rem;
+  }
+
+  .card-text {
+    font-size: 0.875rem;
+  }
+}
 </style>
