@@ -143,9 +143,11 @@ class DeliveryController extends Controller
                                 if ($task) {
                                     // Get the target location from the previous checkpoint
                                     $targetLocationID = $prevCheckpoint->locationID;
-                                    
+                                    $targetArrayItem = $prevCheckpoint->item_record;
+
                                     // Check if current trip's start location matches the target location
-                                    if ($startCheckpoint->locationID == $targetLocationID) {
+                                    // AND if the item records are the same
+                                    if ($startCheckpoint->locationID == $targetLocationID && $startCheckpoint->item_record == $targetArrayItem) {
                                         $tripData = [
                                             'tripID' => $trip->tripID,
                                             'orderID' => $trip->orderID,
