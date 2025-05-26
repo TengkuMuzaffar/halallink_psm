@@ -39,7 +39,6 @@ export const taskService = {
       data: taskData
     });
   },
-  
   /**
    * Search for slaughterers (employees) by name
    * @param {string} search - Search term
@@ -53,7 +52,15 @@ export const taskService = {
     if (companyId) params.company_id = companyId;
     
     return fetchData('/api/slaughterers/search', { params });
-  }
+  },
+  /**
+   * Verify if a task can be assigned to a user
+   * @param {number} taskId - Task ID to verify
+   * @returns {Promise} - Promise with verification result
+   */
+  verifyTaskUser(taskId) {
+    return fetchData(`/api/tasks/${taskId}/verify-user`);
+  },
 };
 
 export default taskService;

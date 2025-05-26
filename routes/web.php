@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\ToyyibPayController;
 use App\Http\Controllers\Api\OrderController;
+use App\Http\Controllers\AWBController;
 // Fix: Remove extra slash and add API middleware
 Route::get('test/after-payment/{order}', [ToyyibPayController::class, 'createCheckpoints'])
     ->name('test.after.payment');
@@ -10,7 +11,7 @@ Route::get('test/deliveries', [App\Http\Controllers\Api\DeliveryController::clas
     ->name('test.deliveries');
 Route::get('test/deliveries/executes', [App\Http\Controllers\Api\ExecuteDeliveriesController::class, 'index'])
     ->name('test.executes');
-
+Route::get('/awb/{cart}', [AWBController::class, 'generate'])->name('awb.generate');
 // Add 'test' prefix to order routes
 Route::prefix('test')->group(function () {
     Route::get('/orders/stats', [OrderController::class, 'getStats']);

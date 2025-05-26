@@ -191,8 +191,8 @@
                                         <th>Item</th>
                                         <th style="width: auto; white-space: nowrap;">Quantity</th>
                                         <th v-if="isBroilerCompany" style="width: auto; white-space: nowrap;" class="text-center">
-                                          <span class="d-none d-sm-inline">QR Download</span>
-                                          <span class="d-inline d-sm-none">Download</span>
+                                          <span class="d-none d-sm-inline">AWB Download</span>
+                                          <span class="d-inline d-sm-none">AWB</span>
                                         </th>
                                       </tr>
                                     </thead>
@@ -212,10 +212,10 @@
                                           <button 
                                             class="btn btn-sm btn-outline-primary" 
                                             @click="generateOrderQR(order.orderID)"
-                                            title="Download QR Code"
+                                            title="Download AWB Waybill"
                                           >
-                                            <i class="fas fa-qrcode"></i>
-                                            <span class="d-inline d-sm-none ms-1">QR</span>
+                                            <i class="fas fa-file-download"></i>
+                                            <span class="d-inline d-sm-none ms-1">AWB</span>
                                           </button>
                                         </td>
                                       </tr>
@@ -434,18 +434,8 @@ export default {
     };
     
     // Add the missing generateOrderQR function
-    const generateOrderQR = (orderID) => {
-      // Find the order data
-      const order = findOrderById(orderID);
-      
-      // Set selected order
-      selectedOrderId.value = orderID;
-      selectedOrder.value = order;
-      
-      // Call the QR code generation method from OrderDetailModal component
-      if (orderDetailModalRef.value) {
-        orderDetailModalRef.value.showQRCode(orderID);
-      }
+    const generateOrderQR = (cartId) => {
+      window.open(`/awb/${cartId}`, '_blank');
     };
     
     // Helper function to find an order by ID across all locations

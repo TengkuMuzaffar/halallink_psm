@@ -641,9 +641,17 @@ export default {
     // Confirm start task
     const confirmStartTask = async () => {
       try {
+        if (!selectedTask.value.userID) {
+          // Show error message and open assign user modal
+          startTaskConfirmModal.hide();
+          openAssignUserModal();
+          return;
+        }
+
         const response = await taskService.updateTask(selectedTask.value.taskID, {
           task_status: 'in_progress',
           start_timestamp: new Date().toISOString()
+          
         });
         
         // Hide the confirmation modal
@@ -662,11 +670,17 @@ export default {
           taskDetailsModal.show();
         }, 500); // Small delay to allow the first modal to close
       } catch (err) {
-        console.error('Error starting task:', err);
-        alert('Failed to start task. Please try again.');
-        
-        // Hide the confirmation modal
-        startTaskConfirmModal.hide();
+        if (err.response?.data?.error === 'NO_USER_ASSIGNED') {
+          // Open assign user modal
+          startTaskConfirmModal.hide();
+          openAssignUserModal();
+        } else {
+          console.error('Error starting task:', err);
+          alert('Failed to start task. Please try again.');
+          
+          // Hide the confirmation modal
+          startTaskConfirmModal.hide();
+        }
       }
     };
     
@@ -732,23 +746,41 @@ export default {
     };
 
     // Open assign user modal
-    const openAssignUserModal = () => {
-      // Hide the task details modal
-      taskDetailsModal.hide();
-      
-      // Reset user search state
-      userSearchQuery.value = '';
-      userSearchResults.value = [];
-      selectedUserId.value = null;
-      selectedUserData.value = null;
-      
-      // Initialize and show the assign user modal
-      if (!assignUserModal) {
-        assignUserModal = new bootstrap.Modal(document.getElementById('assignUserModal'));
+    const openAssignUserModal = async () => {
+      try {
+        const response = await taskService.verifyTaskUser(selectedTask.value.taskID);
+        console.log('Verify Response:', JSON.stringify(response)); // Log the response to the console
+        if (response.success) {
+          // Hide the task details modal
+          taskDetailsModal.hide();
+          
+          // Reset user search state
+          userSearchQuery.value = '';
+          userSearchResults.value = [];
+          selectedUserId.value = null;
+          selectedUserData.value = null;
+          
+          // Initialize and show the assign user modal
+          if (!assignUserModal) {
+            assignUserModal = new bootstrap.Modal(document.getElementById('assignUserModal'));
+          }
+          
+          assignUserModal.show();
+          searchUsers(); // Search immediately when opening the modal
+        } else {
+          // Show error message if task already has a user
+          alert(response.message);
+          // Refresh task details to show current assignment
+          if (response.assigned_user) {
+            selectedTask.value.userID = response.assigned_user.userID;
+            selectedTask.value.user_name = response.assigned_user.fullname;
+            selectedTask.value.user_email = response.assigned_user.email;
+          }
+        }
+      } catch (error) {
+        console.error('Error verifying task user:', error);
+        alert('Failed to verify task assignment status');
       }
-      
-      assignUserModal.show();
-      searchUsers(); // Search immediately when opening the modal
     };
 
     // Cancel assign user
@@ -786,7 +818,13 @@ export default {
             updatedTask.user_email = selectedUserData.value.email;
             selectedTask.value = updatedTask;
           }
-          taskDetailsModal.show();
+          
+          // If this was called from start task flow, reopen start confirmation
+          if (!selectedTask.value.start_timestamp) {
+            openStartConfirmation();
+          } else {
+            taskDetailsModal.show();
+          }
         }, 500);
       } catch (err) {
         console.error('Error assigning user:', err);

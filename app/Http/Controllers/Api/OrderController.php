@@ -228,6 +228,7 @@ class OrderController extends Controller
                                         $checkpointItems[] = [
                                             'itemID' => $item->itemID,
                                             'cartID' => $cartItem->cartID,
+                                            'item_cart_delivered' => $cartItem->item_cart_delivered,
                                             'item_name' => $item->poultry ? $item->poultry->poultry_name : 'Unknown',
                                             'measurement_type' => $item->measurement_type,
                                             'measurement_value' => $item->measurement_value,

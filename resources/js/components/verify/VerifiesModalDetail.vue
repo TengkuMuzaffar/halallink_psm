@@ -107,13 +107,13 @@
                         <span class="status-badge theme-badge-success">Complete</span>
                       </label>
                     </div>
-                    <div class="form-check form-check-inline">
+                    <!-- <div class="form-check form-check-inline">
                       <input class="form-check-input" type="radio" name="verify_status" id="status-reject" 
                         value="reject" v-model="localVerification.verify_status">
                       <label class="form-check-label" for="status-reject">
                         <span class="status-badge theme-badge-danger">Reject</span>
                       </label>
-                    </div>
+                    </div> -->
                   </div>
                 </div>
                 

@@ -197,11 +197,19 @@ class TaskController extends Controller
             'notes' => 'sometimes|string',
             'start_timestamp' => 'sometimes|date',
             'finish_timestamp' => 'sometimes|date',
-            'userID' => 'sometimes|integer' // Added userID validation
+            'userID' => 'sometimes|integer' // Changed to required
         ]);
 
         // Find the task
         $task = Task::findOrFail($id);
+        
+        // // Check if trying to start task without user assigned
+        // if ($request->has('start_timestamp') && !$task->userID) {
+        //     return response()->json([
+        //         'message' => 'Please assign a person to do this task before starting.',
+        //         'error' => 'NO_USER_ASSIGNED'
+        //     ], 400);
+        // }
         
         // Check if the task's checkID exists in verifies table with complete status
         $verifyExists = Verify::where('checkID', $task->checkID)
@@ -220,6 +228,42 @@ class TaskController extends Controller
         // Return only success message without the task data
         return response()->json([
             'message' => 'Task updated successfully'
+        ]);
+    }
+
+    /**
+     * Verify if a task can be assigned to a user
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
+    public function verifyTaskUser($id)
+    {
+        $task = Task::find($id);
+        
+        if (!$task) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Task not found'
+            ], 404);
+        }
+        
+        if ($task->userID) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Task already has an assigned user',
+                'assigned_user' => [
+                    'userID' => $task->userID,
+                    'fullname' => $task->user_name,
+                    'email' => $task->user_email
+                ]
+            ], 422);
+        }
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Task is available for assignment'
         ]);
     }
 }
