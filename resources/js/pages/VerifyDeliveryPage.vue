@@ -181,7 +181,7 @@ const fetchVerifications = async () => {
 
     // If no pending verifications, redirect to deliveries page
     if (!hasPendingVerifications) {
-      window.location.href = '/deliveries';      
+      window.location.href = `/deliveries?selectionID=${deliveryID}`;
       return;
     }
     

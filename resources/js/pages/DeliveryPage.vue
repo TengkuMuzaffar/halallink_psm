@@ -91,7 +91,7 @@
     <!-- Add this section for Execute tab -->
     <div v-if="activeTab === 'execute'">
       <DeliveryExecution 
-        v-if="activeTab === 'execute'"
+        ref="deliveryExecution"
         :deliveries="executionDeliveries"
         :loading="executeDeliveriesLoading"
         :error="executeError"
@@ -133,6 +133,7 @@ export default {
       assignDeliveriesLoading: false,
       executeDeliveriesLoading: false,
       // Separate error states for each tab
+      pendingSelectionID: null, // Store the ID 
       assignError: null,
       executeError: null,
       trips: [],
@@ -207,25 +208,41 @@ export default {
     this.fetchCreatedDeliveries();
   },
   
-  watch: {
-    activeTab: {
-      immediate: true,
-      handler(newTab) {
-        if (newTab === 'assign') {
-          this.fetchTrips();
-        } else if (newTab === 'execute') {
-          // Pass filters when switching to execute tab
-          this.refreshExecutionDeliveries({});
-        } else if (newTab === 'assign') {
-          // Clear execute error when switching to assign tab
-          this.executeError = null;
-        } else if (newTab === 'execute') {
-          // Clear assign error when switching to execute tab
-          this.assignError = null;
-        }
-      }
+  created() {
+    // Get selectionID from URL query parameters
+    const selectionID = this.$route.query.selectionID;
+    console.log('Selection ID From Parameter:', selectionID);
+    if (selectionID) {
+      this.activeTab = 'execute';
+      this.pendingSelectionID = selectionID;
     }
   },
+
+  watch: {
+      activeTab: {
+        immediate: true,
+        handler(newTab) {
+          if (newTab === 'execute') {
+            // Pass filters when switching to execute tab
+            this.refreshExecutionDeliveries({}).then(() => {
+              // If we have a pending selection, trigger the modal
+              if (this.pendingSelectionID) {
+                // Convert pendingSelectionID to number for comparison
+                const selectionIDNum = Number(this.pendingSelectionID);
+                const delivery = this.executionDeliveries.find(
+                  d => d.deliveryID === selectionIDNum
+                );
+                console.log('Delivery Found:', delivery);
+                if (delivery) {
+                  this.$refs.deliveryExecution.viewDelivery(delivery);
+                  this.pendingSelectionID = null; // Clear the pending ID
+                }
+              }
+            });
+          }
+        }
+      }
+    },
   methods: {
     async fetchTrips() {
       try {
@@ -239,7 +256,7 @@ export default {
           phase: this.activePhase
         });
         
-        console.log('API Response:', JSON.stringify(response, null, 4));
+        // console.log('API Response:', JSON.stringify(response, null, 4));
         
         if (response.success) {
           this.trips = response.data;
@@ -658,52 +675,6 @@ export default {
       };
     },
     
-    // async submitAssignment(data) {
-    //   try {
-    //     this.assignmentLoading = true;
-    //     const response = await deliveryService.assignDelivery(data);
-        
-    //     if (response.success) {
-    //       // this.selectedDeliveryID = null;
-    //       this.selectedOrderInfo = null;
-          
-    //       // Use showModal instead of modalUtil.showSuccess
-    //       showModal({
-    //         type: 'success',
-    //         title: 'Success',
-    //         message: response.message || 'Delivery assigned successfully',
-    //         buttons: [
-    //           { 
-    //             label: 'OK', 
-    //             type: 'success', 
-    //             dismiss: true,
-    //             onClick: () => {
-    //               this.fetchTrips();
-    //               this.fetchDeliveryStats();
-    //               this.fetchCreatedDeliveries();
-    //             }
-    //           }
-    //         ]
-    //       });
-    //     } else {
-    //       showModal({
-    //         type: 'danger',
-    //         title: 'Error',
-    //         message: response.message || 'Failed to assign delivery'
-    //       });
-    //     }
-    //   } catch (error) {
-    //     console.error('Error assigning delivery:', error);
-    //     showModal({
-    //       type: 'danger',
-    //       title: 'Error',
-    //       message: error.message || 'An unexpected error occurred'
-    //     });
-    //   } finally {
-    //     this.assignmentLoading = false;
-    //   }
-    // },
-    
     handleValidationError(message) {
       // Use showModal for validation errors
       showModal({
@@ -754,10 +725,12 @@ export default {
         this.executeError = null; // Reset error before fetching
         console.log('Fetching execution deliveries with filters:', filters);
         const response = await deliveryService.getExecutionDeliveries(filters);
-        console.log('execution deliveries structure:', JSON.stringify(response, null, 2));
+        // console.log('execution deliveries structure:', JSON.stringify(response, null, 2));
 
         if (response.success) {
           this.executionDeliveries =  Object.values(response.data);
+          console.log('execution deliveries structure:', JSON.stringify(this.executionDeliveries, null, 2));
+
         } else {
           this.executeError = response.message || 'Failed to load execution deliveries';
         }

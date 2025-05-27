@@ -184,7 +184,7 @@ const routes = [
         }
       },
       {
-        path: '/deliveries',
+        path: '/deliveries/:selectionID?',
         name: 'DeliveryManagement',
         component: DeliveryPage,
         meta: {

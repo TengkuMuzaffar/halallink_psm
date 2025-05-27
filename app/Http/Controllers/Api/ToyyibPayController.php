@@ -99,25 +99,49 @@ class ToyyibPayController extends Controller
             $amountInCents = $totalAmount * 100;
             \Log::info('Amount in cents', ['amountInCents' => $amountInCents]);
             
-            // Generate a unique reference number
-            $referenceNo = 'HL-' . strtoupper(Str::random(8));
-            \Log::info('Generated reference number', ['referenceNo' => $referenceNo]);
-            
             // Check if order already has a payment
             \Log::info('Checking if order already has a payment ID', ['currentPaymentID' => $order->paymentID]);
+            
+            // Flag to determine if we need to create a new bill
+            $createNewBill = true;
+            $billCode = null;
+            $payment = null;
+            
             if ($order->paymentID) {
                 // Use existing payment
                 $payment = Payment::find($order->paymentID);
                 \Log::info('Using existing payment', ['paymentID' => $payment->paymentID]);
                 
-                // Update payment details
-                $payment->payment_amount = $totalAmount;
-                $payment->payment_status = 'pending';
-                $payment->payment_timestamp = now();
-                $payment->payment_reference = $referenceNo;
-                $payment->save();
-                \Log::info('Updated existing payment record', ['paymentID' => $payment->paymentID]);
+                // Check if payment has a valid bill_code and status is pending
+                if ($payment->bill_code && $payment->payment_status === 'pending') {
+                    $billCode = $payment->bill_code;
+                    $createNewBill = false;
+                    \Log::info('Reusing existing bill code', ['billCode' => $billCode]);
+                    
+                    // Update payment amount if needed
+                    if ($payment->payment_amount != $totalAmount) {
+                        $payment->payment_amount = $totalAmount;
+                        $payment->save();
+                        \Log::info('Updated payment amount', ['from' => $payment->payment_amount, 'to' => $totalAmount]);
+                    }
+                } else {
+                    // Generate a new reference number
+                    $referenceNo = 'HL-' . strtoupper(Str::random(8));
+                    \Log::info('Generated reference number', ['referenceNo' => $referenceNo]);
+                    
+                    // Update payment details
+                    $payment->payment_amount = $totalAmount;
+                    $payment->payment_status = 'pending';
+                    $payment->payment_timestamp = now();
+                    $payment->payment_reference = $referenceNo;
+                    $payment->save();
+                    \Log::info('Updated existing payment record', ['paymentID' => $payment->paymentID]);
+                }
             } else {
+                // Generate a new reference number
+                $referenceNo = 'HL-' . strtoupper(Str::random(8));
+                \Log::info('Generated reference number', ['referenceNo' => $referenceNo]);
+                
                 // Create payment record
                 \Log::info('Creating new payment record');
                 $payment = Payment::create([
@@ -135,6 +159,17 @@ class ToyyibPayController extends Controller
             }
             \Log::info('Order payment ID confirmed', ['orderID' => $order->orderID, 'paymentID' => $payment->paymentID]);
             
+            // If we have a valid bill code, return it without creating a new one
+            if (!$createNewBill && $billCode) {
+                \Log::info('Returning existing bill code', ['billCode' => $billCode]);
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Payment initialized (reusing existing bill)',
+                    'redirect_url' => "https://dev.toyyibpay.com/{$billCode}"
+                ]);
+            }
+            
+            // If we need to create a new bill, proceed with the normal flow
             // Make sure we have a valid name for billTo parameter
             \Log::info('Determining billTo name based on user role', ['role' => $user->role]);
             if ($user->role === 'admin') {
@@ -196,7 +231,7 @@ class ToyyibPayController extends Controller
                 'billAmount' => $amountInCents,
                 'billReturnUrl' => route('payment.status'),
                 'billCallbackUrl' => route('payment.callback'),
-                'billExternalReferenceNo' => $referenceNo,
+                'billExternalReferenceNo' => $payment->payment_reference,
                 'billTo' => $billToName,
                 'billEmail' => $billEmail,
                 'billPhone' => $billPhone,

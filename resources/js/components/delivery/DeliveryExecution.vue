@@ -157,7 +157,7 @@ export default {
       return today.toISOString().split('T')[0];
     },
     filteredDeliveries() {
-      
+      console.log('Filtering deliveries:', this.deliveries);
       if (!this.deliveries) {
         console.log('Deliveries is null or undefined');
         return [];
@@ -325,36 +325,6 @@ export default {
         dateFilter: this.dateFilter,
       });
     },
-    
-    async submitStatusUpdate(delivery, newStatus, statusNotes) {
-      try {
-        modalUtil.showLoading('Updating', 'Updating delivery status...');
-        
-        const response = await fetchData(`/api/deliveries/${delivery.deliveryID}/status`, {
-          method: 'put',
-          data: {
-            status: newStatus,
-            notes: statusNotes
-          }
-        });
-        
-        modalUtil.closeLoading();
-        
-        if (response.success) {
-          modalUtil.showSuccess('Success', 'Delivery status updated successfully', {
-            onHidden: () => {
-              this.$emit('refresh');
-            }
-          });
-        } else {
-          modalUtil.showDanger('Error', response.message || 'Failed to update delivery status');
-        }
-      } catch (error) {
-        modalUtil.closeLoading();
-        console.error('Error updating delivery status:', error);
-        modalUtil.showDanger('Error', error.message || 'An unexpected error occurred');
-      }
-    }
   },
   watch: {
     statusFilter() {

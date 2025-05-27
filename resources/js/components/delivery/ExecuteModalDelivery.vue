@@ -363,7 +363,7 @@ export default {
       this.$emit('start-delivery', deliveryID);
       
       // Hide the modal after starting the delivery
-      this.hideModal();
+      // this.hideModal();
       
       // Emit a refresh event to the parent component to refresh the table
       this.$emit('refresh');
