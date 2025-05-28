@@ -62,4 +62,34 @@ class Trip extends Model
     {
         return $this->hasMany(Verify::class, 'deliveryID', 'deliveryID');
     }
+
+    /**
+     * Get the starting location for this trip through the checkpoint.
+     */
+    public function startLocation()
+    {
+        return $this->hasOneThrough(
+            Location::class,
+            Checkpoint::class,
+            'checkID',     // Foreign key on checkpoints table
+            'locationID',  // Foreign key on locations table
+            'start_checkID', // Local key on trips table
+            'locationID'   // Local key on checkpoints table
+        );
+    }
+
+    /**
+     * Get the ending location for this trip through the checkpoint.
+     */
+    public function endLocation()
+    {
+        return $this->hasOneThrough(
+            Location::class,
+            Checkpoint::class,
+            'checkID',     // Foreign key on checkpoints table
+            'locationID',  // Foreign key on locations table
+            'end_checkID', // Local key on trips table
+            'locationID'   // Local key on checkpoints table
+        );
+    }
 }

@@ -101,6 +101,7 @@
       ref="executeModal"
       @start-delivery="startDelivery"
       @refresh="$emit('refresh')"
+      @reopen-delivery-modal="reopenDeliveryModal"
     />
   </div>
 </template>
@@ -325,7 +326,26 @@ export default {
         dateFilter: this.dateFilter,
       });
     },
+    reopenDeliveryModal(deliveryID) {
+      // Emit refresh and wait for parent to update data
+      this.$emit('refresh');
+      
+      // Set a timeout to allow the data to refresh before reopening the modal
+      setTimeout(() => {
+        // Find the updated delivery in the filtered deliveries
+        const updatedDelivery = this.filteredDeliveries.find(d => d.deliveryID === deliveryID);
+        if (updatedDelivery) {
+          // Reopen the modal with the updated delivery
+          this.viewDelivery(updatedDelivery);
+        }
+      }, 1000); // Wait for 1 second to ensure data is refreshed
+    },
   },
+  mounted() {
+    // Vue 3 doesn't support $on, so we don't need this code
+    // Instead, we'll handle the event through props and emits
+  },
+    
   watch: {
     statusFilter() {
       this.$emit('filter-changed', {

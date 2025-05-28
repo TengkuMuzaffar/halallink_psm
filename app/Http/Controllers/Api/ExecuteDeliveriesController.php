@@ -681,7 +681,7 @@ class ExecuteDeliveriesController extends Controller
         // Similar to what's returned in the index method
         // You can extract this logic from your index method to avoid duplication
         
-        $delivery = Delivery::with(['user', 'vehicle', 'trips.startLocation', 'trips.endLocation'])
+        $delivery = Delivery::with(['user', 'vehicle', 'trips.startCheckpoint.location', 'trips.endCheckpoint.location'])
             ->findOrFail($deliveryID);
             
         // Format the delivery data as needed

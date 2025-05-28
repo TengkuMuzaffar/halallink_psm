@@ -62,7 +62,7 @@ class Delivery extends Model
     
     public function trips()
     {
-        return $this->belongsTo(Trip::class, 'deliveryID', 'deliveryID');
+        return $this->hasMany(Trip::class, 'deliveryID', 'deliveryID');
     }
 
 }

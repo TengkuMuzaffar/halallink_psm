@@ -330,7 +330,7 @@ export default {
   components: {
     QRScannerModal
   },
-  emits: ['start-delivery', 'scan-qr-code', 'refresh'],
+  emits: ['start-delivery', 'scan-qr-code', 'refresh', 'reopen-delivery-modal'],
   data() {
     return {
       modal: null,
@@ -359,14 +359,19 @@ export default {
       return Object.keys(this.delivery.routes).length;
     },
     startDeliveryAndRefresh(deliveryID) {
+      // Hide the modal first
+      this.hideModal();
+      
       // Emit the start-delivery event to the parent component
       this.$emit('start-delivery', deliveryID);
       
-      // Hide the modal after starting the delivery
-      // this.hideModal();
-      
-      // Emit a refresh event to the parent component to refresh the table
+      // Emit refresh event
       this.$emit('refresh');
+      
+      // Wait for refresh to complete before reopening
+      setTimeout(() => {
+        this.$emit('reopen-delivery-modal', deliveryID);
+      }, 500);
     },
     getStatusBadgeClass(status) {
       if (!status) return 'bg-secondary';
