@@ -155,6 +155,26 @@ class ProfileController extends Controller
             $responseData['company'] = $companyData;
         }
 
+        // Add this to the getProfile method, before returning the response
+        
+        // If user is admin, get certifications
+        if ($user->role === 'admin' && $user->companyID) {
+            $certifications = Cert::where('companyID', $user->companyID)->get();
+            
+            // Format certifications
+            $formattedCertifications = $certifications->map(function ($cert) {
+                return [
+                    'certID' => $cert->certID,
+                    'cert_type' => $cert->cert_type,
+                    'cert_file' => $cert->cert_file ? asset('storage/' . $cert->cert_file) : null,
+                    'created_at' => $cert->created_at,
+                    'updated_at' => $cert->updated_at
+                ];
+            });
+            
+            $responseData['certifications'] = $formattedCertifications;
+        }
+
         return response()->json($responseData);
     }
 
