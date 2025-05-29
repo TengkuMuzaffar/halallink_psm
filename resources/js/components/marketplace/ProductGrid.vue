@@ -7,7 +7,6 @@
            class="col-sm-6 col-md-4 col-xl-3">
         <ProductCard 
           :product="product"
-          @view-details="$emit('view-details', product)"
           @add-to-cart="$emit('add-to-cart', product)"
         />
       </div>

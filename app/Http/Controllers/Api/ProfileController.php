@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\Company;
 use App\Models\Location;
+use App\Models\Cert;  // Add this line
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
@@ -34,6 +35,7 @@ class ProfileController extends Controller
         ];
 
         // Include company data for admin users and SME users
+        // In the getProfile method, add certifications (around line 45)
         if (($user->role === 'admin' || ($user->company && $user->company->company_type === 'sme')) && $user->companyID) {
             $company = Company::find($user->companyID);
             if ($company) {
@@ -48,6 +50,19 @@ class ProfileController extends Controller
                 // Get company locations
                 $locations = Location::where('companyID', $company->companyID)->get();
                 $data['locations'] = $locations;
+                
+                // Get company certifications
+                $certifications = Cert::where('companyID', $company->companyID)->get();
+                $formattedCertifications = $certifications->map(function ($cert) {
+                    return [
+                        'certID' => $cert->certID,
+                        'cert_type' => $cert->cert_type,
+                        'cert_file' => $cert->cert_file ? asset('storage/' . $cert->cert_file) : null,
+                        'created_at' => $cert->created_at,
+                        'updated_at' => $cert->updated_at
+                    ];
+                });
+                $data['certifications'] = $formattedCertifications;
             }
         }
 

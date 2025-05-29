@@ -1,9 +1,9 @@
 <template>
-  <div class="d-flex justify-content-between align-items-center mt-4">
-    <div>
+  <div class="pagination-container mt-4">
+    <div class="pagination-info">
       <span class="text-muted">Showing {{ from || 1 }}-{{ to || itemCount }} of {{ total || itemCount }}</span>
     </div>
-    <nav aria-label="Product pagination" v-if="lastPage > 1">
+    <nav aria-label="Product pagination" v-if="lastPage > 1" class="pagination-nav">
       <ul class="pagination mb-0">
         <li class="page-item" :class="{ disabled: currentPage <= 1 || loading }">
           <a class="page-link" href="#" @click.prevent="!loading && onPageChange(currentPage - 1)">
@@ -14,7 +14,7 @@
             v-for="page in paginationRange" 
             :key="page" 
             class="page-item"
-            :class="{ active: page === currentPage, disabled: loading }"
+            :class="{ active: page === currentPage, disabled: loading, 'page-number': true }"
         >
           <a class="page-link" href="#" @click.prevent="!loading && onPageChange(page)">{{ page }}</a>
         </li>
@@ -63,7 +63,16 @@ export default {
   },
   computed: {
     paginationRange() {
-      const maxVisiblePages = 5;
+      // Adjust max visible pages based on screen size
+      let maxVisiblePages = 5;
+      
+      // Reduce visible pages on smaller screens
+      if (window.innerWidth < 768) {
+        maxVisiblePages = 3;
+      } else if (window.innerWidth < 992) {
+        maxVisiblePages = 4;
+      }
+      
       let startPage = 1;
       let endPage = this.lastPage;
       
@@ -102,13 +111,30 @@ export default {
       if (page < 1 || page > this.lastPage || this.loading) return;
       this.$emit('page-change', page);
     }
+  },
+  mounted() {
+    // Add window resize listener to update pagination when screen size changes
+    window.addEventListener('resize', this.$forceUpdate);
+  },
+  beforeUnmount() {
+    // Clean up event listener
+    window.removeEventListener('resize', this.$forceUpdate);
   }
 }
 </script>
 
 <style scoped>
+.pagination-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
 .pagination {
   margin-bottom: 0;
+  flex-wrap: wrap;
 }
 
 .page-link {
@@ -119,5 +145,48 @@ export default {
   background-color: #123524;
   border-color: #123524;
   color: #fff;
+}
+
+/* Medium screens */
+@media (max-width: 991px) {
+  .pagination-container {
+    justify-content: center;
+  }
+  
+  .pagination-info {
+    width: 100%;
+    text-align: center;
+    margin-bottom: 0.5rem;
+  }
+  
+  .pagination-nav {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+  }
+  
+  .page-link {
+    padding: 0.4rem 0.75rem;
+  }
+}
+
+/* Small screens */
+@media (max-width: 576px) {
+  .page-link {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+  }
+  
+  /* Hide page numbers on very small screens, keep only prev/next */
+  @media (max-width: 360px) {
+    .page-number {
+      display: none;
+    }
+    
+    /* Only show current page */
+    .page-item.active {
+      display: inline-block;
+    }
+  }
 }
 </style>

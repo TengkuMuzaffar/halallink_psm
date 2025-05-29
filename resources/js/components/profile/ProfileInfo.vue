@@ -1,9 +1,9 @@
 <template>
-  <div class="card">
-    <div class="card-header d-flex justify-content-between align-items-center">
+  <div class="card theme-card">
+    <div class="card-header d-flex justify-content-between align-items-center theme-header">
       <h5 class="mb-0">Profile Information</h5>
       <button 
-        class="btn btn-primary" 
+        class="btn btn-primary theme-btn-primary" 
         @click="$emit('toggle-edit')"
         v-if="!editMode"
       >
@@ -11,17 +11,17 @@
         <span class="d-none d-md-inline">Edit Profile</span>
       </button>
       <div v-else>
-        <button class="btn btn-success me-2" @click="$emit('save')">
+        <button class="btn btn-success theme-btn-primary me-2" @click="$emit('save')">
           <i class="bi bi-check-lg me-1"></i> 
           <span class="d-none d-md-inline">Save</span>
         </button>
-        <button class="btn btn-secondary" @click="$emit('toggle-edit')">
+        <button class="btn btn-secondary theme-btn-secondary" @click="$emit('toggle-edit')">
           <i class="bi bi-x-lg me-1"></i> 
           <span class="d-none d-md-inline">Cancel</span>
         </button>
       </div>
     </div>
-    <div class="card-body">
+    <div class="card-body theme-body">
       <div v-if="loading" class="text-center py-4">
         <div class="spinner-border text-primary" role="status">
           <span class="visually-hidden">Loading...</span>
@@ -160,6 +160,73 @@ export default {
 </script>
 
 <style scoped>
+.theme-card {
+  --primary-color: #123524;
+  --secondary-color: #f5f5f5;
+  --accent-color: #3E7B27;
+  border: 1px solid #e9ecef;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.3s ease;
+}
+
+.theme-card:hover {
+  box-shadow: 0 4px 12px rgba(18, 53, 36, 0.15);
+}
+
+.theme-header {
+  background-color: var(--primary-color);
+  color: white;
+  border-bottom: none;
+}
+
+.theme-body {
+  background-color: var(--secondary-color);
+}
+
+.theme-btn-primary {
+  background-color: var(--accent-color);
+  border-color: var(--accent-color);
+  color: var(--secondary-color);
+}
+
+.theme-btn-primary:hover {
+  background-color: var(--accent-color);
+  border-color: var(--accent-color);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(18, 53, 36, 0.3);
+}
+
+.theme-btn-secondary {
+  transition: all 0.3s ease;
+}
+
+.theme-btn-secondary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.form-control:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 0.2rem rgba(18, 53, 36, 0.25);
+}
+
+.form-select:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 0.2rem rgba(18, 53, 36, 0.25);
+}
+
+.btn-outline-primary {
+  color: var(--primary-color);
+  border-color: var(--primary-color);
+}
+
+.btn-outline-primary:hover {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(18, 53, 36, 0.3);
+}
+
 .avatar-container {
   position: relative;
   display: inline-block;

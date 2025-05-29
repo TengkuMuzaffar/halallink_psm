@@ -30,7 +30,9 @@ Route::get('/payment/status', [ToyyibPayController::class, 'paymentStatus'])->na
 Route::post('/payment/callback', [ToyyibPayController::class, 'callBack'])->name('payment.callback');
 
 // Password routes
-Route::post('/password/forgot', [PasswordController::class, 'sendResetLinkEmail']);
+Route::middleware('throttle:1,30')->group(function () {
+    Route::post('/password/forgot', [PasswordController::class, 'sendResetLinkEmail']);
+});
 Route::post('/password/reset', [PasswordController::class, 'resetPassword']);
 Route::post('/password/validate-token', [PasswordController::class, 'validateToken']);
 
@@ -108,6 +110,17 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/orders/{order}', [OrderController::class, 'update']);
 
     });
+    Route::middleware('role.company:both,sme,broiler,slaughterhouse, sme, logistic')->group(function () {
+    // Certification routes
+    Route::get('/profile/certifications', [App\Http\Controllers\Api\CertController::class, 'getCertifications']);
+    Route::post('/profile/certifications', [App\Http\Controllers\Api\CertController::class, 'updateCertifications']);
+    Route::delete('/profile/certifications/{certID}', [App\Http\Controllers\Api\CertController::class, 'deleteCertification']);
+
+    });
+
+
+
+
     Route::middleware('role.company:both,slaughterhouse')->group(function () {
         // Task routes
         Route::get('/tasks', 'App\Http\Controllers\Api\TaskController@index');
@@ -179,6 +192,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::patch('/employees/{id}/status', [EmployeeController::class, 'updateStatus']);
     });
 }); // Ensure this is the closing bracket for Route::middleware('auth:sanctum')->group
+
+
+// Add these routes inside the auth:sanctum middleware group
+
 
 
 

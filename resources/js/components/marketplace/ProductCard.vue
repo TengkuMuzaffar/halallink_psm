@@ -35,10 +35,7 @@
         <i class="fas fa-map-marker-alt me-1"></i>{{ product.location }}
       </p>
       <div class="mt-auto">
-        <button class="btn btn-primary w-100 mb-2" @click="$emit('view-details', product)">
-          View Details
-        </button>
-        <button class="btn btn-outline-primary w-100" @click="$emit('add-to-cart', product)">
+        <button class="btn btn-primary w-100" @click="$emit('add-to-cart', product)">
           <i class="fas fa-cart-plus me-1"></i> Add to Cart
         </button>
       </div>

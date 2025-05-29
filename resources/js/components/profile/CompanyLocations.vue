@@ -1,9 +1,9 @@
 <template>
-  <div class="card mb-4">
-    <div class="card-header d-flex justify-content-between align-items-center">
+  <div class="card mb-4 theme-card">
+    <div class="card-header d-flex justify-content-between align-items-center theme-header">
       <h5 class="mb-0">Company Locations</h5>
       <button 
-        class="btn btn-primary" 
+        class="btn btn-primary theme-btn-primary" 
         @click="$emit('toggle-edit')"
         v-if="!editMode"
       >
@@ -11,17 +11,17 @@
         <span class="d-none d-md-inline">Edit Locations</span>
       </button>
       <div v-else>
-        <button class="btn btn-success me-2" @click="saveLocations">
+        <button class="btn btn-success theme-btn-primary me-2" @click="saveLocations">
           <i class="bi bi-check-lg me-1"></i> 
           <span class="d-none d-md-inline">Save</span>
         </button>
-        <button class="btn btn-secondary" @click="$emit('toggle-edit')">
+        <button class="btn btn-secondary theme-btn-secondary" @click="$emit('toggle-edit')">
           <i class="bi bi-x-lg me-1"></i> 
           <span class="d-none d-md-inline">Cancel</span>
         </button>
       </div>
     </div>
-    <div class="card-body">
+    <div class="card-body theme-body">
       <div v-if="loading" class="text-center py-4">
         <div class="spinner-border text-primary" role="status">
           <span class="visually-hidden">Loading...</span>
@@ -66,7 +66,7 @@
                     <option value="headquarters">Headquarters</option>
                     <option v-if="companyType === 'broiler'" value="supplier">Supplier</option>
                     <option v-if="companyType === 'slaughterhouse'" value="slaughterhouse">Slaughterhouse</option>
-                    <option v-if="companyType === 'SME'" value="kitchen">Kitchen</option>
+                    <option v-if="companyType === 'sme'" value="kitchen">Kitchen</option>
                   </select>
                 </div>
                 <div class="col-md-2 d-flex align-items-end">
@@ -224,12 +224,96 @@ export default {
 </script>
 
 <style scoped>
+.theme-card {
+  --primary-color: #123524;
+  --secondary-color: #f5f5f5;
+  --accent-color: #3E7B27;
+  border: 1px solid #e9ecef;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.3s ease;
+}
+
+.theme-card:hover {
+  box-shadow: 0 4px 12px rgba(18, 53, 36, 0.15);
+}
+
+.theme-header {
+  background-color: var(--primary-color);
+  color: white;
+  border-bottom: none;
+}
+
+.theme-body {
+  background-color: var(--secondary-color);
+}
+
+.theme-btn-primary {
+  background-color: var(--accent-color);
+  border-color: var(--accent-color);
+  color: var(--secondary-color);
+}
+
+.theme-btn-primary:hover {
+  background-color: var(--accent-color);
+  border-color: var(--accent-color);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(18, 53, 36, 0.3);
+}
+
+.theme-btn-secondary {
+  transition: all 0.3s ease;
+}
+
+.theme-btn-secondary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.btn-outline-danger {
+  transition: all 0.3s ease;
+}
+
+.btn-outline-danger:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3);
+}
+
+.btn-outline-primary {
+  color: var(--primary-color);
+  border-color: var(--primary-color);
+  transition: all 0.3s ease;
+}
+
+.btn-outline-primary:hover {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(18, 53, 36, 0.3);
+}
+
 .location-item {
-  background-color: #f8f9fa;
-  transition: all 0.2s;
+  transition: all 0.3s ease;
+  border: 1px solid #e9ecef;
+  background-color: white;
 }
 
 .location-item:hover {
-  background-color: #f1f3f5;
+  border-color: var(--primary-color);
+  box-shadow: 0 2px 8px rgba(18, 53, 36, 0.1);
+  transform: translateY(-1px);
+}
+
+.form-control:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 0.2rem rgba(18, 53, 36, 0.25);
+}
+
+.form-select:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 0.2rem rgba(18, 53, 36, 0.25);
+}
+
+.badge.bg-success {
+  background-color: var(--primary-color) !important;
 }
 </style>

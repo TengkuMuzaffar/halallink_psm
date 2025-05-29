@@ -50,12 +50,23 @@
             @location-updated="handleLocationUpdate" 
           />
         </div>
+        <!-- Fix the CompanyCertifications component usage (around line 50) -->
+        <div v-if="isAdmin" class="mb-4">
+          <CompanyCertifications 
+            :certifications="profileData.certifications || []"
+            :edit-mode="editCertificationsMode" 
+            :loading="certificationsLoading"
+            @toggle-edit="editCertificationsMode = !editCertificationsMode"
+            @loading="certificationsLoading = $event"
+            @refresh-data="fetchProfileData"
+          />
+        </div>
       </div>
       
       <!-- Security Card -->
       <div class="col-lg-4">
         <div class="card mb-4">
-          <div class="card-header">
+          <div class="card-header theme-header">
             <h5 class="mb-0">Security</h5>
           </div>
           <div class="card-body">
@@ -73,6 +84,15 @@
             </div>
             
             <form @submit.prevent="updatePassword">
+              <!-- Hidden username field for accessibility -->
+              <input 
+                type="text" 
+                name="username" 
+                :value="profileData.email" 
+                autocomplete="username" 
+                style="display: none;" 
+                readonly
+              >
               <div class="mb-3">
                 <label for="current-password" class="form-label">Current Password</label>
                 <input 
@@ -80,11 +100,17 @@
                   class="form-control" 
                   id="current-password"
                   v-model="passwordData.current_password"
+                  autocomplete="current-password"
                   required
                 >
                 <div class="form-text">
-                  <a href="#" @click.prevent="sendPasswordResetEmail" class="text-primary">
-                    Forgot your password?
+                  <a 
+                    href="#" 
+                    @click.prevent="sendPasswordResetEmail" 
+                    class="text-primary"
+                    :class="{ 'disabled': isResetEmailLoading }"
+                  >
+                    {{ isResetEmailLoading ? `Please wait (${resetEmailTimer}s)` : 'Forgot your password?' }}
                   </a>
                 </div>
               </div>
@@ -95,6 +121,7 @@
                   class="form-control" 
                   id="new-password"
                   v-model="passwordData.new_password"
+                  autocomplete="new-password"
                   required
                   minlength="8"
                 >
@@ -106,6 +133,7 @@
                   class="form-control" 
                   id="confirm-password"
                   v-model="passwordData.new_password_confirmation"
+                  autocomplete="new-password"
                   required
                 >
                 <div class="form-text text-danger" v-if="passwordMismatch">
@@ -123,13 +151,6 @@
             </form>
           </div>
         </div>
-        
-        <!-- Language Button (Admin Only) -->
-        <div v-if="isAdmin" class="mb-4">
-          <button class="btn btn-outline-primary w-100" @click="openLanguageSettings">
-            <i class="fas fa-language me-2"></i> Language Settings
-          </button>
-        </div>
       </div>
     </div>
   </div>
@@ -142,20 +163,23 @@ import { useStore } from 'vuex';
 import api from '../utils/api';
 import modal from '../utils/modal';  // This is correct - importing the modal utility
 import ProfileInfo from '../components/profile/ProfileInfo.vue';
+import CompanyCertifications from '../components/profile/CompanyCertifications.vue';
+
 import CompanyLocations from '../components/profile/CompanyLocations.vue';
 import marketplaceService from '../services/marketplaceService';  // Add this import
-
 export default {
   name: 'ProfilePage',
   components: {
     ProfileInfo,
-    CompanyLocations
+    CompanyLocations,
+    CompanyCertifications
   },
   setup() {
     const route = useRoute();
-    const router = useRouter();
+    // const router = useRouter();
     const store = useStore();
-
+    const editCertificationsMode = ref(false);
+    const certificationsLoading = ref(false);
     const handleLocationUpdate = () => {
       // Clear the marketplace service locations cache
       marketplaceService.clearLocationsCache();
@@ -174,6 +198,9 @@ export default {
     const newProfileImage = ref(null);
     const newCompanyImage = ref(null);
     const emailVerified = ref(true);
+    const isResetEmailLoading = ref(false);  // Add here
+    const resetEmailTimer = ref(0);          // Add here
+    const resetEmailInterval = ref(null);    // Add here
     const sendingVerification = ref(false);
     
     // Password related state
@@ -347,6 +374,7 @@ export default {
         
         // Show success message
         modal.success('Success', 'Profile updated successfully');
+        fetchProfileData();
       } catch (error) {
         console.error('Error updating profile:', error);
         modal.danger('Error', 'Failed to update profile');
@@ -361,7 +389,7 @@ export default {
       
       try {
         passwordLoading.value = true;
-        
+        console.log(passwordData.value);
         await api.post('/api/profile/password', passwordData.value);
         
         // Reset form
@@ -381,7 +409,20 @@ export default {
         // Show error message
         if (error.response?.status === 422) {
           // Validation error
-          const errorMessage = error.response.data.message || 'Invalid password data';
+          const errorData = error.response.data.errors || {};
+          let errorMessage = 'Invalid password data';
+          
+          console.log('Validation errors:', errorData); // Add this to see all errors
+          
+          // Check for specific validation errors
+          if (errorData.current_password) {
+            errorMessage = errorData.current_password[0];
+          } else if (errorData.new_password) {
+            errorMessage = errorData.new_password[0];
+          } else if (errorData.new_password_confirmation) {
+            errorMessage = errorData.new_password_confirmation[0];
+          }
+          
           modal.danger('Validation Error', errorMessage);
         } else {
           modal.danger('Error', 'Failed to update password');
@@ -390,28 +431,50 @@ export default {
         passwordLoading.value = false;
       }
     };
-    
+
     // Send password reset email
     const sendPasswordResetEmail = async () => {
       try {
+        // If already loading, don't do anything
+        if (isResetEmailLoading.value) return;
+        
         if (!profileData.value.email) {
           modal.warning('Warning', 'Email address is required');
           return;
         }
         
+        // Set loading state and start timer
+        isResetEmailLoading.value = true;
+        resetEmailTimer.value = 30;
+        
+        // Create interval to count down
+        resetEmailInterval.value = setInterval(() => {
+          resetEmailTimer.value--;
+          
+          // When timer reaches 0, clear the interval and reset loading state
+          if (resetEmailTimer.value <= 0) {
+            clearInterval(resetEmailInterval.value);
+            isResetEmailLoading.value = false;
+          }
+        }, 1000);
+        
         await api.post('/api/password/forgot', { email: profileData.value.email });
         
         modal.success('Email Sent', 'Password reset link has been sent to your email');
+        
+        // Don't reset the loading state here - let the timer continue
       } catch (error) {
         console.error('Error sending password reset email:', error);
-        modal.danger('Error', 'Failed to send password reset email');
+        
+        // Check for throttling (429 Too Many Requests)
+        if (error.response?.status === 429) {
+          modal.warning('Rate Limited', 'Please wait before requesting another password reset email');
+        } else {
+          modal.danger('Error', 'Failed to send password reset email');
+        }
+        
+        // Even on error, don't reset the loading state - let the timer continue
       }
-    };
-    
-    // Open language settings
-    const openLanguageSettings = () => {
-      // Implement language settings functionality
-      modal.info('Language Settings', 'Language settings functionality will be implemented soon.');
     };
     
     // Check for verifyEmail query parameter
@@ -424,27 +487,33 @@ export default {
       }
     });
     
-    return {
-      loading,
-      profileData,
-      formattedProfileData,
-      editProfileMode,
-      editLocationsMode,
-      locationsLoading,
-      isAdmin,
-      handleImageChange,
-      saveProfile,
-      emailVerified,
-      sendVerificationEmail,
-      sendingVerification,
-      passwordData,
-      passwordLoading,
-      passwordMismatch,
-      updatePassword,
-      sendPasswordResetEmail,
-      openLanguageSettings,
-      handleLocationUpdate
-    };
+    // Add fetchProfileData to the return statement (around line 450)
+return {
+  loading,
+  profileData,
+  formattedProfileData,
+  editProfileMode,
+  editLocationsMode,
+  locationsLoading,
+  editCertificationsMode,
+  certificationsLoading,
+  isAdmin,
+  handleImageChange,
+  saveProfile,
+  emailVerified,
+  sendVerificationEmail,
+  sendingVerification,
+  passwordData,
+  passwordLoading,
+  passwordMismatch,
+  updatePassword,
+  sendPasswordResetEmail,
+  handleLocationUpdate,
+  fetchProfileData,
+  isResetEmailLoading,
+  resetEmailTimer,
+  resetEmailInterval
+};
   }
 };
 </script>
@@ -452,5 +521,37 @@ export default {
 <style scoped>
 .profile-page {
   padding-bottom: 2rem;
+}
+.card-header {
+  --primary-color: #123524;
+  --secondary-color: #EFE3C2;
+  --accent-color: #3E7B27;
+  --text-color: #333;
+  --light-text: #666;
+  --border-color: rgba(18, 53, 36, 0.2);
+  --light-bg: rgba(239, 227, 194, 0.2);
+  --lighter-bg: rgba(239, 227, 194, 0.1);
+  
+  border: none;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+  background-color: #fff;
+}
+.theme-header {
+  background-color: var(--primary-color);
+  color: white;
+  border-bottom: none;
+}
+
+/* Button styles */
+.theme-btn-accent {
+  background-color: var(--accent-color);
+  border-color: var(--accent-color);
+  color: var(--secondary-color);
+}
+
+.theme-btn-accent:hover {
+  background-color: #2e5c1d;
+  border-color: #2e5c1d;
+  color: var(--secondary-color);
 }
 </style>
