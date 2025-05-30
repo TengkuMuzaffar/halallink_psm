@@ -127,19 +127,12 @@
       </div>
     </div>
     
-    <!-- Employee Card Modal section with this -->
-    <div v-if="selectedEmployee" class="employee-card-section mt-4">
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <h5 class="mb-0">Employee Card</h5>
-        <button class="btn btn-sm btn-outline-secondary" @click="selectedEmployee = null">
-          <i class="fas fa-times"></i>
-        </button>
-      </div>
-      <EmployeeCard 
-        :employee="selectedEmployee"
-        @edit="editEmployee"
-      />
-    </div>
+    <!-- Employee Card Modal -->
+    <EmployeeCard 
+      v-if="selectedEmployee"
+      :employee="selectedEmployee"
+      @edit="editEmployee"
+    />
   </div>
 </template>
 

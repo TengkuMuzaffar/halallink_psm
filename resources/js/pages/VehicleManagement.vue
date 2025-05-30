@@ -113,7 +113,7 @@
     <div class="modal fade" id="vehicleModal" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog">
         <div class="modal-content">
-          <div class="modal-header">
+          <div class="modal-header theme-header">
             <h5 class="modal-title">{{ isEditing ? 'Edit Vehicle' : 'Add New Vehicle' }}</h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
@@ -523,9 +523,6 @@ export default {
   border-color: #123524;
   color: #fff;
 }
-</style>
-
-<style scoped>
 .vehicle-management {
   padding-bottom: 2rem;
 }

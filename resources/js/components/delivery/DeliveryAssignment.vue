@@ -41,22 +41,9 @@
       </div>
       
       <div class="card-body p-0">
-        <div v-if="loading" class="p-4 text-center">
-          <div class="spinner-border theme-spinner" role="status">
-            <span class="visually-hidden">Loading...</span>
-          </div>
-          <p class="mt-2 text-muted">Loading delivery data...</p>
-        </div>
-        
-        <div v-else-if="error" class="p-4">
+        <div v-if="error" class="p-4">
           <div class="alert alert-danger mb-0">
             {{ error }}
-          </div>
-        </div>
-        
-        <div v-else-if="!trips || trips.length === 0" class="p-4 text-center">
-          <div class="alert theme-alert-info mb-0">
-            <i class="fas fa-info-circle me-2"></i> No trips found for the selected criteria.
           </div>
         </div>
         
@@ -73,7 +60,28 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="trip in trips" :key="trip.tripID">
+                <!-- Loading State Inside Table -->
+                <tr v-if="loading" class="table-loading-row">
+                  <td colspan="5" class="text-center py-4">
+                    <LoadingSpinner 
+                      size="md" 
+                      message="Loading delivery data..." 
+                    />
+                  </td>
+                </tr>
+                
+                <!-- No Data State -->
+                <tr v-else-if="!trips || trips.length === 0" class="table-empty-row">
+                  <td colspan="5" class="text-center py-4">
+                    <div class="empty-state">
+                      <i class="fas fa-info-circle me-2 text-muted"></i>
+                      No trips found for the selected criteria.
+                    </div>
+                  </td>
+                </tr>
+                
+                <!-- Data Rows -->
+                <tr v-else v-for="trip in trips" :key="trip.tripID">
                   <td class="text-nowrap">{{ trip.tripID }}</td>
                   <td class="text-nowrap">{{ trip.orderID }}</td>
                   <td class="location-cell">
@@ -108,6 +116,7 @@
               </tbody>
             </table>
           </div>
+          
           <!-- Add modals for each trip -->
           <ItemModal
             v-for="trip in trips"
@@ -124,12 +133,14 @@
 <script>
 import Pagination from '../ui/Pagination.vue';
 import ItemModal from './ItemModal.vue';
+import LoadingSpinner from '../ui/LoadingSpinner.vue';
 
 export default {
   name: 'DeliveryAssignment',
   components: {
     Pagination,
-    ItemModal
+    ItemModal,
+    LoadingSpinner
   },
   props: {
     loading: Boolean,

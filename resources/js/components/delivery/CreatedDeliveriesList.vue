@@ -4,7 +4,7 @@
     <div class="card-header d-flex justify-content-between align-items-center theme-header">
       <h5 class="mb-0">Created Deliveries</h5>
       <div>
-        <button class="btn btn-sm theme-btn-accent me-2" @click="$emit('create-delivery')">
+        <button class="btn btn-sm btn-primary me-2" @click="$emit('create-delivery')">
           <i class="fas fa-plus"></i>
         </button>
         <button class="btn btn-sm theme-btn-outline" @click="$emit('refresh')">
@@ -25,11 +25,11 @@
       </div>
     </div>
     <div class="card-body p-0">
-      <div v-if="loading" class="p-3 text-center">
-        <div class="spinner-border theme-spinner" role="status">
-          <span class="visually-hidden">Loading...</span>
-        </div>
-      </div>
+      <LoadingSpinner 
+        v-if="loading" 
+        size="md" 
+        message="Loading deliveries..." 
+      />
       <div v-else-if="Object.keys(deliveries).length === 0" class="p-3 text-center">
         <p class="text-muted mb-0">No deliveries found</p>
       </div>
@@ -105,8 +105,13 @@
 </template>
 
 <script>
+import LoadingSpinner from '../ui/LoadingSpinner.vue';
+
 export default {
   name: 'CreatedDeliveriesList',
+  components: {
+    LoadingSpinner
+  },
   props: {
     deliveries: {
       type: Object,

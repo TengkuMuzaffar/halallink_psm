@@ -7,11 +7,11 @@
       </h5>
     </div>
     <div class="card-body">
-      <div v-if="loading" class="text-center py-4">
-        <div class="spinner-border text-primary" role="status">
-          <span class="visually-hidden">Loading...</span>
-        </div>
-      </div>
+      <LoadingSpinner 
+        v-if="loading" 
+        size="md" 
+        message="Loading performance data..." 
+      />
       <div v-else>
         <div class="table-responsive">
           <table class="table table-hover">
@@ -90,8 +90,13 @@
 </template>
 
 <script>
+import LoadingSpinner from '../ui/LoadingSpinner.vue';
+
 export default {
   name: 'PerformanceLeaderboard',
+  components: {
+    LoadingSpinner
+  },
   props: {
     performanceData: {
       type: Array,

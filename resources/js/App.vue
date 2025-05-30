@@ -22,7 +22,9 @@ body {
   font-family: 'Nunito', sans-serif;
   background-color: #f8f9fa;
 }
-.card-header {
+
+/* Define CSS variables globally so they can be used by theme-header class */
+:root {
   --primary-color: #123524;
   --secondary-color: #EFE3C2;
   --accent-color: #3E7B27;
@@ -31,7 +33,9 @@ body {
   --border-color: rgba(18, 53, 36, 0.2);
   --light-bg: rgba(239, 227, 194, 0.2);
   --lighter-bg: rgba(239, 227, 194, 0.1);
-  
+}
+
+.card-header {
   border: none;
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
   background-color: #fff;
