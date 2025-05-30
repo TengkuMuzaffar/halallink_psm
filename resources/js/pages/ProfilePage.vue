@@ -522,20 +522,7 @@ return {
 .profile-page {
   padding-bottom: 2rem;
 }
-.card-header {
-  --primary-color: #123524;
-  --secondary-color: #EFE3C2;
-  --accent-color: #3E7B27;
-  --text-color: #333;
-  --light-text: #666;
-  --border-color: rgba(18, 53, 36, 0.2);
-  --light-bg: rgba(239, 227, 194, 0.2);
-  --lighter-bg: rgba(239, 227, 194, 0.1);
-  
-  border: none;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-  background-color: #fff;
-}
+
 .theme-header {
   background-color: var(--primary-color);
   color: white;

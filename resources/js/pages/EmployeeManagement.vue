@@ -7,7 +7,7 @@
     
     <!-- Employees Table -->
     <div class="card">
-      <div class="card-header d-flex justify-content-between align-items-center">
+      <div class="card-header theme-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0">Employees</h5>
         <button class="btn btn-primary" @click="copyRegistrationLink">
           <i class="fas fa-plus me-1"></i> Add Employee
@@ -21,7 +21,7 @@
         
         <!-- Table (always show, with loading state inside) -->
         <ResponsiveTable
-          :columns="columns"
+          :columns="displayColumns"
           :items="employees"
           :loading="loading"
           :has-actions="true"
@@ -52,19 +52,47 @@
           
           <!-- Actions slot -->
           <template #actions="{ item }">
-            <button 
-              class="btn btn-sm me-1" 
-              :class="item.status === 'active' ? 'btn-outline-warning' : 'btn-outline-success'"
-              @click="toggleEmployeeStatus(item)"
-            >
-              <i :class="item.status === 'active' ? 'fas fa-ban' : 'fas fa-check'"></i>
-            </button>
-            <button class="btn btn-sm btn-outline-primary me-1" @click="editEmployee(item)">
-              <i class="fas fa-edit"></i>
-            </button>
-            <button class="btn btn-sm btn-outline-danger" @click="deleteEmployee(item)">
-              <i class="fas fa-trash"></i>
-            </button>
+            <!-- Desktop view: regular buttons -->
+            <div class="action-buttons d-none d-md-flex">
+              <button 
+                class="btn btn-sm me-1" 
+                :class="item.status === 'active' ? 'btn-outline-warning' : 'btn-outline-success'"
+                @click="toggleEmployeeStatus(item)"
+              >
+                <i :class="item.status === 'active' ? 'fas fa-ban' : 'fas fa-check'"></i>
+              </button>
+              <button class="btn btn-sm btn-outline-info me-1" @click="viewEmployee(item)">
+                <i class="fas fa-eye"></i>
+              </button>
+              <button class="btn btn-sm btn-outline-danger" @click="deleteEmployee(item)">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+            
+            <!-- Mobile view: dropdown menu -->
+            <div class="dropdown d-md-none">
+              <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="actionDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="fas fa-ellipsis-v"></i>
+              </button>
+              <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="actionDropdown">
+                <li>
+                  <a class="dropdown-item" href="#" @click.prevent="toggleEmployeeStatus(item)">
+                    <i :class="[item.status === 'active' ? 'fas fa-ban text-warning' : 'fas fa-check text-success', 'me-2']"></i>
+                    {{ item.status === 'active' ? 'Deactivate' : 'Activate' }}
+                  </a>
+                </li>
+                <li>
+                  <a class="dropdown-item" href="#" @click.prevent="viewEmployee(item)">
+                    <i class="fas fa-eye text-info me-2"></i> View
+                  </a>
+                </li>
+                <li>
+                  <a class="dropdown-item" href="#" @click.prevent="deleteEmployee(item)">
+                    <i class="fas fa-trash text-danger me-2"></i> Delete
+                  </a>
+                </li>
+              </ul>
+            </div>
           </template>
         </ResponsiveTable>
         
@@ -98,15 +126,23 @@
         </div>
       </div>
     </div>
+    
+    <!-- Employee Card Modal -->
+    <EmployeeCard 
+      v-if="selectedEmployee" 
+      :employee="selectedEmployee"
+      @edit="editEmployee"
+    />
   </div>
 </template>
 
 <script>
-import { ref, reactive, onMounted, computed } from 'vue';
+import { ref, reactive, onMounted, computed, watch } from 'vue';
 import { useStore } from 'vuex';
 import EmployeeStats from '../components/employee/EmployeeStats.vue';
 import EmployeeTable from '../components/employee/EmployeeTable.vue';
 import ResponsiveTable from '../components/ui/ResponsiveTable.vue';
+import EmployeeCard from '../components/employee/EmployeeCard.vue';
 import api from '../utils/api';
 import modal from '../utils/modal';
 
@@ -115,9 +151,9 @@ export default {
   components: {
     EmployeeStats,
     EmployeeTable,
-    ResponsiveTable
+    ResponsiveTable,
+    EmployeeCard
   },
-  // Update the setup function to separate the stats fetching
   setup() {
       const store = useStore();
       const loading = ref(true);
@@ -125,10 +161,12 @@ export default {
       const employees = ref([]);
       const statusFilter = ref('');
       const searchQuery = ref('');
+      const selectedEmployee = ref(null);
+      let employeeCardModal = null;
       
       // Add pagination state
       const currentPage = ref(1);
-      const perPage = ref(5); // Default to 10 items per page
+      const perPage = ref(5); // Default to 5 items per page
       const pagination = ref({
         current_page: 1,
         last_page: 1,
@@ -174,14 +212,51 @@ export default {
         inactive: 0
       });
       
-      // Table columns
-      const columns = [
+      // All available columns
+      const allColumns = [
         { key: 'fullname', label: 'Name', sortable: true },
         { key: 'email', label: 'Email', sortable: true },
         { key: 'tel_number', label: 'Phone', sortable: false },
-        { key: 'status', label: 'Status', sortable: true },
+        { key: 'status', label: 'Status', sortable: false },
         { key: 'created_at', label: 'Joined', sortable: true }
       ];
+      
+      // Responsive columns based on screen size
+      const displayColumns = computed(() => {
+        // Check if window is defined (for SSR compatibility)
+        if (typeof window === 'undefined') return allColumns;
+        
+        // For small screens, only show Name, Status
+        if (window.innerWidth < 768) {
+          return [
+            { key: 'fullname', label: 'Name', sortable: true },
+            { key: 'status', label: 'Status', sortable: false }
+          ];
+        }
+        
+        // For medium screens, show more columns
+        if (window.innerWidth < 992) {
+          return [
+            { key: 'fullname', label: 'Name', sortable: true },
+            { key: 'status', label: 'Status', sortable: false },
+            { key: 'created_at', label: 'Joined', sortable: true }
+          ];
+        }
+        
+        // For large screens, show all columns
+        return allColumns;
+      });
+      
+      // Watch for window resize to update columns
+      const handleResize = () => {
+        // Force a re-evaluation of displayColumns
+        // This is a hack to make Vue re-render the component
+        employees.value = [...employees.value];
+      };
+      
+      onMounted(() => {
+        window.addEventListener('resize', handleResize);
+      });
       
       // Fetch employees with pagination, search, and filters
       const fetchEmployees = async () => {
@@ -374,8 +449,21 @@ export default {
       const editEmployee = (employee) => {
         console.log('Editing employee:', employee);
         // Implement edit logic here
+        // This could open a form modal or navigate to an edit page
       };
       
+      const viewEmployee = (employee) => {
+        selectedEmployee.value = employee;
+        
+        // Initialize and show the modal using Bootstrap
+        setTimeout(() => {
+          const modalElement = document.getElementById('employeeCardModal');
+          if (modalElement) {
+            const employeeModal = new bootstrap.Modal(modalElement);
+            employeeModal.show();
+          }
+        }, 100);
+      };
       // Delete employee
       const deleteEmployee = async (employee) => {
         modal.confirm(
@@ -424,14 +512,16 @@ export default {
         error,
         employees,
         employeeStats,
-        columns,
+        displayColumns,
         statusFilter,
         pagination,
         paginationRange,
         currentPage,
+        selectedEmployee,
         formatDate,
         getStatusBadgeClass,
         copyRegistrationLink,
+        viewEmployee,
         editEmployee,
         deleteEmployee,
         toggleEmployeeStatus,
@@ -444,6 +534,11 @@ export default {
 </script>
 
 <style scoped>
+.theme-header {
+  background-color: var(--primary-color);
+  color: white;
+  border-bottom: none;
+}
 .employee-management h1 {
   color: #123524;
 }
@@ -485,9 +580,26 @@ export default {
   padding: 0.35em 0.65em;
 }
 
+/* Responsive styling for action buttons */
+.action-buttons .btn {
+  padding: 0.25rem 0.5rem;
+}
+
+@media (max-width: 992px) {
+  .action-buttons .btn {
+    padding: 0.2rem 0.4rem;
+    font-size: 0.75rem;
+  }
+}
+
 @media (max-width: 768px) {
   .employee-management h1 {
     font-size: 1.75rem;
+  }
+  
+  /* Make the action column more compact on mobile */
+  .actions-column {
+    width: 60px !important;
   }
 }
 </style>

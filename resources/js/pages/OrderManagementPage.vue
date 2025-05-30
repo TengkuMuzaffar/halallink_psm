@@ -937,7 +937,7 @@ const getAllOrderItems = (order) => {
 }
 
 .theme-list-item-active .theme-icon {
-  color: var(--secondary-color);
+  color: var(--accent-color);
 }
 
 /* Spinner */
@@ -1008,7 +1008,7 @@ const getAllOrderItems = (order) => {
 }
 
 .btn-link {
-  color: var(--accent-color);
+  color: #2e5c1d;
   text-decoration: none;
 }
 

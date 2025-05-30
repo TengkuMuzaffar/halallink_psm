@@ -17,7 +17,7 @@
     
     <!-- Poultries Table -->
     <div class="card">
-      <div class="card-header d-flex justify-content-between align-items-center">
+      <div class="card-header theme-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0">Poultries</h5>
         <button class="btn btn-primary" @click="openAddModal">
           <i class="fas fa-plus me-1"></i> Add Poultry
@@ -499,6 +499,11 @@ export default {
 </script>
 
 <style scoped>
+.theme-header {
+  background-color: var(--primary-color);
+  color: white;
+  border-bottom: none;
+}
 .pagination {
   margin-bottom: 0;
 }
