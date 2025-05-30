@@ -32,8 +32,13 @@
     
     <!-- Tasks Table -->
     <div class="card">
+      <div class="card-header theme-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Tasks List</h5>
+        <div class="d-flex gap-2">
+          <!-- You can add action buttons here if needed -->
+        </div>
+      </div>
       <div class="card-body">
-        <h5 class="card-title mb-4">Tasks List</h5>
         
         <ResponsiveTable
           :columns="columns"
@@ -887,28 +892,12 @@ export default {
 }
 
 /* Theme styling */
-.theme-modal {
-  --primary-color: #123524;
-  --secondary-color: #EFE3C2;
-  --accent-color: #3E7B27;
-  --text-color: #333;
-  --light-text: #666;
-  --border-color: rgba(18, 53, 36, 0.2);
-  --light-bg: rgba(239, 227, 194, 0.2);
-  --lighter-bg: rgba(239, 227, 194, 0.1);
-  
-  border: none;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-  background-color: #fff;
-  border-radius: 10px;
-  overflow: hidden;
-}
+
 
 .theme-header {
   background-color: var(--primary-color);
   color: var(--secondary-color);
   border-bottom: none;
-  padding: 15px 20px;
 }
 
 .theme-close {
@@ -952,10 +941,7 @@ export default {
   flex-shrink: 0;
 }
 
-.card-header {
-  background-color: var(--lighter-bg) !important;
-  border-bottom: 1px solid var(--border-color);
-}
+
 
 .shadow-sm {
   box-shadow: 0 .125rem .25rem rgba(0,0,0,.075) !important;

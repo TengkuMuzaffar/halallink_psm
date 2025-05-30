@@ -62,7 +62,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/profile/locations', [App\Http\Controllers\Api\ProfileController::class, 'manageLocations']);
     
     // Dashboard routes
-    Route::get('/dashboard/stats', [DashboardController::class, 'getStats']);
+    Route::prefix('dashboard')->group(function () {
+        Route::get('/stats', [DashboardController::class, 'getStats']);
+        Route::get('/top-performers', [DashboardController::class, 'getTopPerformers']);
+        Route::get('/performance-metrics', [DashboardController::class, 'getPerformanceMetrics']);
+        Route::get('/industry-benchmarks', [DashboardController::class, 'getIndustryBenchmarks']);
+    });
 
     // Admin company type routes - accessible by both admin and employee roles
     // If 'admin' company type should be the only one, it remains as is.

@@ -1,22 +1,45 @@
 <template>
   <div class="dashboard">
-    <h1 class="mb-4">Dashboard</h1>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h1 class="mb-0">Transparency Dashboard</h1>
+      <div class="badge bg-info text-dark">
+        <i class="fas fa-eye me-1"></i>
+        Public Performance Metrics
+      </div>
+    </div>
     
     <!-- Stats Cards Row -->
     <StatsCards :stats="companyStats" class="mb-4" />
     
-    <!-- Performance Charts will go here -->
-    <div class="card mb-4">
-      <div class="card-header">
-        <h5 class="mb-0">Company Performance</h5>
+    <!-- Top Performers Section -->
+    <div class="row mb-4">
+      <div class="col-12">
+        <TopPerformers 
+          :top-performers="topPerformers" 
+          :loading="loading"
+          class="mb-4" 
+        />
       </div>
-      <div class="card-body">
-        <p class="text-muted text-center py-5" v-if="loading">
-          Loading charts...
-        </p>
-        <p class="text-muted text-center py-5" v-else>
-          Performance charts will be added here
-        </p>
+    </div>
+
+    <!-- Performance Leaderboard -->
+    <div class="row mb-4">
+      <div class="col-12">
+        <PerformanceLeaderboard 
+          :performance-data="performanceData" 
+          :loading="loading"
+          class="mb-4" 
+        />
+      </div>
+    </div>
+
+    <!-- Industry Benchmarks -->
+    <div class="row mb-4">
+      <div class="col-12">
+        <IndustryBenchmarks 
+          :benchmarks="industryBenchmarks" 
+          :loading="loading"
+        />
       </div>
     </div>
   </div>
@@ -25,13 +48,19 @@
 <script>
 import { ref, computed, onMounted } from 'vue';
 import StatsCards from '../components/dashboard/StatsCards.vue';
-import api from '../utils/api';
+import TopPerformers from '../components/dashboard/TopPerformers.vue';
+import PerformanceLeaderboard from '../components/dashboard/PerformanceLeaderboard.vue';
+import IndustryBenchmarks from '../components/dashboard/IndustryBenchmarks.vue';
+import DashboardService from '../services/dashboardService';
 import modal from '../utils/modal';
 
 export default {
   name: 'Dashboard',
   components: {
-    StatsCards
+    StatsCards,
+    TopPerformers,
+    PerformanceLeaderboard,
+    IndustryBenchmarks
   },
   setup() {
     const loading = ref(true);
@@ -42,6 +71,9 @@ export default {
       sme: 0,
       logistic: 0
     });
+    const topPerformers = ref({});
+    const performanceData = ref([]);
+    const industryBenchmarks = ref({});
     
     // Transform stats for StatsCards component
     const companyStats = computed(() => [
@@ -71,50 +103,37 @@ export default {
       }
     ]);
     
-    // Fetch dashboard data
+    // Fetch all dashboard data
     const fetchDashboardData = async () => {
       loading.value = true;
       error.value = null;
       
       try {
-        // Use the enhanced API client
-        const response = await api.get('/api/dashboard/stats', {
-          onError: (err) => {
-            console.error('Failed to fetch dashboard stats:', err);
-            error.value = 'Failed to load dashboard data. Please try again.';
-            
-            // Show error message with modal
-            modal.danger(
-              'Error Loading Dashboard',
-              'Failed to load dashboard data. Please try again.',
-              {
-                buttons: [
-                  {
-                    label: 'Retry',
-                    type: 'primary',
-                    onClick: () => {
-                      fetchDashboardData();
-                    }
-                  },
-                  {
-                    label: 'Dismiss',
-                    type: 'secondary',
-                    dismiss: true
-                  }
-                ]
-              }
-            );
-          }
-        });
+        // Fetch all data in parallel
+        const [statsData, topPerformersData, performanceMetrics, benchmarks] = await Promise.all([
+          DashboardService.getStats(),
+          DashboardService.getTopPerformers(),
+          DashboardService.getPerformanceMetrics(),
+          DashboardService.getIndustryBenchmarks()
+        ]);
         
-        if (typeof response === 'object') {
-          stats.value = response;
-        }
+        stats.value = statsData;
+        topPerformers.value = topPerformersData;
+        performanceData.value = performanceMetrics;
+        industryBenchmarks.value = benchmarks;
+        
       } catch (err) {
-        // Error is already handled by onError callback
+        console.error('Error fetching dashboard data:', err);
+        error.value = 'Failed to load dashboard data';
+        modal.showError('Error', 'Failed to load dashboard data. Please try again.');
       } finally {
         loading.value = false;
       }
+    };
+    
+    // Refresh data
+    const refreshData = () => {
+      fetchDashboardData();
     };
     
     onMounted(() => {
@@ -125,26 +144,33 @@ export default {
       loading,
       error,
       stats,
-      companyStats
+      companyStats,
+      topPerformers,
+      performanceData,
+      industryBenchmarks,
+      refreshData
     };
   }
 };
 </script>
 
 <style scoped>
-.dashboard h1 {
-  color: #123524;
+.dashboard {
+  padding: 20px;
+}
+
+.badge {
+  font-size: 0.9rem;
+  padding: 8px 12px;
 }
 
 .card {
-  border-radius: 10px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
   border: none;
 }
 
 .card-header {
-  background-color: #fff;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-  padding: 1rem 1.5rem;
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #dee2e6;
 }
 </style>

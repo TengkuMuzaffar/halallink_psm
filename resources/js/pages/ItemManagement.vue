@@ -623,7 +623,7 @@ export default {
 <style scoped>
 .theme-header {
   background-color: var(--primary-color);
-  color: white;
+  color: var(--secondary-color);
   border-bottom: none;
 }
 /* Pagination styling to match MarketplacePage */

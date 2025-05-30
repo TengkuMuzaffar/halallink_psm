@@ -17,7 +17,7 @@
     
     <!-- Vehicles Table -->
     <div class="card">
-      <div class="card-header d-flex justify-content-between align-items-center">
+      <div class="card-header theme-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0">Vehicles</h5>
         <button class="btn btn-primary" @click="openAddModal">
           <i class="fas fa-plus me-1"></i> Add Vehicle
@@ -509,7 +509,11 @@ export default {
 .pagination {
   margin-bottom: 0;
 }
-
+.theme-header {
+  background-color: var(--primary-color);
+  color: var(--secondary-color);
+  border-bottom: none;
+}
 .page-link {
   color: #123524;
 }

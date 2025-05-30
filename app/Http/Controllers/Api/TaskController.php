@@ -161,7 +161,8 @@ class TaskController extends Controller
         
         // Query users with slaughterhouse role from the same company
         $query = User::where('companyID', $companyID)
-            ->where('role', 'employee');
+            ->where('role', 'employee')
+            ->where('status', 'active');
             
         // Apply search if provided
         if (!empty($searchTerm)) {

@@ -16,7 +16,7 @@
     
     <!-- Companies Table -->
     <div class="card">
-      <div class="card-header d-flex justify-content-between align-items-center">
+      <div class="card-header theme-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0">Companies</h5>
         <button class="btn btn-primary" @click="openAddModal">
           <i class="fas fa-plus me-1"></i> Add Company
@@ -502,7 +502,11 @@ export default {
 .company-management h1 {
   color: #123524;
 }
-
+.theme-header {
+  background-color: var(--primary-color);
+  color: var(--secondary-color);
+  border-bottom: none;
+}
 /* Pagination styling to match MarketplacePage */
 .pagination {
   margin-bottom: 0;
