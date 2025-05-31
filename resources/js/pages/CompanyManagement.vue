@@ -19,7 +19,7 @@
       <div class="card-header theme-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0">Companies</h5>
         <button class="btn btn-primary" @click="openAddModal">
-          <i class="fas fa-plus me-1"></i> Add Company
+          <i class="fas fa-plus"></i> <span class="d-none d-md-inline">Add Company</span>
         </button>
       </div>
       <div class="card-body">
@@ -85,9 +85,7 @@
             </div>
           </template>
           
-          <template #created_at="{ item }">
-            {{ formatDate(item.created_at) }}
-          </template>
+          
           
           <!-- Actions slot -->
           <template #actions="{ item }">
@@ -248,11 +246,10 @@ export default {
     // In the columns definition, change the key for the phone column
     const columns = [
       { key: 'company_name', label: 'Company Name', sortable: true },
-      { key: 'company_type', label: 'Type', sortable: true },
-      { key: 'email', label: 'Email', sortable: true },
-      { key: 'Phone', label: 'Phone', sortable: true }, // Changed from tel_number to Phone to match the template slot name
-      { key: 'status', label: 'Status', sortable: true, class: 'text-center' },
-      { key: 'created_at', label: 'Created', sortable: true }
+      { key: 'company_type', label: 'Type', sortable: false },
+      { key: 'email', label: 'Email', sortable: false },
+      { key: 'Phone', label: 'Phone', sortable: false }, // Changed from tel_number to Phone to match the template slot name
+      { key: 'status', label: 'Status', sortable: false, class: 'text-center' },
     ];
     
     // Fetch companies and stats

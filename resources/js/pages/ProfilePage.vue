@@ -50,8 +50,8 @@
             @location-updated="handleLocationUpdate" 
           />
         </div>
-        <!-- Fix the CompanyCertifications component usage (around line 50) -->
-        <div v-if="isAdmin" class="mb-4">
+        <!-- Company Certifications (Admin Only and company_type != admin) -->
+        <div v-if="isAdmin && profileData.company?.company_type !== 'admin'" class="mb-4">
           <CompanyCertifications 
             :certifications="profileData.certifications || []"
             :edit-mode="editCertificationsMode" 
@@ -519,6 +519,7 @@ return {
 </script>
 
 <style scoped>
+
 .profile-page {
   padding-bottom: 2rem;
 }

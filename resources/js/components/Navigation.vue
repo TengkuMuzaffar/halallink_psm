@@ -105,6 +105,12 @@ export default {
         if (companyType === 'slaughterhouse') {
           baseItems.push({ label: 'Task Management', path: '/tasks', icon: 'fas fa-tasks' });
         }
+      
+      // Add Report link for admin and sme company types
+      if (companyType === 'admin' || companyType === 'sme') {
+        baseItems.push({ label: 'Reports', path: '/report', icon: 'fas fa-chart-bar' });
+      }
+      
       // Process each item to split labels
       return baseItems.map(item => {
         const { rootLabel, managementText } = splitLabel(item.label);

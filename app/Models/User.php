@@ -89,4 +89,12 @@ class User extends Authenticatable implements MustVerifyEmail
             'status' => 'active', // Update status when email is verified
         ])->save();
     }
+
+    /**
+     * Get the report validities associated with the user.
+     */
+    public function reportValidities()
+    {
+        return $this->hasMany(ReportValidity::class, 'userID', 'userID');
+    }
 }

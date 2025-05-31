@@ -24,6 +24,7 @@ const PaymentStatus = () => import('../pages/PaymentStatusPage.vue');
 const VehicleManagement = () => import('../pages/VehicleManagement.vue');
 const DeliveryPage = () => import('../pages/DeliveryPage.vue'); // Import the new page
 const OrderManagement = () =>  import('../pages/OrderManagementPage.vue');
+const ReportPage = () => import('../pages/ReportPage.vue'); // Import the Report page
 
 // Import the verification page
 const VerifyDeliveryPage = () => import('../pages/VerifyDeliveryPage.vue');
@@ -191,6 +192,16 @@ const routes = [
           requiresAuth: true,
           requiresCompanyType: 'logistic', // Assuming logistic role/company handles this
           title: 'Delivery Management'
+        }
+      },
+      {
+        path: 'report',
+        name: 'Report',
+        component: ReportPage,
+        meta: { 
+          requiresAuth: true,
+          requiresCompanyTypes: ['admin', 'sme'],
+          title: 'Reports'
         }
       },
       {

@@ -20,7 +20,7 @@
       <div class="card-header theme-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0">Poultries</h5>
         <button class="btn btn-primary" @click="openAddModal">
-          <i class="fas fa-plus me-1"></i> Add Poultry
+          <i class="fas fa-plus"></i> <span class="d-none d-md-inline">Add Poultry</span>
         </button>
       </div>
       <div class="card-body position-relative">

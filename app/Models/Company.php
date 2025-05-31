@@ -41,4 +41,12 @@ class Company extends Model
     {
         return $this->hasMany(Location::class, 'companyID', 'companyID');
     }
+
+    /**
+     * Get the reports associated with the company.
+     */
+    public function reports()
+    {
+        return $this->hasMany(Report::class, 'companyID', 'companyID');
+    }
 }

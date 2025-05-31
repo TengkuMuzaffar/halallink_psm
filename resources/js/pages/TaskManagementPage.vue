@@ -1040,17 +1040,15 @@ export default {
 
 /* Refresh button styling */
 .theme-btn-outline {
-  background-color: transparent;
-  border: 1px solid var(--secondary-color);
   color: var(--secondary-color);
-  border-radius: 5px;
-  padding: 4px 10px;
-  transition: all 0.2s ease;
+  border-color: var(--secondary-color);
+  background-color: transparent;
 }
 
 .theme-btn-outline:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-  transform: translateY(-2px);
+  color: var(--primary-color);
+  background-color: var(--secondary-color);
+  border-color: var(--secondary-color);
 }
 
 /* Additional styles for enhanced task details modal */

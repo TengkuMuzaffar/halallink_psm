@@ -89,6 +89,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/poultries/{poultry}', [PoultryController::class, 'destroy']);
         // Add this to your existing poultry routes
         Route::get('/poultries/all/stats', [PoultryController::class, 'getStats']);
+        // Report routes for admin
+         // Report routes for admin
+        Route::get('/reports/admin', [App\Http\Controllers\Api\ReportController::class, 'index']);
+        Route::get('/reports/admin/{reportValidityID}', [App\Http\Controllers\Api\ReportController::class, 'show']);
+        Route::post('/reports/admin', [App\Http\Controllers\Api\ReportController::class, 'store']);
+        Route::put('/reports/admin/{reportValidityID}', [App\Http\Controllers\Api\ReportController::class, 'update']);
+        Route::delete('/reports/admin/{reportValidityID}', [App\Http\Controllers\Api\ReportController::class, 'destroy']);
     });
     
     // Broiler company type routes
@@ -115,16 +122,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/orders/{order}', [OrderController::class, 'update']);
 
     });
-    Route::middleware('role.company:both,sme,broiler,slaughterhouse, sme, logistic')->group(function () {
+    Route::middleware('role.company:admin,sme,broiler,slaughterhouse, sme, logistic')->group(function () {
     // Certification routes
     Route::get('/profile/certifications', [App\Http\Controllers\Api\CertController::class, 'getCertifications']);
     Route::post('/profile/certifications', [App\Http\Controllers\Api\CertController::class, 'updateCertifications']);
     Route::delete('/profile/certifications/{certID}', [App\Http\Controllers\Api\CertController::class, 'deleteCertification']);
 
     });
-
-
-
 
     Route::middleware('role.company:both,slaughterhouse')->group(function () {
         // Task routes
@@ -146,6 +150,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/cart/update', [App\Http\Controllers\Api\CartController::class, 'updateCartItem']);
         Route::delete('/cart/remove/{cartID}', [App\Http\Controllers\Api\CartController::class, 'removeCartItem']);
         Route::delete('/cart/clear', [App\Http\Controllers\Api\CartController::class, 'clearCart']);
+         // Report routes for SME
+        Route::get('/reports/sme', [App\Http\Controllers\Api\ReportController::class, 'index']);
+        Route::get('/reports/sme/{reportValidityID}', [App\Http\Controllers\Api\ReportController::class, 'show']);
     });
     
     Route::middleware('role.company:both,logistic')->group(function () {
