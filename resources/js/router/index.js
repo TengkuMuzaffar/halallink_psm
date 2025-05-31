@@ -97,10 +97,38 @@ const routes = [
     meta: { requiresAuth: true },
     children: [
       {
-        path: '/',
-        name: 'Dashboard',
-        component: Dashboard,
-        meta: { title: 'Dashboard' }
+        path: '',
+        name: 'Root',
+        beforeEnter: (to, from, next) => {
+          const user = store.getters.user;
+          const companyType = user?.company?.company_type;
+          
+          if (companyType) {
+            switch (companyType) {
+              case 'admin':
+                next({ name: 'CompanyManagement' });
+                break;
+              case 'logistic':
+                next({ name: 'DeliveryManagement' });
+                break;
+              case 'broiler':
+                next({ name: 'OrderManagement' });
+                break;
+              case 'sme':
+                next({ name: 'Marketplace' });
+                break;
+              case 'slaughterhouse':
+                next({ name: 'OrderManagement' });
+                break;
+              default:
+                // If we still need Dashboard as a fallback
+                next({ name: 'Dashboard' });
+            }
+          } else {
+            // Fallback if no company type
+            next({ name: 'Profile' });
+          }
+        }
       },
       {
         path: 'profile',
@@ -280,7 +308,33 @@ router.beforeEach(async (to, from, next) => {
   
   // If route should redirect authenticated users and user is authenticated
   if (redirectIfAuth && isAuthenticated) {
-    next({ name: 'Dashboard' });
+    // Redirect based on company type instead of Dashboard
+    const user = store.getters.user;
+    const companyType = user?.company?.company_type;
+    
+    if (companyType) {
+      switch (companyType) {
+        case 'admin':
+          next({ name: 'CompanyManagement' });
+          break;
+        case 'logistic':
+          next({ name: 'DeliveryManagement' });
+          break;
+        case 'broiler':
+          next({ name: 'OrderManagement' });
+          break;
+        case 'sme':
+          next({ name: 'Marketplace' });
+          break;
+        case 'slaughterhouse':
+          next({ name: 'OrderManagement' });
+          break;
+        default:
+          next({ name: 'Dashboard' }); // Fallback
+      }
+    } else {
+      next({ name: 'Dashboard' }); // Fallback if no company type
+    }
     return;
   }
   

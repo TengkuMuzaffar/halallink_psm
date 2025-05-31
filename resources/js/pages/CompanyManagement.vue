@@ -18,9 +18,9 @@
     <div class="card">
       <div class="card-header theme-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0">Companies</h5>
-        <button class="btn btn-primary" @click="openAddModal">
+        <!-- <button class="btn btn-primary" @click="openAddModal">
           <i class="fas fa-plus"></i> <span class="d-none d-md-inline">Add Company</span>
-        </button>
+        </button> -->
       </div>
       <div class="card-body">
         <!-- Error State -->
@@ -46,7 +46,7 @@
                 <option value="">All Types</option>
                 <option value="broiler">Broiler</option>
                 <option value="slaughterhouse">Slaughterhouse</option>
-                <option value="SME">SME</option>
+                <option value="sme">SME</option>
                 <option value="logistic">Logistic</option>
               </select>
               
@@ -169,11 +169,11 @@ export default {
     
     // Add pagination state
     const currentPage = ref(1);
-    const perPage = ref(3); // Default to 3 items per page
+    const perPage = ref(10); // Default to 3 items per page
     const pagination = ref({
       current_page: 1,
       last_page: 1,
-      per_page: 3,
+      per_page: 10,
       total: 0,
       from: 0,
       to: 0
@@ -333,11 +333,11 @@ export default {
       }
     };
     
-    // Modal actions
-    const openAddModal = () => {
-      console.log('Opening add company modal');
-      // Implement modal logic here
-    };
+    // // Modal actions
+    // const openAddModal = () => {
+    //   console.log('Opening add company modal');
+    //   // Implement modal logic here
+    // };
     
     const editCompany = (company) => {
       console.log('Editing company:', company);
@@ -482,7 +482,7 @@ export default {
       formatDate,
       getTypeBadgeClass,
       getStatusBadgeClass,
-      openAddModal,
+      // openAddModal,
       editCompany,
       deleteCompany,
       toggleCompanyStatus,

@@ -76,32 +76,39 @@ export default {
     const industryBenchmarks = ref({});
     
     // Transform stats for StatsCards component
-    const companyStats = computed(() => [
-      {
-        title: 'Broiler Companies',
-        count: stats.value.broiler,
-        icon: 'fas fa-industry',
-        bgColor: 'bg-primary'
-      },
-      {
-        title: 'Slaughterhouse',
-        count: stats.value.slaughterhouse,
-        icon: 'fas fa-warehouse',
-        bgColor: 'bg-danger'
-      },
-      {
-        title: 'SME',
-        count: stats.value.sme,
-        icon: 'fas fa-store',
-        bgColor: 'bg-success'
-      },
-      {
-        title: 'Logistics',
-        count: stats.value.logistic,
-        icon: 'fas fa-truck',
-        bgColor: 'bg-warning'
+    const companyStats = computed(() => {
+      // Add a null check to ensure stats.value is defined
+      if (!stats.value) {
+        return [];
       }
-    ]);
+      
+      return [
+        {
+          title: 'Broiler Companies',
+          count: stats.value.broiler || 0,
+          icon: 'fas fa-industry',
+          bgColor: 'bg-primary'
+        },
+        {
+          title: 'Slaughterhouse',
+          count: stats.value.slaughterhouse || 0,
+          icon: 'fas fa-warehouse',
+          bgColor: 'bg-danger'
+        },
+        {
+          title: 'SME',
+          count: stats.value.sme || 0,
+          icon: 'fas fa-store',
+          bgColor: 'bg-success'
+        },
+        {
+          title: 'Logistics',
+          count: stats.value.logistic || 0,
+          icon: 'fas fa-truck',
+          bgColor: 'bg-warning'
+        }
+      ];
+    });
     
     // Fetch all dashboard data
     const fetchDashboardData = async () => {
@@ -125,7 +132,7 @@ export default {
       } catch (err) {
         console.error('Error fetching dashboard data:', err);
         error.value = 'Failed to load dashboard data';
-        modal.showError('Error', 'Failed to load dashboard data. Please try again.');
+        modal.danger('Error', 'Failed to load dashboard data. Please try again.');
       } finally {
         loading.value = false;
       }

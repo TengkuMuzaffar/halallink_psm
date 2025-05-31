@@ -55,8 +55,11 @@ apiClient.interceptors.response.use(
         delete apiClient.defaults.headers.common['Authorization'];
       }
       
-      // Redirect to login page with message
-      window.location.href = '/login?message=' + encodeURIComponent('Your session has expired. Please log in again.');
+      // Only redirect if we're not already on the login page
+      const currentPath = window.location.pathname;
+      if (currentPath !== '/login') {
+        window.location.href = '/login?message=' + encodeURIComponent('Your session has expired. Please log in again.');
+      }
     }
     
     return Promise.reject(error);

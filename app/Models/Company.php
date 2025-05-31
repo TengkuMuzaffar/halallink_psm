@@ -49,4 +49,12 @@ class Company extends Model
     {
         return $this->hasMany(Report::class, 'companyID', 'companyID');
     }
+    
+    /**
+     * Get the certifications associated with the company.
+     */
+    public function certs()
+    {
+        return $this->hasMany(Cert::class, 'companyID', 'companyID');
+    }
 }

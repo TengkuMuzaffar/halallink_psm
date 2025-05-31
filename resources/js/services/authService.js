@@ -9,12 +9,18 @@ const getCsrfToken = async () => {
 export const login = async (credentials) => {
   try {
     await getCsrfToken();
-    return await api.post('/api/login', credentials, {
-      onError: (error) => {
-        console.error('Login API error:', error.response?.data || error.message);
+    const response = await api.client.post('/api/login', credentials, {
+      // Skip auth redirect for login requests to prevent refresh loops
+      skipAuthRedirect: true,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+        'Accept': 'application/json'
       }
     });
+    return response.data;
   } catch (error) {
+    console.error('Login API error:', error.response?.data || error.message);
     throw error;
   }
 };

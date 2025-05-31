@@ -144,18 +144,29 @@ class DashboardController extends Controller
             ->where('order_status', 'completed')
             ->count();
 
-        $avgFulfillmentTime = Order::whereIn('userID', $userIds)
+        // SQLite compatible version of the time difference calculation
+        $avgFulfillmentTime = 0;
+        $orders = Order::whereIn('userID', $userIds)
             ->orWhereIn('locationID', $locationIds)
             ->whereNotNull('order_timestamp')
             ->whereNotNull('deliver_timestamp')
-            ->selectRaw('AVG(TIMESTAMPDIFF(HOUR, order_timestamp, deliver_timestamp)) as avg_time')
-            ->value('avg_time');
+            ->get();
+            
+        if ($orders->count() > 0) {
+            $totalHours = 0;
+            foreach ($orders as $order) {
+                $start = new \Carbon\Carbon($order->order_timestamp);
+                $end = new \Carbon\Carbon($order->deliver_timestamp);
+                $totalHours += $end->diffInHours($start);
+            }
+            $avgFulfillmentTime = $orders->count() > 0 ? $totalHours / $orders->count() : 0;
+        }
 
         return [
             'total_orders' => $totalOrders,
             'completed_orders' => $completedOrders,
             'success_rate' => $totalOrders > 0 ? round(($completedOrders / $totalOrders) * 100, 2) : 0,
-            'avg_fulfillment_hours' => round($avgFulfillmentTime ?? 0, 2)
+            'avg_fulfillment_hours' => round($avgFulfillmentTime, 2)
         ];
     }
 
@@ -175,11 +186,22 @@ class DashboardController extends Controller
             ->whereRaw('DATE(end_timestamp) <= scheduled_date')
             ->count();
 
-        $avgDeliveryTime = Delivery::whereIn('userID', $userIds)
+        // SQLite compatible version of the time difference calculation
+        $avgDeliveryTime = 0;
+        $deliveries = Delivery::whereIn('userID', $userIds)
             ->whereNotNull('start_timestamp')
             ->whereNotNull('end_timestamp')
-            ->selectRaw('AVG(TIMESTAMPDIFF(HOUR, start_timestamp, end_timestamp)) as avg_time')
-            ->value('avg_time');
+            ->get();
+            
+        if ($deliveries->count() > 0) {
+            $totalHours = 0;
+            foreach ($deliveries as $delivery) {
+                $start = new \Carbon\Carbon($delivery->start_timestamp);
+                $end = new \Carbon\Carbon($delivery->end_timestamp);
+                $totalHours += $end->diffInHours($start);
+            }
+            $avgDeliveryTime = $deliveries->count() > 0 ? $totalHours / $deliveries->count() : 0;
+        }
 
         return [
             'total_deliveries' => $totalDeliveries,
@@ -187,7 +209,7 @@ class DashboardController extends Controller
             'on_time_deliveries' => $onTimeDeliveries,
             'success_rate' => $totalDeliveries > 0 ? round(($completedDeliveries / $totalDeliveries) * 100, 2) : 0,
             'on_time_rate' => $completedDeliveries > 0 ? round(($onTimeDeliveries / $completedDeliveries) * 100, 2) : 0,
-            'avg_delivery_hours' => round($avgDeliveryTime ?? 0, 2)
+            'avg_delivery_hours' => round($avgDeliveryTime, 2)
         ];
     }
 

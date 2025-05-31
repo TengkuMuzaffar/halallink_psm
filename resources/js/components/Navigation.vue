@@ -68,7 +68,7 @@ export default {
     // Define navigation items based on user role and company type
     const navItems = computed(() => {
       const baseItems = [
-        { label: 'Dashboard', path: '/', icon: 'fas fa-tachometer-alt' }
+        // Dashboard removed as it's no longer the default landing page
       ];
       
       // Only show employee management for admins

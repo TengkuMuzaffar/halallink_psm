@@ -57,7 +57,31 @@ export default {
         store.commit('SET_USER', data.user);
         store.commit('SET_TOKEN', data.access_token);
         
-        router.push({ name: 'Dashboard' });
+        // Redirect based on company type
+        const companyType = data.user.company?.company_type;
+        if (companyType) {
+          switch (companyType) {
+            case 'admin':
+              router.push({ name: 'CompanyManagement' });
+              break;
+            case 'logistic':
+              router.push({ name: 'DeliveryManagement' });
+              break;
+            case 'broiler':
+              router.push({ name: 'OrderManagement' });
+              break;
+            case 'sme':
+              router.push({ name: 'Marketplace' });
+              break;
+            case 'slaughterhouse':
+              router.push({ name: 'OrderManagement' });
+              break;
+            default:
+              router.push({ name: 'Dashboard' }); // Fallback
+          }
+        } else {
+          router.push({ name: 'Dashboard' }); // Fallback if no company type
+        }
       } catch (err) {
         console.error('Login error:', err);
         if (err.response?.status === 500) {
