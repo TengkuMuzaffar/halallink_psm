@@ -1,12 +1,5 @@
 <template>
   <div class="delivery-execution">
-    <!-- Add LoadingSpinner component -->
-    <LoadingSpinner 
-      v-if="localLoading" 
-      size="md"
-      message="Starting delivery..."
-      :overlay="true"
-    />
     <div class="card theme-card">
       <div class="card-header d-flex justify-content-between align-items-center theme-header">
         <h5 class="mb-0">Execute Deliveries</h5>
@@ -137,7 +130,6 @@ export default {
   },
   data() {
     return {
-      localLoading: false, // Add local loading state
       modalLoading: false,
       error: null,
       selectedDelivery: null,
@@ -293,7 +285,6 @@ export default {
     startDelivery(deliveryID) {
       console.log('Starting delivery:', deliveryID);
       
-      this.localLoading = true; // Use localLoading instead of prop
       deliveryService.startDelivery(deliveryID)
         .then(response => {
           this.$emit('refresh');
@@ -302,7 +293,6 @@ export default {
           console.error('Error starting delivery:', error);
         })
         .finally(() => {
-          this.localLoading = false; // Use localLoading instead of prop
         });
     },
     

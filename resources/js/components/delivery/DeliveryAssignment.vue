@@ -103,7 +103,7 @@
                         <span class="ms-1 d-none d-sm-inline">Items</span>
                       </button>
                       <button 
-                        class="btn btn-sm btn-primary theme-btn-primary"
+                        class="btn btn-sm btn-primary"
                         @click="$emit('assign-trip', trip)"
                         :disabled="!selectedDeliveryID"
                       >

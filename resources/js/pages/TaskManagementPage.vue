@@ -2,48 +2,78 @@
   <div class="task-management-page">
     <h1 class="mb-4">Task Management</h1>
     
-    <!-- Stats Cards Row -->
+    <!-- Task Stats -->
     <div class="row mb-4">
-      <div class="col-md-4 mb-3 mb-md-0">
+      <div class="col-md-3 col-sm-6 mb-3">
         <StatsCard 
           title="Total Tasks" 
-          :count="taskStats?.total || 0" 
+          :count="taskStats.total || 0" 
           icon="fas fa-tasks" 
           bg-color="bg-primary"
         />
       </div>
-      <div class="col-md-4 mb-3 mb-md-0">
+      <div class="col-md-3 col-sm-6 mb-3">
         <StatsCard 
-          title="Completed Tasks" 
-          :count="taskStats?.completed || 0" 
-          icon="fas fa-check-circle" 
-          bg-color="bg-success"
+          title="Pending" 
+          :count="taskStats.pending || 0" 
+          icon="fas fa-hourglass-half" 
+          bg-color="bg-warning"
         />
       </div>
-      <div class="col-md-4">
+      <div class="col-md-3 col-sm-6 mb-3">
         <StatsCard 
-          title="Pending Tasks" 
-          :count="taskStats?.pending || 0" 
-          icon="fas fa-clock" 
-          bg-color="bg-warning"
+          title="In Progress" 
+          :count="taskStats.in_progress || 0" 
+          icon="fas fa-cogs" 
+          bg-color="bg-info"
+        />
+      </div>
+      <div class="col-md-3 col-sm-6 mb-3">
+        <StatsCard 
+          title="Completed" 
+          :count="taskStats.completed || 0" 
+          icon="fas fa-check-circle" 
+          bg-color="bg-success"
         />
       </div>
     </div>
     
     <!-- Tasks Table -->
-    <div class="card">
-      <div class="card-header theme-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0">Tasks List</h5>
-        <div class="d-flex gap-2">
-          <!-- You can add action buttons here if needed -->
-        </div>
+    <div class="card theme-card">
+      <div class="card-header d-flex justify-content-between align-items-center theme-header">
+        <h5 class="mb-0">Tasks</h5>
+        <button class="btn btn-sm theme-btn-outline" @click="refreshData">
+          <i class="fas fa-sync-alt"></i> Refresh
+        </button>
       </div>
-      <div class="card-body">
+      <div class="card-body theme-body">
+        <!-- Error State -->
+        <div v-if="error" class="alert alert-danger" role="alert">
+          {{ error }}
+        </div>
+        
+        <!-- Table with Loading Overlay -->
+        <div class="position-relative">
+          <!-- Loading Spinner (positioned over just the table) -->
+          <div v-if="loading" class="table-loading-overlay">
+            <LoadingSpinner />
+          </div>
+          
+          <!-- No Data State -->
+          <div v-if="!tasks || tasks.length === 0" class="text-center py-5">
+            <div class="mb-3">
+              <i class="fas fa-tasks fa-4x text-muted"></i>
+            </div>
+            <h5 class="text-muted">No tasks found</h5>
+            <p class="text-muted">Try adjusting your filters or check back later.</p>
+          </div>
+          
+          <!-- Tasks Table (always visible) -->
+          <div v-if="tasks && tasks.length > 0">
         
         <ResponsiveTable
           :columns="columns"
           :items="tasks"
-          :loading="loading"
           @search="handleSearch"
           @sort="handleSort"
           @page-change="handlePageChange"
@@ -427,10 +457,12 @@
       </div>
     </div>
   </div>
+  </div>
+  </div>
 </template>
 
 <script>
-import { ref, reactive, onMounted, computed } from 'vue';
+import { ref, reactive, onMounted, onUnmounted, computed } from 'vue';
 import StatsCard from '../components/ui/StatsCard.vue';
 import ResponsiveTable from '../components/ui/ResponsiveTable.vue';
 import LoadingSpinner from '../components/ui/LoadingSpinner.vue';
@@ -438,7 +470,7 @@ import taskService from '../services/taskService';
 import * as bootstrap from 'bootstrap';
 
 export default {
-  name: 'TaskManagement',
+  name: 'TaskManagementPage',
   components: {
     StatsCard,
     ResponsiveTable,
@@ -452,7 +484,8 @@ export default {
     const taskStats = ref({
       total: 0,
       completed: 0,
-      pending: 0
+      pending: 0,
+      in_progress: 0
     });
     const selectedTask = ref(null);
     
@@ -477,6 +510,9 @@ export default {
       per_page: 10,
       total: 0
     });
+    
+    // Variable to store the refresh interval
+    let refreshInterval = null;
     
     // Search and sort state
     const searchQuery = ref('');
@@ -526,12 +562,14 @@ export default {
     // Calculate task statistics
     const calculateStats = () => {
       const completed = tasks.value.filter(task => task.task_status === 'completed').length;
-      const pending = tasks.value.filter(task => task.task_status !== 'completed').length;
+      const pending = tasks.value.filter(task => task.task_status === 'pending').length;
+      const in_progress = tasks.value.filter(task => task.task_status === 'in_progress').length;
       
       taskStats.value = {
         total: tasks.value.length,
         completed,
-        pending
+        pending,
+        in_progress
       };
     };
     
@@ -840,9 +878,64 @@ export default {
       }
     };
     
+    // Refresh data function
+    const refreshData = async () => {
+      // Only refresh if not currently loading to avoid conflicts
+      if (loading.value) return;
+      
+      // Reset to first page when refreshing
+      pagination.value.current_page = 1;
+      // Clear any error messages
+      error.value = null;
+      // Set loading state
+      loading.value = true;
+      
+      try {
+        // Fetch fresh data
+        await fetchTasks();
+      } catch (err) {
+        console.error('Error refreshing tasks:', err);
+        error.value = 'Failed to refresh tasks. Please try again.';
+      } finally {
+        loading.value = false;
+      }
+    };
+    
+    // Start auto-refresh
+    const startAutoRefresh = () => {
+      // Clear any existing interval
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
+      }
+      
+      // Set up new interval for 20 seconds (20000ms)
+      refreshInterval = setInterval(() => {
+        // Only refresh if not currently loading to avoid conflicts
+        if (!loading.value) {
+          refreshData();
+        }
+      }, 20000);
+    };
+    
+    // Stop auto-refresh
+    const stopAutoRefresh = () => {
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
+        refreshInterval = null;
+      }
+    };
+    
     // Initialize component
     onMounted(() => {
       fetchTasks();
+      // Start auto-refresh after initial load
+      startAutoRefresh();
+    });
+    
+    // Clean up when component is unmounted
+    onUnmounted(() => {
+      // Clean up interval when component is unmounted
+      stopAutoRefresh();
     });
     
     return {
@@ -865,6 +958,7 @@ export default {
       cancelCompleteTask,
       confirmStartTask,
       confirmCompleteTask,
+      refreshData,
       
       // Add user search related functions and state
       userSearchQuery,
@@ -927,6 +1021,35 @@ export default {
 .theme-btn-primary:hover {
   background-color: #0a1f16;
   border-color: #0a1f16;
+  transform: translateY(-2px);
+}
+
+/* Loading overlay for table only */
+.table-loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10;
+}
+
+/* Refresh button styling */
+.theme-btn-outline {
+  background-color: transparent;
+  border: 1px solid var(--secondary-color);
+  color: var(--secondary-color);
+  border-radius: 5px;
+  padding: 4px 10px;
+  transition: all 0.2s ease;
+}
+
+.theme-btn-outline:hover {
+  background-color: rgba(255, 255, 255, 0.1);
   transform: translateY(-2px);
 }
 

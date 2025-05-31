@@ -345,6 +345,9 @@ export default {
       to: 10
     });
     
+    // Auto-refresh interval
+    let refreshInterval = null;
+    
     // Computed pagination range
     const paginationRange = computed(() => {
       const range = [];
@@ -561,14 +564,40 @@ export default {
     };
     
     // Add the refreshData function
-    const refreshData = () => {
+    const refreshData = async () => {
       // Reset to first page when refreshing
       currentPage.value = 1;
       // Clear any error messages
       error.value = null;
       // Fetch fresh data
-      fetchOrders();
-      fetchOrderStats();
+      await Promise.all([
+        fetchOrders(),
+        isSMECompany.value ? fetchOrderStats() : Promise.resolve()
+      ]);
+    };
+    
+    // Start auto-refresh
+    const startAutoRefresh = () => {
+      // Clear any existing interval
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
+      }
+      
+      // Set up new interval for 20 seconds (20000ms)
+      refreshInterval = setInterval(() => {
+        // Only refresh if not currently loading to avoid conflicts
+        if (!loading.value) {
+          refreshData();
+        }
+      }, 20000);
+    };
+    
+    // Stop auto-refresh
+    const stopAutoRefresh = () => {
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
+        refreshInterval = null;
+      }
     };
     
     // Reset filters
@@ -581,9 +610,15 @@ export default {
     };
     
     // Lifecycle hooks
-    onMounted(() => {
-      fetchOrders();
-      fetchOrderStats();
+    onMounted(async () => {
+      await refreshData();
+      // Start auto-refresh after initial load
+      startAutoRefresh();
+    });
+    
+    onUnmounted(() => {
+      // Clean up interval when component is unmounted
+      stopAutoRefresh();
     });
     
     // View order details
@@ -627,7 +662,9 @@ export default {
       selectedOrder,
       orderDetailModalRef,
       isBroilerCompany,
-      isSMECompany
+      isSMECompany,
+      startAutoRefresh,
+      stopAutoRefresh
     };
   }
 }

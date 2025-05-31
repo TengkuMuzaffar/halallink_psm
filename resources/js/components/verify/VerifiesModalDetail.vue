@@ -9,12 +9,11 @@
           </div>
           <div class="modal-body">
             <!-- Loading State -->
-            <div v-if="loadingDetails" class="text-center p-4">
-                <div class="spinner-border theme-spinner" role="status">
-                  <span class="visually-hidden">Loading...</span>
-                </div>
-                <p class="mt-2">Loading verification details...</p>
-            </div>
+            <LoadingSpinner 
+              v-if="loadingDetails" 
+              size="md" 
+              message="Loading verification details..."
+            />
             
             <!-- Error State -->
             <div v-else-if="fetchError" class="alert alert-danger mt-3">
@@ -146,7 +145,7 @@
             <button 
               type="submit" 
               class="btn theme-btn-primary" 
-              :disabled="isSubmitting || loadingDetails || !localVerification"
+              :disabled="isSubmitting || !localVerification"
             >
               <span v-if="isSubmitting" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
               {{ isSubmitting ? 'Saving...' : 'Save Verification' }}
@@ -162,6 +161,7 @@
 <script setup>
 import { ref, watch, defineProps, defineEmits } from 'vue';
 import verifyDeliveryService from '../../services/verifyDeliveryService';
+import LoadingSpinner from '../ui/LoadingSpinner.vue';
 
 const props = defineProps({
   show: {

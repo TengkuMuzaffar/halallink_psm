@@ -8,10 +8,10 @@
         </div>
         <div class="modal-body">
           <div v-if="loading" class="text-center p-4">
-            <div class="spinner-border text-primary" role="status">
+            <!-- <div class="spinner-border text-primary" role="status">
               <span class="visually-hidden">Loading...</span>
             </div>
-            <p class="mt-2">Loading delivery details...</p>
+            <p class="mt-2">Loading delivery details...</p> -->
           </div>
           <div v-else>
             <!-- Delivery Information -->

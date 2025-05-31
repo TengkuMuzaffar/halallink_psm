@@ -8,10 +8,6 @@
     <div class="card theme-card">
       <div class="card-header d-flex justify-content-between align-items-center theme-header">
         <h5 class="mb-0">Verifications</h5>
-        <!-- Optional: Add a button here if needed -->
-        <!-- <button class="btn btn-sm theme-btn-outline" @click="someAction">
-          <i class="fas fa-plus me-1"></i> Some Action
-        </button> -->
       </div>
       <div class="card-body theme-body">
         <!-- Error State -->
@@ -19,52 +15,59 @@
           {{ error }}
         </div>
         
-        <!-- Table (always show, with loading state inside) -->
-        <ResponsiveTable
-          :columns="tableColumns"
-          :items="verifications"
-          :loading="loading"
-          :has-actions="true"
-          item-key="verifyID"
-          :show-pagination="false"
-        >
-          <!-- Custom column slots could be added here -->
-          
-          <!-- Actions slot -->
-          <template #actions="{ item }">
-            <button class="btn btn-sm theme-btn-info" @click="openVerifiesModal(item)">
-              <i class="fas fa-edit"></i>
-            </button>
-          </template>
-        </ResponsiveTable>
+        <!-- Loading State -->
+        <LoadingSpinner 
+          v-if="loading" 
+          size="md" 
+          message="Loading verifications..."
+        />
         
-        <!-- Add custom pagination controls (always visible when data is loaded) -->
-        <div v-if="pagination.last_page > 0" class="d-flex justify-content-between align-items-center mt-3">
-          <div>
-            <span class="text-muted">Showing {{ pagination.from || 0 }} to {{ pagination.to || 0 }} of {{ pagination.total || 0 }} entries</span>
+        <!-- Table (show when not loading) -->
+        <div v-else>
+          <ResponsiveTable
+            :columns="tableColumns"
+            :items="verifications"
+            :loading="false"
+            :has-actions="true"
+            item-key="verifyID"
+            :show-pagination="false"
+          >
+            <!-- Actions slot -->
+            <template #actions="{ item }">
+              <button class="btn btn-sm theme-btn-info" @click="openVerifiesModal(item)">
+                <i class="fas fa-edit"></i>
+              </button>
+            </template>
+          </ResponsiveTable>
+          
+          <!-- Add custom pagination controls (always visible when data is loaded) -->
+          <div v-if="pagination.last_page > 0" class="d-flex justify-content-between align-items-center mt-3">
+            <div>
+              <span class="text-muted">Showing {{ pagination.from || 0 }} to {{ pagination.to || 0 }} of {{ pagination.total || 0 }} entries</span>
+            </div>
+            <nav aria-label="Table pagination">
+              <ul class="pagination mb-0 theme-pagination">
+                <li class="page-item" :class="{ disabled: currentPage === 1 || loading }">
+                  <a class="page-link" href="#" @click.prevent="!loading && changePage(currentPage - 1)">
+                    <i class="fas fa-chevron-left"></i>
+                  </a>
+                </li>
+                <li 
+                  v-for="page in paginationRange" 
+                  :key="page" 
+                  class="page-item"
+                  :class="{ active: page === currentPage, disabled: loading }"
+                >
+                  <a class="page-link" href="#" @click.prevent="!loading && changePage(page)">{{ page }}</a>
+                </li>
+                <li class="page-item" :class="{ disabled: currentPage === pagination.last_page || loading }">
+                  <a class="page-link" href="#" @click.prevent="!loading && changePage(currentPage + 1)">
+                    <i class="fas fa-chevron-right"></i>
+                  </a>
+                </li>
+              </ul>
+            </nav>
           </div>
-          <nav aria-label="Table pagination">
-            <ul class="pagination mb-0 theme-pagination">
-              <li class="page-item" :class="{ disabled: currentPage === 1 || loading }">
-                <a class="page-link" href="#" @click.prevent="!loading && changePage(currentPage - 1)">
-                  <i class="fas fa-chevron-left"></i>
-                </a>
-              </li>
-              <li 
-                v-for="page in paginationRange" 
-                :key="page" 
-                class="page-item"
-                :class="{ active: page === currentPage, disabled: loading }"
-              >
-                <a class="page-link" href="#" @click.prevent="!loading && changePage(page)">{{ page }}</a>
-              </li>
-              <li class="page-item" :class="{ disabled: currentPage === pagination.last_page || loading }">
-                <a class="page-link" href="#" @click.prevent="!loading && changePage(currentPage + 1)">
-                  <i class="fas fa-chevron-right"></i>
-                </a>
-              </li>
-            </ul>
-          </nav>
         </div>
       </div>
     </div>

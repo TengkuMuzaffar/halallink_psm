@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use App\Models\Verify;
 use App\Models\Checkpoint;
+use App\Models\Cart;
 use App\Models\DeliveryLocationToken; // Import the model
 use App\Models\Trip; // Import the Trip model
 use App\Models\Item; // Import the Item model
@@ -264,7 +265,7 @@ class VerifyController extends Controller
             if ($verify->checkID && $request->verify_status === 'complete') {
                 $checkpoint = Checkpoint::find($verify->checkID);
                 
-                if ($checkpoint && $checkpoint->arrange_number === 4) {
+                if ($checkpoint && $checkpoint->arrange_number == 4) {
                     // Get the order ID from the checkpoint
                     $orderID = $checkpoint->orderID;
                     
@@ -349,7 +350,8 @@ class VerifyController extends Controller
             
             return response()->json([
                 'status' => 'success',
-                'message' => 'All verifications completed successfully'
+                'message' => 'All
+                 verifications completed successfully'
             ], 200);
             
         } catch (\Exception $e) {
