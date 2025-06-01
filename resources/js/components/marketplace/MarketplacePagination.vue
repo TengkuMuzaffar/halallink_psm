@@ -73,6 +73,11 @@ export default {
         maxVisiblePages = 4;
       }
       
+      // For very small screens, still show at least 3 pages if possible
+      if (window.innerWidth < 400) {
+        maxVisiblePages = 3;
+      }
+      
       let startPage = 1;
       let endPage = this.lastPage;
       
@@ -177,15 +182,15 @@ export default {
     font-size: 0.875rem;
   }
   
-  /* Hide page numbers on very small screens, keep only prev/next */
+  /* Compact pagination for very small screens */
   @media (max-width: 360px) {
-    .page-number {
-      display: none;
+    .pagination {
+      gap: 0.1rem;
     }
     
-    /* Only show current page */
-    .page-item.active {
-      display: inline-block;
+    .page-link {
+      padding: 0.2rem 0.4rem;
+      font-size: 0.8rem;
     }
   }
 }

@@ -230,7 +230,7 @@ class ToyyibPayController extends Controller
                 'billPayorInfo' => 1,
                 'billAmount' => $amountInCents,
                 'billReturnUrl' => route('payment.status'),
-                'billCallbackUrl' => route('payment.callback'),
+                // 'billCallbackUrl' => route('payment.callback'),
                 'billExternalReferenceNo' => $payment->payment_reference,
                 'billTo' => $billToName,
                 'billEmail' => $billEmail,

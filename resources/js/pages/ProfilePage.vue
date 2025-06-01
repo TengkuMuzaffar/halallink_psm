@@ -231,7 +231,20 @@ export default {
         ...profileData.value
       };
     });
-    
+    watch(formattedProfileData, (newVal) => {
+      // Sync changes back to profileData
+      if (isAdmin.value && newVal.company_name) {
+        if (!profileData.value.company) profileData.value.company = {};
+        profileData.value.company.company_name = newVal.company_name;
+      } else {
+        // For non-admin users, sync common fields
+        profileData.value.fullname = newVal.fullname;
+      }
+      
+      // Sync common fields
+      profileData.value.email = newVal.email;
+      profileData.value.tel_number = newVal.tel_number;
+    }, { deep: true });
     // In the setup function, update the fetchProfileData function:
     
     // Fetch profile data
@@ -323,25 +336,44 @@ export default {
     
     // Save profile changes
     const saveProfile = async () => {
+      if (!formattedProfileData.value) {
+        modal.danger('Error', 'Profile data is not available');
+        return;
+      }
       try {
         const formData = new FormData();
         
-        // Add common fields
-        formData.append('email', profileData.value.email);
-        formData.append('tel_number', profileData.value.tel_number || '');
+        // Use formattedProfileData instead of profileData
+        console.log('Profile data being sent:', {
+          email: formattedProfileData.value.email,
+          tel_number: formattedProfileData.value.tel_number,
+          fullname: !isAdmin.value ? formattedProfileData.value.fullname : 'N/A (admin)',
+          company_name: isAdmin.value ? formattedProfileData.value.company_name : 'N/A (not admin)'
+        });
+        
+        // Add common fields from formattedProfileData
+        formData.append('email', formattedProfileData.value.email || '');
+        formData.append('tel_number', formattedProfileData.value.tel_number || '');
         
         // Add role-specific fields and image
         if (isAdmin.value) {
-          formData.append('company_name', profileData.value.company?.company_name || '');
+          formData.append('company_name', formattedProfileData.value.company_name || '');
           if (newCompanyImage.value) {
             formData.append('company_image', newCompanyImage.value);
           }
         } else {
-          formData.append('fullname', profileData.value.fullname || '');
+          formData.append('fullname', formattedProfileData.value.fullname || '');
           if (newProfileImage.value) {
             formData.append('profile_image', newProfileImage.value);
           }
         }
+        
+        // Rest of the function remains the same
+        const formDataEntries = {};
+        for (let [key, value] of formData.entries()) {
+          formDataEntries[key] = value instanceof File ? `File: ${value.name}` : value;
+        }
+        console.log('Profile update formdata:', formDataEntries);
         
         // Send the request
         const response = await api.post('/api/profile/update', formData, {
@@ -350,31 +382,36 @@ export default {
           }
         });
         
+        console.log('Profile update response:', response);
         // Update local data and Vuex store with complete user data
         if (response.user) {
           // Update the complete user object including company data
           const updatedUser = {
             ...response.user,
-            company: response.company || user.value?.company
+            company: response.company || profileData.value?.company
           };
-          
-          // Update local state
-          profileData.value = updatedUser;
           
           // Update Vuex store with complete user data
           store.commit('SET_USER', updatedUser);
+          
+          // Reset image variables
+          newProfileImage.value = null;
+          newCompanyImage.value = null;
+          
+          // Exit edit mode
+          editProfileMode.value = false;
+          
+          // Show success message
+          // Inside saveProfile function, after showing success message
+          modal.success('Success', 'Profile updated successfully');
+          
+          // Add a small delay before fetching fresh data
+          setTimeout(() => {
+            fetchProfileData();
+          }, 300);
+        } else {
+          modal.danger('Error', 'Failed to update profile: No user data returned');
         }
-        
-        // Reset image variables
-        newProfileImage.value = null;
-        newCompanyImage.value = null;
-        
-        // Exit edit mode
-        editProfileMode.value = false;
-        
-        // Show success message
-        modal.success('Success', 'Profile updated successfully');
-        fetchProfileData();
       } catch (error) {
         console.error('Error updating profile:', error);
         modal.danger('Error', 'Failed to update profile');
