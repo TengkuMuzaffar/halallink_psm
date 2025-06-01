@@ -40,6 +40,11 @@
               <ul class="mb-1">
                 <li>Checking browser permissions</li>
                 <li>Refreshing the page</li>
+                <li>
+                  <button class="btn btn-sm btn-primary mt-1" @click="refreshWithDeliveryID">
+                    <i class="fas fa-sync-alt me-1"></i>Refresh with Current Delivery ID
+                  </button>
+                </li>
                 <li><strong>HTTP Solution:</strong> For Chrome, run with this flag:
                   <div class="code-block mt-1">
                     <code>chrome --unsafely-treat-insecure-origin-as-secure={{ httpOrigin }} --user-data-dir=C:\ChromeDevSession</code>
@@ -325,14 +330,23 @@ export default {
       }
     };
 
-    const closeModal = () => {
+    // Function to close the modal
+    function closeModal() {
       if (modal.value) {
         modal.value.hide();
-        
-        // Emit an event to notify parent that QR scanner is closed
         emit('scanner-closed');
       }
-    };
+    }
+    
+    // Function to refresh the page with deliveryID as URL parameter
+    function refreshWithDeliveryID() {
+      const currentUrl = new URL(window.location.href);
+      // Remove selectedID if it exists
+      currentUrl.searchParams.delete('selectedID');
+      // Set selectionID parameter
+      currentUrl.searchParams.set('selectionID', props.deliveryID);
+      window.location.href = currentUrl.toString();
+    }
 
     return {
       loading,
@@ -340,7 +354,8 @@ export default {
       scanResult,
       httpOrigin,
       showModal,
-      closeModal
+      closeModal,
+      refreshWithDeliveryID  // Add this line to expose the function to the template
     };
   }
 };

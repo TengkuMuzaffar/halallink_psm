@@ -568,6 +568,20 @@ class ToyyibPayController extends Controller
     public function createCheckpoints(Order $order)
     {
         try {
+            // Check if checkpoints already exist for this order
+            $existingCheckpoints = Checkpoint::where('orderID', $order->orderID)->exists();
+
+            if ($existingCheckpoints) {
+                \Log::info('Checkpoints already exist for order #' . $order->orderID . '. Skipping creation.');
+                return response()->json([
+                    'status' => 'success',
+                    'message' => 'Checkpoints already exist for this order',
+                    'data' => [
+                        'order_id' => $order->orderID
+                    ]
+                ], 200);
+            }
+
             // Get cart items with necessary relationships
             $cartItems = Cart::where('orderID', $order->orderID)
                             ->with([
