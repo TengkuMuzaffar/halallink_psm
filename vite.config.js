@@ -22,4 +22,11 @@ export default defineConfig({
             vue: 'vue/dist/vue.esm-bundler.js',
         },
     },
+    // server: {
+    //     // For local development with Cloudflare Zero Trust
+    //     hmr: {
+    //         host: 'halallinkpsm.com',
+    //         protocol: 'wss', // WebSocket Secure for Cloudflare
+    //     },
+    // },
 });
