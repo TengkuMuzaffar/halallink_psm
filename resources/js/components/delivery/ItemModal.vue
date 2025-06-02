@@ -17,7 +17,7 @@
             </div>
             <div class="total-value">
               <span class="label">Total Value:</span>
-              <span class="value">RM {{ totalValue.toFixed(2) }}</span>
+              <span class="value">RM {{ typeof totalValue === 'number' ? totalValue.toFixed(2) : '0.00' }}</span>
             </div>
           </div>
 
@@ -69,7 +69,11 @@ export default {
   },
   computed: {
     totalValue() {
-      return this.items.reduce((sum, item) => sum + item.price, 0);
+      return this.items.reduce((sum, item) => {
+        // Make sure item.price is a number before adding
+        const itemPrice = parseFloat(item.price) || 0;
+        return sum + itemPrice;
+      }, 0);
     }
   }
 };
