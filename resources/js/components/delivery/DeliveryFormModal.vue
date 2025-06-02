@@ -7,12 +7,7 @@
           <button type="button" class="btn-close theme-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body theme-body">
-          <div v-if="loading" class="text-center p-4">
-            <div class="spinner-border theme-spinner" role="status">
-              <span class="visually-hidden">Loading...</span>
-            </div>
-            <p class="mt-2 theme-text">Processing...</p>
-          </div>
+          <LoadingSpinner v-if="loading" message="Processing..." />
           <form v-else @submit.prevent="validateAndSubmit">
             <!-- Scheduled Date -->
             <div class="form-group mb-3">
@@ -91,9 +86,14 @@ import { ref, computed, onMounted, watch } from 'vue';
 import deliveryService from '../../services/deliveryService';
 import { showModal, showSuccess, showDanger } from '../../utils/modal';
 import * as bootstrap from 'bootstrap';
+import LoadingSpinner from '../ui/LoadingSpinner.vue';
 
 export default {
   name: 'DeliveryFormModal',
+  
+  components: {
+    LoadingSpinner
+  },
   
   emits: ['delivery-created'],
   
