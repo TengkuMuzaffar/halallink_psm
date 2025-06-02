@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\ToyyibPayController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\AWBController;
 use App\Http\Controllers\ReportPDFController;
+use App\Http\Controllers\InvoiceController;
 // Fix: Remove extra slash and add API middleware
 Route::get('test/after-payment/{order}', [ToyyibPayController::class, 'createCheckpoints'])
     ->name('test.after.payment');
@@ -14,6 +15,7 @@ Route::get('test/deliveries/executes', [App\Http\Controllers\Api\ExecuteDeliveri
     ->name('test.executes');
 Route::get('/awb/{cart}', [AWBController::class, 'generate'])->name('awb.generate');
 Route::get('/report-pdf/{reportValidity}', [ReportPDFController::class, 'generate'])->name('report.pdf.generate');
+Route::get('/invoice/{order}', [InvoiceController::class, 'generate'])->name('invoice.generate');
 // Add 'test' prefix to order routes
 Route::prefix('test')->group(function () {
     Route::get('/orders/stats', [OrderController::class, 'getStats']);

@@ -147,7 +147,8 @@
                         <th scope="col">Order ID</th>
                         <th scope="col">Status</th>
                         <th scope="col">Date</th>
-                        <th scope="col">Customer</th>
+                        <th scope="col" v-if="isBroilerCompany">Customer</th>
+                        <th scope="col" v-if="isSMECompany">Invoice</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -173,7 +174,17 @@
                             </span>
                           </td>
                           <td>{{ formatDate(order.created_at) }}</td>
-                          <td>{{ order.user ? (order.user.fullname || order.user.email) : 'N/A' }}</td>
+                          <td v-if="isBroilerCompany">{{ order.user ? (order.user.fullname || order.user.email) : 'N/A' }}</td>
+                          <td v-if="isSMECompany" class="text-center">
+                            <button 
+                              class="btn btn-sm btn-outline-primary" 
+                              @click="generateInvoice(order.orderID)"
+                              title="Download Invoice"
+                            >
+                              <i class="fas fa-file-invoice"></i>
+                              <span class="d-none d-sm-inline ms-1">Invoice</span>
+                            </button>
+                          </td>
                         </tr>
                         
                         <!-- Expanded Order Items -->
@@ -631,6 +642,12 @@ export default {
       modal.show();
     };
     
+    // Add invoice generation functionality
+    const generateInvoice = (orderId) => {
+      // Open the invoice in a new window/tab
+      window.open(`/invoice/${orderId}`, '_blank');
+    };
+    
     return {
       // State
       loading,
@@ -653,6 +670,7 @@ export default {
       toggleOrder,
       generateLocationQR,
       generateOrderQR,
+      generateInvoice, // Add this line to include the new method
       debounceSearch,
       applyFilters,
       changePage,
