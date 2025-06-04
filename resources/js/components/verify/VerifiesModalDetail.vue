@@ -255,8 +255,12 @@ const handleSubmit = async () => {
       verify_status: localVerification.value.verify_status,
       verify_comment: localVerification.value.verify_comment,
     };
-    // Assuming verifyDeliveryService has an updateVerification method
-    const response = await verifyDeliveryService.updateVerification(localVerification.value.verifyID, payload);
+    // Pass the deliveryId prop to the updateVerification method
+    const response = await verifyDeliveryService.updateVerification(
+      localVerification.value.verifyID, 
+      payload,
+      props.deliveryId // Add the deliveryId parameter
+    );
 
     if (response.status === 'success') {
       submissionSuccess.value = true;

@@ -66,9 +66,11 @@ export const verifyDeliveryService = {
   },
   
   // Update verification
-  updateVerification: async (verifyID, data) => {
+  updateVerification: async (verifyID, data, deliveryID) => {
     try {
-      const response = await api.put(`/api/verifications/${verifyID}`, data);
+      // Include deliveryID in the data payload
+      const payload = { ...data, deliveryID };
+      const response = await api.put(`/api/verifications/${verifyID}`, payload);
       return response;
     } catch (error) {
       console.error('Error updating verification:', error);

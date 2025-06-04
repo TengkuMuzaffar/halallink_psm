@@ -176,8 +176,27 @@ class VerifyController extends Controller
                 $endCheckpoint = $verify->checkpoint; // Already loaded
 
                 if ($endCheckpoint) {
-                    // Items are simply those in the end_checkID's item_record
-                    $itemIDs = $endCheckpoint->item_record ?? [];
+                    // Find all trips in this delivery to check start checkpoints
+                    $allTripsInDelivery = Trip::where('deliveryID', $deliveryID)->get();
+                    
+                    // Get all items from all start checkpoints in this delivery
+                    $validStartItems = [];
+                    foreach ($allTripsInDelivery as $trip) {
+                        $startCheckpoint = Checkpoint::find($trip->start_checkID);
+                        if ($startCheckpoint && $startCheckpoint->item_record) {
+                            // Add items from this start checkpoint to our valid items list
+                            $validStartItems = array_merge($validStartItems, $startCheckpoint->item_record);
+                        }
+                    }
+                    
+                    // Make the array unique to avoid duplicates
+                    $validStartItems = array_unique($validStartItems);
+                    
+                    // Get end checkpoint items
+                    $endItemRecord = $endCheckpoint->item_record ?? [];
+                    
+                    // Only include items that exist in at least one start checkpoint
+                    $itemIDs = array_intersect($endItemRecord, $validStartItems);
                     $orderID = $endCheckpoint->orderID; // Get the orderID from the checkpoint
                 }
             } else {
@@ -250,6 +269,7 @@ class VerifyController extends Controller
             $validator = Validator::make($request->all(), [
                 'verify_status' => 'required|in:pending,complete,rejected',
                 'verify_comment' => 'nullable|string|max:500',
+                'deliveryID' => 'required|exists:deliveries,deliveryID', // Add deliveryID validation
             ]);
             
             if ($validator->fails()) {
@@ -281,13 +301,40 @@ class VerifyController extends Controller
                 if ($checkpoint && $checkpoint->arrange_number == 4) {
                     // Get the order ID from the checkpoint
                     $orderID = $checkpoint->orderID;
+                    $deliveryID = $request->deliveryID;
                     
-                    if ($orderID) {
-                        // Update all cart items for this order to mark them as delivered
-                        $updated = Cart::where('orderID', $orderID)
-                            ->update(['item_cart_delivered' => true]);
+                    if ($orderID && $deliveryID) {
+                        // Get all trips for this delivery
+                        $trips = Trip::where('deliveryID', $deliveryID)->get();
                         
-                        $cartsUpdated = $updated > 0;
+                        // Collect all valid items from start and end checkpoints
+                        $validItems = [];
+                        
+                        foreach ($trips as $trip) {
+                            $startCheckpoint = Checkpoint::find($trip->start_checkID);
+                            $endCheckpoint = Checkpoint::find($trip->end_checkID);
+                            
+                            if ($startCheckpoint && $endCheckpoint) {
+                                $startItems = $startCheckpoint->item_record ?? [];
+                                $endItems = $endCheckpoint->item_record ?? [];
+                                
+                                // Only include items that exist in both start and end checkpoints
+                                $tripValidItems = array_intersect($startItems, $endItems);
+                                $validItems = array_merge($validItems, $tripValidItems);
+                            }
+                        }
+                        
+                        // Make sure we have unique item IDs
+                        $validItems = array_unique($validItems);
+                        
+                        if (!empty($validItems)) {
+                            // Only update cart items that are in our valid items list
+                            $updated = Cart::where('orderID', $orderID)
+                                ->whereIn('itemID', $validItems)
+                                ->update(['item_cart_delivered' => true]);
+                            
+                            $cartsUpdated = $updated > 0;
+                        }
                     }
                 }
             }

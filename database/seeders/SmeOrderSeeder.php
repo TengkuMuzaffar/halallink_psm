@@ -43,10 +43,10 @@ class SmeOrderSeeder extends Seeder
             return;
         }
 
-        // Get SME locations (delivery destinations)
+        // Get SME kitchen locations (delivery destinations)
         $smeLocations = Location::whereHas('company', function($query) {
             $query->where('company_type', 'sme');
-        })->get();
+        })->where('location_type', 'kitchen')->get();
 
         if ($smeLocations->isEmpty()) {
             $this->command->error('No SME locations found. Please run LocationSeeder first.');
@@ -119,7 +119,7 @@ class SmeOrderSeeder extends Seeder
                         'orderID' => $order->orderID,
                         'quantity' => $quantity,
                         'price_at_purchase' => $priceAtPurchase,
-                        'item_cart_delivered' => $isCompleted ? true : false,
+                        'item_cart_delivered' => false,
                     ]);
                     
                     // Reduce stock if order is completed
