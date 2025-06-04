@@ -41,7 +41,7 @@
                     <div class="detail-row">
                       <i class="fas fa-tag text-muted me-2"></i>
                       <span class="detail-label">Price:</span>
-                      <span class="detail-value price">RM {{ item.price.toFixed(2) }}</span>
+                      <span class="detail-value price">RM {{ typeof item.price === 'number' ? item.price.toFixed(2) : parseFloat(item.price).toFixed(2) || '0.00' }}</span>
                     </div>
                   </div>
                 </div>

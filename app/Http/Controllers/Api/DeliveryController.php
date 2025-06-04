@@ -64,7 +64,7 @@ class DeliveryController extends Controller
                 $trips = Trip::where('orderID', $orderID)
                     ->whereNull('deliveryID')
                     ->with(['startCheckpoint', 'endCheckpoint'])
-                    ->paginate($perPage);
+                    ->get();
                 
                 foreach ($trips as $trip) {
                     $startCheckpoint = $trip->startCheckpoint;

@@ -124,6 +124,14 @@
             :modal-id="`itemModal-${trip.tripID}`"
             :items="trip.items"
           />
+          
+          <!-- Add Pagination Component -->
+          <div class="d-flex justify-content-center p-3" v-if="pagination && pagination.last_page > 1">
+            <Pagination 
+              :pagination="pagination" 
+              @page-changed="$emit('change-page', $event)" 
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -255,20 +263,6 @@ export default {
   list-style: none;
 }
 
-.pagination .page-link {
-  color: #007bff;
-}
-
-.pagination .page-item.active .page-link {
-  background-color: #007bff;
-  border-color: #007bff;
-  color: #fff;
-}
-
-.pagination .page-item.disabled .page-link {
-  color: #6c757d;
-}
-
 /* Ensure no extra padding if card-body has p-0 */
 .card-body.p-0 .table-responsive {
     border-top: 1px solid #e0e0e0; /* Add a top border if needed */
@@ -338,5 +332,18 @@ export default {
   .card-text {
     font-size: 0.875rem;
   }
+}
+::v-deep .pagination .page-link {
+  color: var(--primary-color);
+}
+
+::v-deep .pagination .page-item.active .page-link {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+  color: var(--secondary-color);
+}
+
+::v-deep .pagination .page-item.disabled .page-link {
+  color: var(--light-text);
 }
 </style>

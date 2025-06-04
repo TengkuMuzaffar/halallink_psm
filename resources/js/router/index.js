@@ -131,6 +131,15 @@ const routes = [
         }
       },
       {
+        path: 'dashboard',
+        name: 'Dashboard',
+        component: Dashboard,
+        meta: {
+          requiresAuth: true,
+          requiresCompanyType: 'admin'
+        }
+      },
+      {
         path: 'profile',
         name: 'Profile',
         component: Profile,

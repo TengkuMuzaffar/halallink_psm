@@ -3,7 +3,7 @@
     <div class="card-header">
       <h5 class="mb-0">
         <i class="fas fa-trophy text-warning me-2"></i>
-        Top Performers
+        Top Performers by Category
       </h5>
     </div>
     <div class="card-body">
@@ -14,92 +14,29 @@
       />
       <div v-else>
         <div class="row">
-          <!-- Order Volume Leaders -->
-          <div class="col-md-6 col-lg-3 mb-3">
-            <div class="performance-category">
-              <h6 class="category-title">
-                <i class="fas fa-shopping-cart text-primary me-1"></i>
-                Order Volume
-              </h6>
-              <div class="top-companies">
-                <div 
-                  v-for="(company, index) in topPerformers.order_volume" 
-                  :key="company.companyID"
-                  class="company-item"
-                >
-                  <div class="rank-badge">{{ index + 1 }}</div>
-                  <div class="company-info">
-                    <div class="company-name">{{ company.company_name }}</div>
-                    <div class="company-type">{{ company.company_type }}</div>
-                  </div>
-                </div>
+          <div 
+            v-for="(category, categoryName) in performanceCategories" 
+            :key="categoryName"
+            class="col-md-6 mb-4"
+          >
+            <div class="category-card">
+              <div class="category-header">
+                <i :class="getCategoryIcon(categoryName)"></i>
+                <h6>{{ formatCategoryName(categoryName) }}</h6>
               </div>
-            </div>
-          </div>
-
-          <!-- Delivery Excellence -->
-          <div class="col-md-6 col-lg-3 mb-3">
-            <div class="performance-category">
-              <h6 class="category-title">
-                <i class="fas fa-truck text-success me-1"></i>
-                Delivery Excellence
-              </h6>
-              <div class="top-companies">
+              <div class="performers-list">
                 <div 
-                  v-for="(company, index) in topPerformers.delivery_excellence" 
-                  :key="company.companyID"
-                  class="company-item"
+                  v-for="(performer, index) in category.slice(0, 3)" 
+                  :key="performer.company.id"
+                  class="performer-item"
                 >
-                  <div class="rank-badge">{{ index + 1 }}</div>
-                  <div class="company-info">
-                    <div class="company-name">{{ company.company_name }}</div>
-                    <div class="company-type">{{ company.company_type }}</div>
+                  <div class="performer-rank">{{ index + 1 }}</div>
+                  <div class="performer-info">
+                    <div class="performer-name">{{ performer.company.name }}</div>
+                    <div class="performer-type">{{ formatCompanyType(performer.company.type) }}</div>
                   </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Quality Assurance -->
-          <div class="col-md-6 col-lg-3 mb-3">
-            <div class="performance-category">
-              <h6 class="category-title">
-                <i class="fas fa-shield-alt text-info me-1"></i>
-                Quality Assurance
-              </h6>
-              <div class="top-companies">
-                <div 
-                  v-for="(company, index) in topPerformers.quality_assurance" 
-                  :key="company.companyID"
-                  class="company-item"
-                >
-                  <div class="rank-badge">{{ index + 1 }}</div>
-                  <div class="company-info">
-                    <div class="company-name">{{ company.company_name }}</div>
-                    <div class="company-type">{{ company.company_type }}</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Financial Performance -->
-          <div class="col-md-6 col-lg-3 mb-3">
-            <div class="performance-category">
-              <h6 class="category-title">
-                <i class="fas fa-dollar-sign text-warning me-1"></i>
-                Revenue Leaders
-              </h6>
-              <div class="top-companies">
-                <div 
-                  v-for="(company, index) in topPerformers.financial_performance" 
-                  :key="company.companyID"
-                  class="company-item"
-                >
-                  <div class="rank-badge">{{ index + 1 }}</div>
-                  <div class="company-info">
-                    <div class="company-name">{{ company.company_name }}</div>
-                    <div class="company-type">{{ company.company_type }}</div>
+                  <div class="performer-score">
+                    {{ getScoreForCategory(performer, categoryName) }}
                   </div>
                 </div>
               </div>
@@ -113,76 +50,174 @@
 
 <script>
 import LoadingSpinner from '../ui/LoadingSpinner.vue';
+import dashboardService from '../../services/dashboardService';
 
 export default {
   name: 'TopPerformers',
   components: {
     LoadingSpinner
   },
-  props: {
-    topPerformers: {
-      type: Object,
-      default: () => ({})
+  data() {
+    return {
+      performanceCategories: {},
+      loading: false
+    };
+  },
+  async mounted() {
+    await this.fetchTopPerformers();
+  },
+  methods: {
+    async fetchTopPerformers() {
+      this.loading = true;
+      try {
+        const reportData = await dashboardService.getPerformanceReport();
+        this.processPerformanceData(reportData);
+      } catch (error) {
+        console.error('Error fetching top performers:', error);
+        this.$toast.error('Failed to load top performers');
+      } finally {
+        this.loading = false;
+      }
     },
-    loading: {
-      type: Boolean,
-      default: false
+    processPerformanceData(reportData) {
+      // Group performers by different categories
+      const allPerformers = [];
+      
+      Object.values(reportData.company_types || {}).forEach(typeData => {
+        allPerformers.push(...typeData);
+      });
+
+      this.performanceCategories = {
+        overall: allPerformers.sort((a, b) => b.overall_score - a.overall_score),
+        revenue: allPerformers.filter(p => p.metrics.financial_metrics)
+          .sort((a, b) => (b.metrics.financial_metrics.total_revenue || 0) - (a.metrics.financial_metrics.total_revenue || 0)),
+        quality: allPerformers.filter(p => p.metrics.quality_metrics)
+          .sort((a, b) => (b.metrics.quality_metrics.verification_success_rate || 0) - (a.metrics.quality_metrics.verification_success_rate || 0)),
+        delivery: allPerformers.filter(p => p.metrics.delivery_metrics)
+          .sort((a, b) => (b.metrics.delivery_metrics.success_rate || 0) - (a.metrics.delivery_metrics.success_rate || 0))
+      };
+    },
+    getCategoryIcon(category) {
+      const icons = {
+        overall: 'fas fa-star text-warning',
+        revenue: 'fas fa-dollar-sign text-success',
+        quality: 'fas fa-check-circle text-info',
+        delivery: 'fas fa-truck text-primary'
+      };
+      return icons[category] || 'fas fa-chart-bar';
+    },
+    formatCategoryName(category) {
+      const names = {
+        overall: 'Overall Performance',
+        revenue: 'Revenue Leaders',
+        quality: 'Quality Excellence',
+        delivery: 'Delivery Performance'
+      };
+      return names[category] || category;
+    },
+    formatCompanyType(type) {
+      const types = {
+        broiler: 'Broiler',
+        slaughterhouse: 'Slaughterhouse',
+        sme: 'SME',
+        logistic: 'Logistics'
+      };
+      return types[type] || type;
+    },
+    getScoreForCategory(performer, category) {
+      switch (category) {
+        case 'overall':
+          return `${performer.overall_score}%`;
+        case 'revenue':
+          return `RM ${this.formatCurrency(performer.metrics.financial_metrics?.total_revenue || 0)}`;
+        case 'quality':
+          return `${performer.metrics.quality_metrics?.verification_success_rate || 0}%`;
+        case 'delivery':
+          return `${performer.metrics.delivery_metrics?.success_rate || 0}%`;
+        default:
+          return 'N/A';
+      }
+    },
+    formatCurrency(amount) {
+      return new Intl.NumberFormat('en-MY', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+      }).format(amount);
     }
   }
 };
 </script>
 
 <style scoped>
-.performance-category {
-  background: #f8f9fa;
-  border-radius: 8px;
-  padding: 15px;
+.category-card {
+  border: 1px solid #e3e6f0;
+  border-radius: 0.35rem;
+  padding: 1rem;
   height: 100%;
 }
 
-.category-title {
-  font-weight: 600;
-  margin-bottom: 15px;
-  color: #495057;
-}
-
-.company-item {
+.category-header {
   display: flex;
   align-items: center;
-  margin-bottom: 10px;
-  padding: 8px;
-  background: white;
-  border-radius: 6px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #e3e6f0;
 }
 
-.rank-badge {
-  background: #007bff;
-  color: white;
-  border-radius: 50%;
+.category-header i {
+  font-size: 1.2rem;
+  margin-right: 0.5rem;
+}
+
+.category-header h6 {
+  margin: 0;
+  font-weight: 600;
+  color: #5a5c69;
+}
+
+.performer-item {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #f8f9fc;
+}
+
+.performer-item:last-child {
+  border-bottom: none;
+}
+
+.performer-rank {
   width: 24px;
   height: 24px;
+  border-radius: 50%;
+  background: #e3e6f0;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
-  font-weight: bold;
-  margin-right: 10px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #5a5c69;
+  margin-right: 0.75rem;
 }
 
-.company-info {
+.performer-info {
   flex: 1;
 }
 
-.company-name {
+.performer-name {
   font-weight: 600;
-  font-size: 14px;
-  color: #212529;
+  color: #5a5c69;
+  font-size: 0.9rem;
 }
 
-.company-type {
-  font-size: 12px;
-  color: #6c757d;
-  text-transform: capitalize;
+.performer-type {
+  font-size: 0.75rem;
+  color: #858796;
+}
+
+.performer-score {
+  font-weight: 600;
+  color: #5a5c69;
+  font-size: 0.9rem;
 }
 </style>

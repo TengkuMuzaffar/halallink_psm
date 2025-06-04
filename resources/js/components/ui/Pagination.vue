@@ -93,15 +93,15 @@ export default {
 }
 .page-link {
   padding: 0.5rem 0.75rem;
-  color: #6c757d;
+  color: var(--text-color, #6c757d);
   background-color: #fff;
   border: 1px solid #dee2e6;
   cursor: pointer;
 }
 .page-item.active .page-link {
-  color: #fff;
-  background-color: #6c757d;
-  border-color: #6c757d;
+  color: var(--secondary-color, #fff);
+  background-color: var(--primary-color, #6c757d);
+  border-color: var(--primary-color, #6c757d);
 }
 .page-item.disabled .page-link {
   color: #6c757d;

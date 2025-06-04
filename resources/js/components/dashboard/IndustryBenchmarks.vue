@@ -1,73 +1,63 @@
 <template>
   <div class="card">
-    <div class="card-header">
+    <div class="card-header d-flex justify-content-between align-items-center">
       <h5 class="mb-0">
         <i class="fas fa-chart-bar text-info me-2"></i>
-        Industry Benchmarks
+        Stakeholder Performance by Type
       </h5>
+      <button 
+        @click="downloadReport" 
+        :disabled="downloading"
+        class="btn btn-outline-primary btn-sm"
+      >
+        <i class="fas fa-download me-1"></i>
+        {{ downloading ? 'Downloading...' : 'Download Report' }}
+      </button>
     </div>
     <div class="card-body">
       <LoadingSpinner 
         v-if="loading" 
         size="md" 
-        message="Loading industry benchmarks..." 
+        message="Loading stakeholder performance..." 
       />
       <div v-else>
         <div class="row">
           <div 
-            v-for="(benchmark, type) in benchmarks" 
+            v-for="(data, type) in stakeholderStats" 
             :key="type"
             class="col-md-6 col-lg-3 mb-4"
           >
-            <div class="benchmark-card">
-              <div class="benchmark-header">
+            <div class="stakeholder-card">
+              <div class="stakeholder-header">
                 <i :class="getTypeIcon(type)"></i>
-                <h6 class="benchmark-title">{{ formatType(type) }}</h6>
+                <h6 class="stakeholder-title">{{ formatType(type) }}</h6>
               </div>
-              <div class="benchmark-metrics">
+              <div class="stakeholder-metrics">
                 <div class="metric-item">
-                  <div class="metric-label">Order Success</div>
-                  <div class="metric-value">{{ benchmark.avg_order_success_rate }}%</div>
-                  <div class="metric-bar">
-                    <div 
-                      class="metric-fill bg-primary" 
-                      :style="{ width: benchmark.avg_order_success_rate + '%' }"
-                    ></div>
-                  </div>
+                  <div class="metric-label">Companies</div>
+                  <div class="metric-value">{{ data.total_companies || 0 }}</div>
                 </div>
                 <div class="metric-item">
-                  <div class="metric-label">Delivery Rate</div>
-                  <div class="metric-value">{{ benchmark.avg_delivery_success_rate }}%</div>
+                  <div class="metric-label">Active Users</div>
+                  <div class="metric-value">{{ data.active_users || 0 }}</div>
+                </div>
+                <div class="metric-item">
+                  <div class="metric-label">Performance Score</div>
+                  <div class="metric-value">{{ data.performance_score || 0 }}%</div>
                   <div class="metric-bar">
                     <div 
                       class="metric-fill bg-success" 
-                      :style="{ width: benchmark.avg_delivery_success_rate + '%' }"
+                      :style="{ width: (data.performance_score || 0) + '%' }"
                     ></div>
                   </div>
                 </div>
-                <div class="metric-item">
-                  <div class="metric-label">Quality Score</div>
-                  <div class="metric-value">{{ benchmark.avg_verification_success_rate }}%</div>
-                  <div class="metric-bar">
-                    <div 
-                      class="metric-fill bg-info" 
-                      :style="{ width: benchmark.avg_verification_success_rate + '%' }"
-                    ></div>
-                  </div>
+                <div class="metric-item" v-if="type !== 'logistic'">
+                  <div class="metric-label">Total Revenue</div>
+                  <div class="metric-value">RM {{ formatCurrency(data.total_revenue || 0) }}</div>
                 </div>
-                <div class="metric-item">
-                  <div class="metric-label">Payment Success</div>
-                  <div class="metric-value">{{ benchmark.avg_payment_success_rate }}%</div>
-                  <div class="metric-bar">
-                    <div 
-                      class="metric-fill bg-warning" 
-                      :style="{ width: benchmark.avg_payment_success_rate + '%' }"
-                    ></div>
-                  </div>
-                </div>
-                <div class="metric-item">
-                  <div class="metric-label">Avg Certifications</div>
-                  <div class="metric-value">{{ benchmark.avg_certifications }}</div>
+                <div class="metric-item" v-if="type === 'logistic'">
+                  <div class="metric-label">Delivery Rate</div>
+                  <div class="metric-value">{{ data.delivery_success_rate || 0 }}%</div>
                 </div>
               </div>
             </div>
@@ -80,91 +70,127 @@
 
 <script>
 import LoadingSpinner from '../ui/LoadingSpinner.vue';
+import dashboardService from '../../services/dashboardService';
 
 export default {
   name: 'IndustryBenchmarks',
   components: {
     LoadingSpinner
   },
-  props: {
-    benchmarks: {
-      type: Object,
-      default: () => ({})
-    },
-    loading: {
-      type: Boolean,
-      default: false
-    }
+  data() {
+    return {
+      stakeholderStats: {},
+      loading: false,
+      downloading: false
+    };
+  },
+  async mounted() {
+    await this.fetchStakeholderStats();
   },
   methods: {
-    formatType(type) {
-      const typeMap = {
-        'broiler': 'Broiler Companies',
-        'slaughterhouse': 'Slaughterhouses',
-        'SME': 'SME Companies',
-        'logistic': 'Logistics'
-      };
-      return typeMap[type] || type;
+    async fetchStakeholderStats() {
+      this.loading = true;
+      try {
+        this.stakeholderStats = await dashboardService.getStakeholderStats();
+      } catch (error) {
+        console.error('Error fetching stakeholder stats:', error);
+        this.$toast.error('Failed to load stakeholder statistics');
+      } finally {
+        this.loading = false;
+      }
+    },
+    async downloadReport() {
+      this.downloading = true;
+      try {
+        const result = await dashboardService.downloadPerformanceReport();
+        this.$toast.success(`Report downloaded: ${result.filename}`);
+      } catch (error) {
+        console.error('Error downloading report:', error);
+        this.$toast.error('Failed to download performance report');
+      } finally {
+        this.downloading = false;
+      }
     },
     getTypeIcon(type) {
-      const iconMap = {
-        'broiler': 'fas fa-industry text-primary',
-        'slaughterhouse': 'fas fa-warehouse text-danger',
-        'SME': 'fas fa-store text-success',
-        'logistic': 'fas fa-truck text-warning'
+      const icons = {
+        broiler: 'fas fa-egg text-warning',
+        slaughterhouse: 'fas fa-industry text-danger',
+        sme: 'fas fa-store text-success',
+        logistic: 'fas fa-truck text-primary'
       };
-      return iconMap[type] || 'fas fa-building';
+      return icons[type] || 'fas fa-building';
+    },
+    formatType(type) {
+      const types = {
+        broiler: 'Broiler Farms',
+        slaughterhouse: 'Slaughterhouses',
+        sme: 'SME Retailers',
+        logistic: 'Logistics'
+      };
+      return types[type] || type;
+    },
+    formatCurrency(amount) {
+      return new Intl.NumberFormat('en-MY', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }).format(amount);
     }
   }
 };
 </script>
 
 <style scoped>
-.benchmark-card {
-  background: #f8f9fa;
-  border-radius: 8px;
-  padding: 20px;
+.stakeholder-card {
+  border: 1px solid #e3e6f0;
+  border-radius: 0.35rem;
+  padding: 1rem;
   height: 100%;
-  border: 1px solid #e9ecef;
+  transition: all 0.3s ease;
 }
 
-.benchmark-header {
+.stakeholder-card:hover {
+  box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+  transform: translateY(-2px);
+}
+
+.stakeholder-header {
   display: flex;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 1rem;
 }
 
-.benchmark-header i {
-  font-size: 24px;
-  margin-right: 10px;
+.stakeholder-header i {
+  font-size: 1.5rem;
+  margin-right: 0.5rem;
 }
 
-.benchmark-title {
+.stakeholder-title {
   margin: 0;
   font-weight: 600;
-  color: #495057;
+  color: #5a5c69;
 }
 
 .metric-item {
-  margin-bottom: 15px;
+  margin-bottom: 0.75rem;
 }
 
 .metric-label {
-  font-size: 12px;
-  color: #6c757d;
-  margin-bottom: 4px;
+  font-size: 0.8rem;
+  color: #858796;
+  margin-bottom: 0.25rem;
 }
 
 .metric-value {
-  font-weight: bold;
-  color: #212529;
-  margin-bottom: 4px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #5a5c69;
 }
 
 .metric-bar {
-  height: 6px;
-  background: #e9ecef;
-  border-radius: 3px;
+  height: 4px;
+  background-color: #e3e6f0;
+  border-radius: 2px;
+  margin-top: 0.25rem;
   overflow: hidden;
 }
 

@@ -7,7 +7,8 @@ class DashboardService {
   async getStats() {
     try {
       const response = await api.get('/api/dashboard/stats');
-      return response.data;
+      console.log('Dashboard stats:', response);
+      return response;
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
       throw error;
@@ -15,53 +16,31 @@ class DashboardService {
   }
 
   /**
-   * Get top performing companies
+   * Get broiler sales data for charts
+   * @param {string} period - 'month', 'quarter', or 'year'
    */
-  async getTopPerformers() {
+  async getBroilerSalesData(period = 'month') {
     try {
-      const response = await api.get('/api/dashboard/top-performers');
-      return response.data;
+      const response = await api.get(`/api/dashboard/broiler-sales?period=${period}`);
+      console.log('Broiler sales data:', response);
+      return response;
     } catch (error) {
-      console.error('Error fetching top performers:', error);
+      console.error('Error fetching broiler sales data:', error);
       throw error;
     }
   }
-
+  
   /**
-   * Get comprehensive performance metrics
+   * Get marketplace activity data (order counts)
+   * @param {string} period - 'day', 'month', 'quarter', or 'year'
    */
-  async getPerformanceMetrics() {
+  async getMarketplaceActivity(period = 'month') {
     try {
-      const response = await api.get('/api/dashboard/performance-metrics');
-      return response.data;
+      const response = await api.get(`/api/dashboard/marketplace/activity?period=${period}`);
+      console.log('Marketplace activity data:', response);
+      return response;
     } catch (error) {
-      console.error('Error fetching performance metrics:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get industry benchmarks
-   */
-  async getIndustryBenchmarks() {
-    try {
-      const response = await api.get('/api/dashboard/industry-benchmarks');
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching industry benchmarks:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get company performance by type
-   */
-  async getCompanyPerformanceByType(companyType) {
-    try {
-      const response = await api.get(`/api/dashboard/performance-by-type/${companyType}`);
-      return response.data;
-    } catch (error) {
-      console.error(`Error fetching performance for ${companyType}:`, error);
+      console.error('Error fetching marketplace activity data:', error);
       throw error;
     }
   }

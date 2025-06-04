@@ -52,7 +52,7 @@
     <!-- Two-column layout for Assign tab -->
     <div v-if="activeTab === 'assign'" class="row">
       <!-- Left column: List of created deliveries -->
-      <div class="col-lg-3 col-md-12 mb-4">
+      <div class="col-lg-4 col-md-12 mb-4">
         <CreatedDeliveriesList
           :deliveries="createdDeliveries"
           :loading="createdDeliveriesLoading"
@@ -71,7 +71,7 @@
       </div>
       
       <!-- Right column: DeliveryAssignment component -->
-      <div class="col-lg-9 col-md-12">
+      <div class="col-lg-8 col-md-12">
         <DeliveryAssignment 
           v-if="activeTab === 'assign'"
           :loading="assignDeliveriesLoading"
@@ -256,11 +256,15 @@ export default {
           phase: this.activePhase
         });
         
-        // console.log('API Response:', JSON.stringify(response, null, 4));
-        
         if (response.success) {
           this.trips = response.data;
-          this.tripsPagination = response.pagination;
+          
+          // Update pagination but preserve current_page
+          const currentPage = this.tripsPagination.current_page;
+          this.tripsPagination = {
+            ...response.pagination,
+            current_page: currentPage
+          };
         } else {
           this.assignError = 'Failed to fetch trips';
         }
@@ -277,7 +281,8 @@ export default {
     },
 
     handleTripsPageChange(page) {
-      this.currentPage = page;
+      console.log('Changing page to:', page);
+      this.tripsPagination.current_page = page;
       this.fetchTrips();
     },
 

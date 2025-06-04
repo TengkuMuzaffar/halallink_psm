@@ -73,12 +73,14 @@ export default {
       
       // Only show employee management for admins
       if (user.value && user.value.role === 'admin') {
+
         baseItems.push({ label: 'Employee Management', path: '/employees', icon: 'fas fa-users' });
       }
       
       const companyType = userCompany.value?.company_type;
   
       if (companyType === 'admin') {
+        baseItems.push({ label: 'Dashboard', path: '/dashboard', icon: 'fas fa-tachometer-alt' });
         baseItems.push({ label: 'Company Management', path: '/companies', icon: 'fas fa-building' });
         baseItems.push({ label: 'Poultry Management', path: '/poultries', icon: 'fas fa-feather' });
       }

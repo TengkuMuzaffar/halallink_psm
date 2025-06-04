@@ -64,7 +64,7 @@ class CompanyController extends Controller
             $page = $request->input('page', 1);
             
             $paginatedCompanies = $query->with(['admin' => function($query) {
-                $query->select('id', 'companyID', 'email', 'tel_number', 'status', 'created_at');
+                $query->select('userID', 'companyID', 'email', 'tel_number', 'status', 'created_at');
             }])
             ->orderBy('created_at', 'desc')
             ->paginate($perPage);

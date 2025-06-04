@@ -61,13 +61,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/profile/password', [App\Http\Controllers\Api\ProfileController::class, 'updatePassword']);
     Route::post('/profile/locations', [App\Http\Controllers\Api\ProfileController::class, 'manageLocations']);
     
-    // Dashboard routes
-    Route::prefix('dashboard')->group(function () {
-        Route::get('/stats', [DashboardController::class, 'getStats']);
-        Route::get('/top-performers', [DashboardController::class, 'getTopPerformers']);
-        Route::get('/performance-metrics', [DashboardController::class, 'getPerformanceMetrics']);
-        Route::get('/industry-benchmarks', [DashboardController::class, 'getIndustryBenchmarks']);
-    });
+    
 
     // Admin company type routes - accessible by both admin and employee roles
     // If 'admin' company type should be the only one, it remains as is.
@@ -96,6 +90,17 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/reports/admin', [App\Http\Controllers\Api\ReportController::class, 'store']);
         Route::put('/reports/admin/{reportValidityID}', [App\Http\Controllers\Api\ReportController::class, 'update']);
         Route::delete('/reports/admin/{reportValidityID}', [App\Http\Controllers\Api\ReportController::class, 'destroy']);
+
+
+        // Dashboard routes
+        Route::prefix('dashboard')->group(function () {
+            Route::get('/stats', [DashboardController::class, 'getStats']);
+            Route::get('/broiler-sales', [DashboardController::class, 'getBroilerSalesData']);
+            Route::get('/marketplace/activity', [DashboardController::class, 'getMarketplaceActivity']);
+            Route::get('/top-performers', [DashboardController::class, 'getTopPerformers']);
+            Route::get('/performance-metrics', [DashboardController::class, 'getPerformanceMetrics']);
+            Route::get('/industry-benchmarks', [DashboardController::class, 'getIndustryBenchmarks']);
+        });
     });
     
     // Broiler company type routes

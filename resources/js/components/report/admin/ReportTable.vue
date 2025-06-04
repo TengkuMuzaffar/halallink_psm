@@ -5,7 +5,7 @@
         <h5 class="mb-0">Report Validities</h5>
         <div>
           <button class="btn btn-sm theme-btn-outline me-2" @click="refreshData">
-            <i class="fas fa-sync-alt"></i><span class="d-none d-md-inline">Refresh</span>
+            <i class="fas fa-sync-alt me-2"></i><span class="d-none d-md-inline">Refresh</span>
           </button>
           <button class="btn btn-primary" @click="openAddReportModal">
             <i class="fas fa-plus"></i><span class="d-none d-md-inline">Add Report</span>

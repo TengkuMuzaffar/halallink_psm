@@ -147,10 +147,16 @@ class VerifyController extends Controller
             $items = []; // Initialize items array
 
             // Find trips where this checkID is either the start or end checkpoint
-            $tripAsStart = Trip::where('start_checkID', $checkID)->first();
-            $tripAsEnd = Trip::where('end_checkID', $checkID)->first();
+            // AND where the trip belongs to the current delivery
+            $tripAsStart = Trip::where('start_checkID', $checkID)
+                              ->where('deliveryID', $deliveryID)
+                              ->first();
+            $tripAsEnd = Trip::where('end_checkID', $checkID)
+                            ->where('deliveryID', $deliveryID)
+                            ->first();
 
             $itemIDs = [];
+            $orderID = null;
 
             if ($tripAsStart) {
                 // If checkID is a start_checkID in a trip
@@ -160,9 +166,10 @@ class VerifyController extends Controller
                 if ($startCheckpoint && $endCheckpoint) {
                     $startItemRecord = $startCheckpoint->item_record ?? [];
                     $endItemRecord = $endCheckpoint->item_record ?? [];
+                    $orderID = $startCheckpoint->orderID; // Get the orderID from the checkpoint
 
                     // Items are those in start_checkID's item_record that are ALSO in end_checkID's item_record
-                    $itemIDs = array_intersect($startItemRecord, $endItemRecord); // Changed from array_diff to array_intersect
+                    $itemIDs = array_intersect($startItemRecord, $endItemRecord);
                 }
             } elseif ($tripAsEnd) {
                 // If checkID is an end_checkID in a trip (and not a start_checkID)
@@ -171,12 +178,14 @@ class VerifyController extends Controller
                 if ($endCheckpoint) {
                     // Items are simply those in the end_checkID's item_record
                     $itemIDs = $endCheckpoint->item_record ?? [];
+                    $orderID = $endCheckpoint->orderID; // Get the orderID from the checkpoint
                 }
             } else {
                  // If checkID is not associated with any trip (e.g., initial checkpoint)
                  $checkpoint = $verify->checkpoint;
                  if ($checkpoint) {
                      $itemIDs = $checkpoint->item_record ?? [];
+                     $orderID = $checkpoint->orderID; // Get the orderID from the checkpoint
                  }
             }
 
@@ -184,17 +193,21 @@ class VerifyController extends Controller
             // Fetch item details for the determined item IDs
             if (!empty($itemIDs)) {
                 // Join with carts to get orderID and sort by it
+                // Filter by the checkpoint's orderID to ensure we only get items from the correct order
                 $items = Item::whereIn('items.itemID', $itemIDs)  // Specify the table name here
                              ->with('poultry') // Eager load poultry to get poultry_name
-                             ->leftJoin('carts', 'items.itemID', '=', 'carts.itemID')
-                             ->select('items.*', 'carts.orderID', 'carts.cartID')
+                             ->leftJoin('carts', function($join) use ($orderID) {
+                                 $join->on('items.itemID', '=', 'carts.itemID')
+                                      ->where('carts.orderID', '=', $orderID); // Only join with carts from the same order
+                             })
+                             ->select('items.*', 'carts.orderID', 'carts.cartID', 'carts.quantity')
                              ->orderBy('carts.orderID')
                              ->get()
                              ->map(function ($item) {
                                  return [
                                      'itemID' => $item->itemID,
                                      'item_name' => $item->poultry ? $item->poultry->poultry_name : 'Unknown Poultry',
-                                     'quantity' => 1, // Assuming quantity is 1 per item ID in the record
+                                     'quantity' => $item->quantity ?? 1, // Use the cart quantity if available
                                      'orderID' => $item->orderID, // Include orderID in the response
                                      'cartID' => $item->cartID, // Include cartID in the response
                                  ];

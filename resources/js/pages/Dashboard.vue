@@ -1,7 +1,7 @@
 <template>
   <div class="dashboard">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-      <h1 class="mb-0">Transparency Dashboard</h1>
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4">
+      <h1 class="mb-2 mb-md-0 fs-2 fs-md-1">Transparency Dashboard</h1>
       <div class="badge bg-info text-dark">
         <i class="fas fa-eye me-1"></i>
         Public Performance Metrics
@@ -10,36 +10,14 @@
     
     <!-- Stats Cards Row -->
     <StatsCards :stats="companyStats" class="mb-4" />
-    
-    <!-- Top Performers Section -->
-    <div class="row mb-4">
-      <div class="col-12">
-        <TopPerformers 
-          :top-performers="topPerformers" 
-          :loading="loading"
-          class="mb-4" 
-        />
-      </div>
-    </div>
 
-    <!-- Performance Leaderboard -->
+    <!-- Charts Row -->
     <div class="row mb-4">
-      <div class="col-12">
-        <PerformanceLeaderboard 
-          :performance-data="performanceData" 
-          :loading="loading"
-          class="mb-4" 
-        />
+      <div class="col-lg-6 mb-4 mb-lg-0">
+        <BroilerSalesPieChart />
       </div>
-    </div>
-
-    <!-- Industry Benchmarks -->
-    <div class="row mb-4">
-      <div class="col-12">
-        <IndustryBenchmarks 
-          :benchmarks="industryBenchmarks" 
-          :loading="loading"
-        />
+      <div class="col-lg-6">
+        <MarketLineChart />
       </div>
     </div>
   </div>
@@ -48,19 +26,18 @@
 <script>
 import { ref, computed, onMounted } from 'vue';
 import StatsCards from '../components/dashboard/StatsCards.vue';
-import TopPerformers from '../components/dashboard/TopPerformers.vue';
-import PerformanceLeaderboard from '../components/dashboard/PerformanceLeaderboard.vue';
-import IndustryBenchmarks from '../components/dashboard/IndustryBenchmarks.vue';
+import BroilerSalesPieChart from '../components/dashboard/BroilerSalesPieChart.vue';
+import SalesLineChart from '../components/dashboard/MarketLineChart.vue';
 import DashboardService from '../services/dashboardService';
 import modal from '../utils/modal';
+import MarketLineChart from '../components/dashboard/MarketLineChart.vue';
 
 export default {
   name: 'Dashboard',
   components: {
     StatsCards,
-    TopPerformers,
-    PerformanceLeaderboard,
-    IndustryBenchmarks
+    BroilerSalesPieChart,
+    MarketLineChart
   },
   setup() {
     const loading = ref(true);
@@ -71,9 +48,6 @@ export default {
       sme: 0,
       logistic: 0
     });
-    const topPerformers = ref({});
-    const performanceData = ref([]);
-    const industryBenchmarks = ref({});
     
     // Transform stats for StatsCards component
     const companyStats = computed(() => {
@@ -110,25 +84,15 @@ export default {
       ];
     });
     
-    // Fetch all dashboard data
-    const fetchDashboardData = async () => {
+    // Fetch dashboard stats
+    const fetchDashboardStats = async () => {
       loading.value = true;
       error.value = null;
       
       try {
-        // Fetch all data in parallel
-        const [statsData, topPerformersData, performanceMetrics, benchmarks] = await Promise.all([
-          DashboardService.getStats(),
-          DashboardService.getTopPerformers(),
-          DashboardService.getPerformanceMetrics(),
-          DashboardService.getIndustryBenchmarks()
-        ]);
-        
+        const statsData = await DashboardService.getStats();
         stats.value = statsData;
-        topPerformers.value = topPerformersData;
-        performanceData.value = performanceMetrics;
-        industryBenchmarks.value = benchmarks;
-        
+        console.log('Fetched dashboard stats:', statsData);
       } catch (err) {
         console.error('Error fetching dashboard data:', err);
         error.value = 'Failed to load dashboard data';
@@ -140,11 +104,11 @@ export default {
     
     // Refresh data
     const refreshData = () => {
-      fetchDashboardData();
+      fetchDashboardStats();
     };
     
     onMounted(() => {
-      fetchDashboardData();
+      fetchDashboardStats();
     });
     
     return {
@@ -152,9 +116,6 @@ export default {
       error,
       stats,
       companyStats,
-      topPerformers,
-      performanceData,
-      industryBenchmarks,
       refreshData
     };
   }
@@ -162,13 +123,16 @@ export default {
 </script>
 
 <style scoped>
-.dashboard {
-  padding: 20px;
+.badge {
+  font-size: 0.8rem;
+  padding: 6px 10px;
 }
 
-.badge {
-  font-size: 0.9rem;
-  padding: 8px 12px;
+@media (min-width: 768px) {
+  .badge {
+    font-size: 0.9rem;
+    padding: 8px 12px;
+  }
 }
 
 .card {

@@ -17,7 +17,9 @@ class DatabaseSeeder extends Seeder
             PoultrySeeder::class,
             ItemSeeder::class,
             VehicleSeeder::class,
-            // OrderCheckpointSeeder::class, // Add the new OrderCheckpointSeeder
+            SmeOrderSeeder::class,        // Add the new SmeOrderSeeder
+            CheckpointCreatorSeeder::class, // Add the new CheckpointCreatorSeeder
+            // OrderCheckpointSeeder::class, // Comment out the old seeder
         ]);
     }
 }

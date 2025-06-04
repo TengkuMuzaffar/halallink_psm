@@ -4,7 +4,7 @@
       <div class="card-header theme-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0">Available Reports</h5>
         <button class="btn btn-sm theme-btn-outline" @click="refreshData">
-          <i class="fas fa-sync-alt"></i> <span class="d-none d-md-inline">Refresh</span>
+          <i class="fas fa-sync-alt me-2"></i> <span class="d-none d-md-inline">Refresh</span>
         </button>
       </div>
       

@@ -13,8 +13,11 @@ use App\Models\Task;
 use App\Models\Verify;
 use App\Models\Cert;
 use App\Models\Item;
+use App\Models\Cart;
+use App\Models\Location;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class DashboardController extends Controller
 {
@@ -26,397 +29,176 @@ class DashboardController extends Controller
     public function getStats()
     {
         $stats = [
-            'broiler' => User::whereHas('company', function($query) {
-                $query->where('company_type', 'broiler');
-            })->where('role', 'admin')->count(),
+            'broiler' => Company::where('company_type', 'broiler')->count(),
             
-            'slaughterhouse' => User::whereHas('company', function($query) {
-                $query->where('company_type', 'slaughterhouse');
-            })->where('role', 'admin')->count(),
+            'slaughterhouse' => Company::where('company_type', 'slaughterhouse')->count(),
             
-            'sme' => User::whereHas('company', function($query) {
-                $query->where('company_type', 'sme');
-            })->where('role', 'admin')->count(),
+            'sme' => Company::where('company_type', 'sme')->count(),
             
-            'logistic' => User::whereHas('company', function($query) {
-                $query->where('company_type', 'logistic');
-            })->where('role', 'admin')->count(),
+            'logistic' => Company::where('company_type', 'logistic')->count(),
         ];
         
         return response()->json($stats);
     }
-
+    
     /**
-     * Get top performing companies across all metrics
+     * Get broiler sales data for charts
      *
      * @return \Illuminate\Http\JsonResponse
      */
-    public function getTopPerformers()
+    public function getBroilerSalesData(Request $request)
     {
-        $topPerformers = [
-            'order_volume' => $this->getTopCompaniesByOrderVolume(),
-            'delivery_excellence' => $this->getTopCompaniesByDeliveryPerformance(),
-            'quality_assurance' => $this->getTopCompaniesByQuality(),
-            'financial_performance' => $this->getTopCompaniesByRevenue(),
-            'certification_leaders' => $this->getTopCompaniesByCertifications()
-        ];
-
-        return response()->json($topPerformers);
-    }
-
-    /**
-     * Get comprehensive performance metrics for all companies
-     *
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function getPerformanceMetrics()
-    {
-        $companies = Company::with(['users', 'locations'])->get();
-        $performanceData = [];
-
-        foreach ($companies as $company) {
-            $metrics = $this->calculateCompanyMetrics($company);
-            $performanceData[] = [
-                'company' => [
-                    'id' => $company->companyID,
-                    'name' => $company->company_name,
-                    'type' => $company->company_type,
-                    'image' => $company->company_image
-                ],
-                'metrics' => $metrics,
-                'overall_score' => $this->calculateOverallScore($metrics)
-            ];
-        }
-
-        // Sort by overall score
-        usort($performanceData, function($a, $b) {
-            return $b['overall_score'] <=> $a['overall_score'];
-        });
-
-        return response()->json($performanceData);
-    }
-
-    /**
-     * Get industry benchmarks
-     *
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function getIndustryBenchmarks()
-    {
-        $benchmarks = [
-            'broiler' => $this->calculateIndustryBenchmark('broiler'),
-            'slaughterhouse' => $this->calculateIndustryBenchmark('slaughterhouse'),
-            'sme' => $this->calculateIndustryBenchmark('sme'),
-            'logistic' => $this->calculateIndustryBenchmark('logistic')
-        ];
-
-        return response()->json($benchmarks);
-    }
-
-    /**
-     * Calculate comprehensive metrics for a company
-     */
-    private function calculateCompanyMetrics($company)
-    {
-        $companyUsers = $company->users->pluck('userID');
-        $companyLocations = $company->locations->pluck('locationID');
-
-        return [
-            'order_metrics' => $this->getOrderMetrics($companyUsers, $companyLocations),
-            'delivery_metrics' => $this->getDeliveryMetrics($companyUsers),
-            'quality_metrics' => $this->getQualityMetrics($companyUsers, $companyLocations),
-            'financial_metrics' => $this->getFinancialMetrics($companyUsers, $companyLocations),
-            'certification_metrics' => $this->getCertificationMetrics($company->companyID)
-        ];
-    }
-
-    /**
-     * Get order-related metrics
-     */
-    private function getOrderMetrics($userIds, $locationIds)
-    {
-        $totalOrders = Order::whereIn('userID', $userIds)
-            ->orWhereIn('locationID', $locationIds)
-            ->count();
-
-        $completedOrders = Order::whereIn('userID', $userIds)
-            ->orWhereIn('locationID', $locationIds)
-            ->where('order_status', 'completed')
-            ->count();
-
-        // SQLite compatible version of the time difference calculation
-        $avgFulfillmentTime = 0;
-        $orders = Order::whereIn('userID', $userIds)
-            ->orWhereIn('locationID', $locationIds)
-            ->whereNotNull('order_timestamp')
-            ->whereNotNull('deliver_timestamp')
-            ->get();
-            
-        if ($orders->count() > 0) {
-            $totalHours = 0;
-            foreach ($orders as $order) {
-                $start = new \Carbon\Carbon($order->order_timestamp);
-                $end = new \Carbon\Carbon($order->deliver_timestamp);
-                $totalHours += $end->diffInHours($start);
-            }
-            $avgFulfillmentTime = $orders->count() > 0 ? $totalHours / $orders->count() : 0;
-        }
-
-        return [
-            'total_orders' => $totalOrders,
-            'completed_orders' => $completedOrders,
-            'success_rate' => $totalOrders > 0 ? round(($completedOrders / $totalOrders) * 100, 2) : 0,
-            'avg_fulfillment_hours' => round($avgFulfillmentTime, 2)
-        ];
-    }
-
-    /**
-     * Get delivery-related metrics
-     */
-    private function getDeliveryMetrics($userIds)
-    {
-        $totalDeliveries = Delivery::whereIn('userID', $userIds)->count();
+        $period = $request->input('period', 'month'); // Default to month
         
-        $completedDeliveries = Delivery::whereIn('userID', $userIds)
-            ->whereNotNull('end_timestamp')
-            ->count();
-
-        $onTimeDeliveries = Delivery::whereIn('userID', $userIds)
-            ->whereNotNull('end_timestamp')
-            ->whereRaw('DATE(end_timestamp) <= scheduled_date')
-            ->count();
-
-        // SQLite compatible version of the time difference calculation
-        $avgDeliveryTime = 0;
-        $deliveries = Delivery::whereIn('userID', $userIds)
-            ->whereNotNull('start_timestamp')
-            ->whereNotNull('end_timestamp')
-            ->get();
-            
-        if ($deliveries->count() > 0) {
-            $totalHours = 0;
-            foreach ($deliveries as $delivery) {
-                $start = new \Carbon\Carbon($delivery->start_timestamp);
-                $end = new \Carbon\Carbon($delivery->end_timestamp);
-                $totalHours += $end->diffInHours($start);
-            }
-            $avgDeliveryTime = $deliveries->count() > 0 ? $totalHours / $deliveries->count() : 0;
+        // Define date ranges based on period
+        switch ($period) {
+            case 'quarter':
+                $startDate = Carbon::now()->subMonths(3);
+                break;
+            case 'year':
+                $startDate = Carbon::now()->subYear();
+                break;
+            case 'month':
+            default:
+                $startDate = Carbon::now()->subMonth();
+                break;
         }
-
-        return [
-            'total_deliveries' => $totalDeliveries,
-            'completed_deliveries' => $completedDeliveries,
-            'on_time_deliveries' => $onTimeDeliveries,
-            'success_rate' => $totalDeliveries > 0 ? round(($completedDeliveries / $totalDeliveries) * 100, 2) : 0,
-            'on_time_rate' => $completedDeliveries > 0 ? round(($onTimeDeliveries / $completedDeliveries) * 100, 2) : 0,
-            'avg_delivery_hours' => round($avgDeliveryTime, 2)
-        ];
-    }
-
-    /**
-     * Get quality-related metrics
-     */
-    private function getQualityMetrics($userIds, $locationIds)
-    {
-        $totalTasks = Task::whereIn('userID', $userIds)->count();
-        $completedTasks = Task::whereIn('userID', $userIds)
-            ->where('task_status', 'completed')
-            ->count();
-
-        $totalVerifications = Verify::whereHas('delivery', function($query) use ($userIds) {
-            $query->whereIn('userID', $userIds);
-        })->count();
-
-        $successfulVerifications = Verify::whereHas('delivery', function($query) use ($userIds) {
-            $query->whereIn('userID', $userIds);
-        })->where('verify_status', 'verified')->count();
-
-        return [
-            'total_tasks' => $totalTasks,
-            'completed_tasks' => $completedTasks,
-            'task_completion_rate' => $totalTasks > 0 ? round(($completedTasks / $totalTasks) * 100, 2) : 0,
-            'total_verifications' => $totalVerifications,
-            'successful_verifications' => $successfulVerifications,
-            'verification_success_rate' => $totalVerifications > 0 ? round(($successfulVerifications / $totalVerifications) * 100, 2) : 0
-        ];
-    }
-
-    /**
-     * Get financial metrics
-     */
-    private function getFinancialMetrics($userIds, $locationIds)
-    {
-        $orders = Order::whereIn('userID', $userIds)
-            ->orWhereIn('locationID', $locationIds)
-            ->with('payment')
-            ->get();
-
-        $totalRevenue = $orders->sum(function($order) {
-            return $order->payment ? $order->payment->payment_amount : 0;
-        });
-
-        $successfulPayments = $orders->filter(function($order) {
-            return $order->payment && $order->payment->payment_status === 'completed';
-        })->count();
-
-        $totalPayments = $orders->filter(function($order) {
-            return $order->payment;
-        })->count();
-
-        return [
-            'total_revenue' => round($totalRevenue, 2),
-            'successful_payments' => $successfulPayments,
-            'total_payments' => $totalPayments,
-            'payment_success_rate' => $totalPayments > 0 ? round(($successfulPayments / $totalPayments) * 100, 2) : 0,
-            'avg_transaction_value' => $totalPayments > 0 ? round($totalRevenue / $totalPayments, 2) : 0
-        ];
-    }
-
-    /**
-     * Get certification metrics
-     */
-    private function getCertificationMetrics($companyId)
-    {
-        $certifications = Cert::where('companyID', $companyId)->get();
-        $certTypes = $certifications->pluck('cert_type')->unique();
-
-        return [
-            'total_certifications' => $certifications->count(),
-            'certification_types' => $certTypes->count(),
-            'cert_details' => $certTypes->toArray()
-        ];
-    }
-
-    /**
-     * Calculate overall performance score
-     */
-    private function calculateOverallScore($metrics)
-    {
-        $weights = [
-            'order_success_rate' => 0.25,
-            'delivery_success_rate' => 0.25,
-            'verification_success_rate' => 0.20,
-            'payment_success_rate' => 0.20,
-            'certification_bonus' => 0.10
-        ];
-
-        $score = 0;
-        $score += ($metrics['order_metrics']['success_rate'] ?? 0) * $weights['order_success_rate'];
-        $score += ($metrics['delivery_metrics']['success_rate'] ?? 0) * $weights['delivery_success_rate'];
-        $score += ($metrics['quality_metrics']['verification_success_rate'] ?? 0) * $weights['verification_success_rate'];
-        $score += ($metrics['financial_metrics']['payment_success_rate'] ?? 0) * $weights['payment_success_rate'];
         
-        // Certification bonus
-        $certBonus = min(($metrics['certification_metrics']['total_certifications'] ?? 0) * 10, 100);
-        $score += $certBonus * $weights['certification_bonus'];
-
-        return round($score, 2);
-    }
-
-    /**
-     * Get top companies by order volume
-     */
-    private function getTopCompaniesByOrderVolume($limit = 5)
-    {
-        return Company::withCount(['users as total_orders' => function($query) {
-            $query->join('orders', 'users.userID', '=', 'orders.userID');
-        }])
-        ->orderBy('total_orders', 'desc')
-        ->limit($limit)
-        ->get(['companyID', 'company_name', 'company_type', 'total_orders']);
-    }
-
-    /**
-     * Get top companies by delivery performance
-     */
-    private function getTopCompaniesByDeliveryPerformance($limit = 5)
-    {
-        return Company::select('companies.*')
-            ->join('users', 'companies.companyID', '=', 'users.companyID')
-            ->join('deliveries', 'users.userID', '=', 'deliveries.userID')
-            ->whereNotNull('deliveries.end_timestamp')
-            ->groupBy('companies.companyID', 'companies.company_name', 'companies.company_type')
-            ->orderByRaw('COUNT(deliveries.deliveryID) DESC')
-            ->limit($limit)
-            ->get();
-    }
-
-    /**
-     * Get top companies by quality metrics
-     */
-    private function getTopCompaniesByQuality($limit = 5)
-    {
-        return Company::select('companies.*')
-            ->join('users', 'companies.companyID', '=', 'users.companyID')
-            ->join('tasks', 'users.userID', '=', 'tasks.userID')
-            ->where('tasks.task_status', 'completed')
-            ->groupBy('companies.companyID', 'companies.company_name', 'companies.company_type')
-            ->orderByRaw('COUNT(tasks.taskID) DESC')
-            ->limit($limit)
-            ->get();
-    }
-
-    /**
-     * Get top companies by revenue
-     */
-    private function getTopCompaniesByRevenue($limit = 5)
-    {
-        return Company::select('companies.*')
-            ->join('users', 'companies.companyID', '=', 'users.companyID')
-            ->join('orders', 'users.userID', '=', 'orders.userID')
-            ->join('payments', 'orders.paymentID', '=', 'payments.paymentID')
-            ->where('payments.payment_status', 'completed')
-            ->groupBy('companies.companyID', 'companies.company_name', 'companies.company_type')
-            ->orderByRaw('SUM(payments.payment_amount) DESC')
-            ->limit($limit)
-            ->get();
-    }
-
-    /**
-     * Get top companies by certifications
-     */
-    private function getTopCompaniesByCertifications($limit = 5)
-    {
-        return Company::withCount('certs')
-            ->orderBy('certs_count', 'desc')
-            ->limit($limit)
-            ->get(['companyID', 'company_name', 'company_type', 'certs_count']);
-    }
-
-    /**
-     * Calculate industry benchmark for a company type
-     */
-    private function calculateIndustryBenchmark($companyType)
-    {
-        $companies = Company::where('company_type', $companyType)->get();
-        $totalMetrics = [
-            'avg_order_success_rate' => 0,
-            'avg_delivery_success_rate' => 0,
-            'avg_verification_success_rate' => 0,
-            'avg_payment_success_rate' => 0,
-            'avg_certifications' => 0
-        ];
-
-        if ($companies->count() === 0) {
-            return $totalMetrics;
+        // Get broiler companies
+        $broilerCompanies = Company::where('company_type', 'broiler')->get();
+        
+        $salesData = [];
+        
+        foreach ($broilerCompanies as $company) {
+            // Get all locations for this company
+            $locationIds = Location::where('companyID', $company->companyID)->pluck('locationID');
+            
+            // Get all items from these locations
+            $itemIds = Item::whereIn('locationID', $locationIds)->pluck('itemID');
+            
+            // Count cart items for these items within the date range
+            $salesCount = Cart::whereIn('itemID', $itemIds)
+                ->whereHas('order', function($query) use ($startDate) {
+                    $query->where('created_at', '>=', $startDate);
+                })
+                ->count();
+            
+            if ($salesCount > 0) {
+                $salesData[] = [
+                    'company' => $company->company_name,
+                    'sales' => $salesCount
+                ];
+            }
         }
-
-        foreach ($companies as $company) {
-            $metrics = $this->calculateCompanyMetrics($company);
-            $totalMetrics['avg_order_success_rate'] += $metrics['order_metrics']['success_rate'] ?? 0;
-            $totalMetrics['avg_delivery_success_rate'] += $metrics['delivery_metrics']['success_rate'] ?? 0;
-            $totalMetrics['avg_verification_success_rate'] += $metrics['quality_metrics']['verification_success_rate'] ?? 0;
-            $totalMetrics['avg_payment_success_rate'] += $metrics['financial_metrics']['payment_success_rate'] ?? 0;
-            $totalMetrics['avg_certifications'] += $metrics['certification_metrics']['total_certifications'] ?? 0;
+        
+        // Sort by sales count in descending order
+        usort($salesData, function($a, $b) {
+            return $b['sales'] - $a['sales'];
+        });
+        
+        // Take top 5 companies
+        $salesData = array_slice($salesData, 0, 5);
+        
+        return response()->json([
+            'period' => $period,
+            'data' => $salesData
+        ]);
+    }
+    
+    /**
+     * Get marketplace activity data (order counts) for line chart
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getMarketplaceActivity(Request $request)
+    {
+        $period = $request->input('period', 'month'); // Default to month
+        
+        // Define date ranges and grouping format based on period
+        switch ($period) {
+            case 'quarter':
+                $startDate = Carbon::now()->subMonths(12); // Show last 4 quarters
+                break;
+            case 'year':
+                $startDate = Carbon::now()->subYears(5); // Show last 5 years
+                break;
+            case 'month':
+            default:
+                $startDate = Carbon::now()->subMonths(12); // Show last 12 months
+                $labelFormat = 'M Y'; // e.g., Jan 2023
+                break;
         }
-
-        $count = $companies->count();
-        return [
-            'avg_order_success_rate' => round($totalMetrics['avg_order_success_rate'] / $count, 2),
-            'avg_delivery_success_rate' => round($totalMetrics['avg_delivery_success_rate'] / $count, 2),
-            'avg_verification_success_rate' => round($totalMetrics['avg_verification_success_rate'] / $count, 2),
-            'avg_payment_success_rate' => round($totalMetrics['avg_payment_success_rate'] / $count, 2),
-            'avg_certifications' => round($totalMetrics['avg_certifications'] / $count, 2)
-        ];
+        
+        try {
+            // Get order counts grouped by date
+            $query = Order::where('order_timestamp', '>=', $startDate)
+                ->where('order_status', 'paid');
+                
+            if ($period === 'quarter') {
+                // For quarters, we need to group by year and quarter
+                $orderCounts = $query->select(
+                    DB::raw("YEAR(order_timestamp) as year"),
+                    DB::raw("QUARTER(order_timestamp) as quarter"),
+                    DB::raw('COUNT(*) as count')
+                )
+                ->groupBy('year', 'quarter')
+                ->orderBy('year')
+                ->orderBy('quarter')
+                ->get()
+                ->map(function ($item) {
+                    return [
+                        'date' => sprintf("Q%d %d", $item->quarter, $item->year),
+                        'count' => $item->count
+                    ];
+                });
+            } else if ($period === 'year') {
+                // For years, we group by year only
+                $orderCounts = $query->select(
+                    DB::raw("YEAR(order_timestamp) as year"),
+                    DB::raw('COUNT(*) as count')
+                )
+                ->groupBy('year')
+                ->orderBy('year')
+                ->get()
+                ->map(function ($item) {
+                    return [
+                        'date' => (string)$item->year,
+                        'count' => $item->count
+                    ];
+                });
+            } else {
+                // For months, we group by year and month directly
+                $orderCounts = $query->select(
+                    DB::raw("YEAR(order_timestamp) as year"),
+                    DB::raw("MONTH(order_timestamp) as month"),
+                    DB::raw('COUNT(*) as count')
+                )
+                ->groupBy('year', 'month')
+                ->orderBy('year')
+                ->orderBy('month')
+                ->get()
+                ->map(function ($item) {
+                    // Create a Carbon instance from the year and month
+                    $date = Carbon::createFromDate($item->year, $item->month, 1);
+                    return [
+                        'date' => $date->format('M Y'),
+                        'count' => $item->count
+                    ];
+                });
+            }
+            
+            return response()->json([
+                'period' => $period,
+                'data' => $orderCounts
+            ]);
+        } catch (\Exception $e) {
+            // Handle any database or processing errors
+            return response()->json([
+                'period' => $period,
+                'error' => 'Error processing data: ' . $e->getMessage(),
+                'data' => []
+            ], 500);
+        }
     }
 }
