@@ -288,6 +288,31 @@ class ExecuteDeliveriesController extends Controller
                                 continue;
                             }
 
+                            // Check if this item exists in ANY start checkpoint for this delivery
+                            $itemExistsInAnyStartCheckpoint = false;
+                            
+                            // Loop through all trips for this delivery to find the item in any start checkpoint
+                            foreach ($deliveryTrips as $checkTrip) {
+                                if (!$checkTrip->startCheckpoint) {
+                                    continue;
+                                }
+                                
+                                $checkStartLocationID = $checkTrip->startCheckpoint->locationID;
+                                $checkStartCheckpoint = $checkTrip->startCheckpoint;
+                                
+                                // Check if the item exists in this start checkpoint
+                                if (isset($locationItems[$checkStartLocationID][$checkStartCheckpoint->checkID][$itemID]) ||
+                                    (is_array($checkStartCheckpoint->item_record) && in_array($itemID, $checkStartCheckpoint->item_record))) {
+                                    $itemExistsInAnyStartCheckpoint = true;
+                                    break;
+                                }
+                            }
+
+                            // Skip items that don't exist in ANY start checkpoint
+                            if (!$itemExistsInAnyStartCheckpoint) {
+                                continue;
+                            }
+
                             // Get quantity from cart
                             $quantity = 0;
                             if ($orderID) {
