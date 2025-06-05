@@ -1,11 +1,11 @@
 <template>
   <div class="dashboard">
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4">
-      <h1 class="mb-2 mb-md-0 fs-2 fs-md-1">Transparency Dashboard</h1>
-      <div class="badge bg-info text-dark">
-        <i class="fas fa-eye me-1"></i>
-        Public Performance Metrics
-      </div>
+      <h1 class="mb-2 mb-md-0 fs-2 fs-md-1">Performance Dashboard</h1>
+      <button class="btn download-btn" @click="downloadReport">
+        <i class="fas fa-download me-1"></i>
+        Download Performance Report
+      </button>
     </div>
     
     <!-- Stats Cards Row -->
@@ -102,6 +102,30 @@ export default {
       }
     };
     
+    // Download performance report
+    const downloadReport = () => {
+      try {
+        // Show loading indicator
+        loading.value = true;
+        modal.info('Downloading', 'Preparing performance report for download...');
+        
+        // In a real implementation, you would call an API endpoint to generate the report
+        // For now, we'll simulate a download after a short delay
+        setTimeout(() => {
+          // This would be replaced with actual API call in production
+          window.location.href = '/api/dashboard/download-report';
+          
+          // Hide loading indicator
+          loading.value = false;
+          modal.success('Success', 'Performance report download initiated.');
+        }, 1000);
+      } catch (err) {
+        console.error('Error downloading report:', err);
+        loading.value = false;
+        modal.danger('Error', 'Failed to download performance report. Please try again.');
+      }
+    };
+    
     // Refresh data
     const refreshData = () => {
       fetchDashboardStats();
@@ -116,32 +140,44 @@ export default {
       error,
       stats,
       companyStats,
-      refreshData
+      refreshData,
+      downloadReport
     };
   }
 };
 </script>
 
 <style scoped>
-.badge {
+.download-btn {
   font-size: 0.8rem;
   padding: 6px 10px;
+  background-color: var(--secondary-color);
+  color: var(--primary-color);
+  border: 1px solid var(--border-color);
+  transition: all 0.3s ease;
+}
+
+.download-btn:hover {
+  background-color: var(--accent-color);
+  color: white;
 }
 
 @media (min-width: 768px) {
-  .badge {
+  .download-btn {
     font-size: 0.9rem;
     padding: 8px 12px;
   }
 }
 
 .card {
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 4px var(--border-color);
   border: none;
+  background-color: var(--lighter-bg);
 }
 
 .card-header {
-  background-color: #f8f9fa;
-  border-bottom: 1px solid #dee2e6;
+  background-color: var(--light-bg);
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-color);
 }
 </style>

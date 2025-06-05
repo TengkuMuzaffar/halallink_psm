@@ -9,11 +9,11 @@
   >
     <div class="modal-dialog" role="document">
       <div class="modal-content">
-        <div class="modal-header">
+        <div class="modal-header theme-header">
           <h5 class="modal-title" :id="modalId + 'Label'" ref="modalTitle">{{ title }}</h5>
           <button 
             type="button" 
-            class="btn-close" 
+            class="btn-close btn-close-white" 
             @click="closeModal"
             aria-label="Close"
             ref="closeButton"
@@ -257,3 +257,15 @@ export default {
   }
 };
 </script>
+
+<style scoped>
+.theme-header {
+  background-color: var(--primary-color);
+  color: var(--secondary-color);
+  border-bottom: none;
+}
+
+.btn-close-white {
+  filter: invert(1) grayscale(100%) brightness(200%);
+}
+</style>

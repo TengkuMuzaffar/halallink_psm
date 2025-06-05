@@ -1,9 +1,9 @@
 <template>
   <div class="card h-100">
-    <div class="card-header">
+    <div class="card-header" style="background-color: var(--light-bg); border-bottom: 1px solid var(--border-color);">
       <div class="d-flex justify-content-between align-items-center">
-        <h5 class="mb-0">
-          <i class="fas fa-chart-pie text-primary me-2"></i>
+        <h5 class="mb-0" style="color: var(--text-color);">
+          <i class="fas fa-chart-pie" style="color: var(--primary-color);"></i>
           Broiler Sales
         </h5>
         <div class="btn-group">
@@ -11,7 +11,7 @@
             v-for="option in periodOptions" 
             :key="option.value"
             class="btn btn-sm" 
-            :class="period === option.value ? 'btn-primary' : 'btn-outline-primary'"
+            :class="period === option.value ? 'btn-themed-primary' : 'btn-themed-outline-primary'"
             @click="changePeriod(option.value)"
           >
             {{ option.label }}
