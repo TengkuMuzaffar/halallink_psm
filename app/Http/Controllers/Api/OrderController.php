@@ -460,222 +460,54 @@ class OrderController extends Controller
             // Different logic based on company type
             if ($companyType === 'broiler') {
                 // For broiler companies: Find orders through carts -> items -> user -> companyID
-                $query = Order::with(['user', 'items.poultry', 'items.location', 'payment', 'checkpoints.verifies'])
-                    ->whereIn('orderID', function($subQuery) use ($companyID) {
-                        $subQuery->select('carts.orderID')
-                            ->from('carts')
-                            ->join('items', 'carts.itemID', '=', 'items.itemID')
-                            ->join('users', 'items.userID', '=', 'users.userID')
-                            ->where('users.companyID', $companyID)
-                            ->distinct(); // Ensure unique orderIDs
-                    });
-            } else {
-                // For SME and other company types: Direct query on orders
-                $query = Order::where('companyID', $companyID)
-                    ->with(['user', 'items.poultry', 'items.location', 'payment', 'checkpoints.verifies']);
-            }
-            
-            // Apply search if provided
-            if ($request->has('search') && !empty($request->search)) {
-                $searchTerm = '%' . $request->search . '%';
-                $query->where(function($q) use ($searchTerm) {
-                    $q->where('orderID', 'LIKE', $searchTerm)
-                      ->orWhere('order_status', 'LIKE', $searchTerm)
-                      ->orWhere('total_amount', 'LIKE', $searchTerm);
+                $baseQuery = Order::whereIn('orderID', function($subQuery) use ($companyID) {
+                    $subQuery->select('carts.orderID')
+                        ->from('carts')
+                        ->join('items', 'carts.itemID', '=', 'items.itemID')
+                        ->join('users', 'items.userID', '=', 'users.userID')
+                        ->where('users.companyID', $companyID)
+                        ->distinct(); // Ensure unique orderIDs
                 });
-            }
-            
-            // Apply status filter if provided
-            if ($request->has('status') && !empty($request->status)) {
-                $query->where('order_status', $request->status);
+            } else {
+                // For SME and other company types: Use the userID from the company instead of companyID
+                // Get all users belonging to this company
+                $companyUserIds = User::where('companyID', $companyID)->pluck('userID')->toArray();
+                
+                // Find orders created by any user in this company
+                $baseQuery = Order::whereIn('userID', $companyUserIds);
             }
             
             // Apply date range filters if provided
             if ($request->has('date_from') && !empty($request->date_from)) {
-                $query->whereDate('created_at', '>=', $request->date_from);
+                $baseQuery->whereDate('created_at', '>=', $request->date_from);
             }
             
             if ($request->has('date_to') && !empty($request->date_to)) {
-                $query->whereDate('created_at', '<=', $request->date_to);
+                $baseQuery->whereDate('created_at', '<=', $request->date_to);
             }
             
-            // Apply sorting
-            $sortField = $request->input('sort_field', 'created_at');
-            $sortDirection = $request->input('sort_direction', 'desc');
-            $query->orderBy($sortField, $sortDirection);
+            // Calculate total orders
+            $total_orders = (clone $baseQuery)->count();
             
-            // Paginate the results
-            $perPage = $request->input('per_page', 10);
-            $orders = $query->paginate($perPage);
+            // Calculate waiting for delivery orders
+            $waiting_for_delivery_orders = (clone $baseQuery)->where('order_status', 'waiting_for_delivery')->count();
             
-            // Restructure the response data
-            $restructuredData = [];
+            // Calculate in progress orders
+            $in_progress_orders = (clone $baseQuery)->where('order_status', 'in_progress')->count();
             
-            foreach ($orders as $order) {
-                $orderData = [
-                    'orderID' => $order->orderID,
-                    'order_status' => $order->order_status,
-                    'total_amount' => $order->total_amount,
-                    'delivery_address' => $order->location->company_address,
-                    'created_at' => $order->created_at,
-                    'user' => $order->user,
-                    'payment' => $order->payment,
-                    'locations' => []
-                ];
-                
-                // Get all cart items for this order
-                $cartItems = Cart::where('orderID', $order->orderID)->get();
-                
-                // Create a map of locationIDs from items in the cart
-                $locationMap = [];
-                
-                foreach ($cartItems as $cartItem) {
-                    $item = Item::with('location', 'poultry')->find($cartItem->itemID);
-                    
-                    if ($item && $item->locationID) {
-                        $locationID = $item->locationID;
-                        
-                        if (!isset($locationMap[$locationID])) {
-                            $locationMap[$locationID] = [
-                                'locationID' => $locationID,
-                                'checkpoints' => []
-                            ];
-                        }
-                    }
-                }
-                
-                // Now get checkpoints that match both orderID and the locationIDs we found
-                if (count($locationMap) > 0) {
-                    $checkpoints = Checkpoint::with('verifies')
-                        ->where('orderID', $order->orderID)
-                        ->whereIn('locationID', array_keys($locationMap))
-                        ->get();
-                    
-                    foreach ($checkpoints as $checkpoint) {
-                        $locationID = $checkpoint->locationID;
-                        
-                        if (isset($locationMap[$locationID])) {
-                            // Determine checkpoint status based on verifies
-                            $checkpointStatus = 'pending';
-                            
-                            if (!$checkpoint->verifies || count($checkpoint->verifies) === 0) {
-                                $checkpointStatus = 'pending';
-                            } else {
-                                $hasIncomplete = false;
-                                foreach ($checkpoint->verifies as $verify) {
-                                    if ($verify->verify_status !== 'complete') {
-                                        $hasIncomplete = true;
-                                        break;
-                                    }
-                                }
-                                
-                                if ($hasIncomplete) {
-                                    $checkpointStatus = 'processing';
-                                } else {
-                                    $checkpointStatus = 'complete';
-                                }
-                            }
-                            
-                            // Get items from checkpoint's item_record that match our cart items
-                            $checkpointItems = [];
-                            if ($checkpoint->item_record) {
-                                $itemIDs = is_array($checkpoint->item_record) 
-                                    ? $checkpoint->item_record 
-                                    : json_decode($checkpoint->item_record, true);
-                                
-                                if (is_array($itemIDs)) {
-                                    foreach ($itemIDs as $itemID) {
-                                        // Only include items that are in this location's items list
-                                        if (isset($locationMap[$locationID]['items'][$itemID])) {
-                                            $checkpointItems[$itemID] = $locationMap[$locationID]['items'][$itemID];
-                                        }
-                                    }
-                                }
-                            }
-                            
-                            $locationMap[$locationID]['checkpoints'][] = [
-                                'checkID' => $checkpoint->checkID,
-                                'checkpoint_status' => $checkpointStatus,
-                                'end_timestamp' => $checkpoint->end_timestamp,
-                                'notes' => $checkpoint->notes,
-                                'items' => $checkpointItems
-                            ];
-                            
-                            // Update location status based on checkpoint status
-                            if ($checkpointStatus === 'processing' && $locationMap[$locationID]['location_status'] !== 'complete') {
-                                $locationMap[$locationID]['location_status'] = 'processing';
-                            } else if ($checkpointStatus === 'complete') {
-                                $locationMap[$locationID]['location_status'] = 'complete';
-                            }
-                        }
-                    }
-                }
-                
-                // Calculate overall order status for broiler companies
-                if ($companyType === 'broiler') {
-                    $orderStatus = 'waiting_for_delivery';
-                    
-                    if (count($locationMap) > 0) {
-                        $allLocationsComplete = true;
-                        $allLocationsHaveVerifies = true;
-                        
-                        foreach ($locationMap as $location) {
-                            if (empty($location['checkpoints'])) {
-                                $allLocationsHaveVerifies = false;
-                                $allLocationsComplete = false;
-                                continue;
-                            }
-                            
-                            $locationHasVerifies = true;
-                            $locationIsComplete = true;
-                            
-                            foreach ($location['checkpoints'] as $checkpoint) {
-                                if ($checkpoint['checkpoint_status'] === 'pending') {
-                                    $locationHasVerifies = false;
-                                    $locationIsComplete = false;
-                                    break;
-                                } else if ($checkpoint['checkpoint_status'] === 'processing') {
-                                    $locationIsComplete = false;
-                                }
-                            }
-                            
-                            if (!$locationHasVerifies) {
-                                $allLocationsHaveVerifies = false;
-                            }
-                            
-                            if (!$locationIsComplete) {
-                                $allLocationsComplete = false;
-                            }
-                        }
-                        
-                        if (!$allLocationsHaveVerifies) {
-                            $orderStatus = 'waiting_for_delivery';
-                        } else if (!$allLocationsComplete) {
-                            $orderStatus = 'processing';
-                        } else {
-                            $orderStatus = 'complete';
-                        }
-                    }
-                    
-                    $orderData['calculated_status'] = $orderStatus;
-                }
-                
-                $orderData['locations'] = array_values($locationMap);
-                $restructuredData[$order->orderID] = $orderData;
-            }
+            // Calculate complete orders
+            $complete_orders = (clone $baseQuery)->where('order_status', 'complete')->count();
             
+            // Return the statistics
             return response()->json([
-                'data' => array_values($restructuredData),
-                'pagination' => [
-                    'current_page' => $orders->currentPage(),
-                    'last_page' => $orders->lastPage(),
-                    'per_page' => $orders->perPage(),
-                    'total' => $orders->total()
-                ]
+                'total_orders' => $total_orders,
+                'waiting_for_delivery_orders' => $waiting_for_delivery_orders,
+                'in_progress_orders' => $in_progress_orders,
+                'complete_orders' => $complete_orders
             ]);
             
         } catch (\Exception $e) {
-            return response()->json(['message' => 'Error fetching orders: ' . $e->getMessage()], 500);
+            return response()->json(['message' => 'Error fetching order statistics: ' . $e->getMessage()], 500);
         }
     }
 

@@ -11,6 +11,7 @@ use App\Models\Cart;
 use App\Models\DeliveryLocationToken; // Import the model
 use App\Models\Trip; // Import the Trip model
 use App\Models\Item; // Import the Item model
+use App\Models\Order; // Add this import for the Order model
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon; // Import Carbon for date comparison
 
@@ -334,7 +335,32 @@ class VerifyController extends Controller
                                 ->update(['item_cart_delivered' => true]);
                             
                             $cartsUpdated = $updated > 0;
+                            
+                            // Check if all cart items for this order are now delivered
+                            if ($cartsUpdated) {
+                                $totalCartItems = Cart::where('orderID', $orderID)->count();
+                                $deliveredCartItems = Cart::where('orderID', $orderID)
+                                    ->where('item_cart_delivered', true)
+                                    ->count();
+                                
+                                // If all cart items are delivered, update the order status
+                                if ($totalCartItems > 0 && $totalCartItems === $deliveredCartItems) {
+                                    $order = Order::find($orderID);
+                                    if ($order) {
+                                        $order->order_status = 'complete';
+                                        $order->deliver_timestamp = now();
+                                        $order->save();
+                                        
+                                        Log::info('Order marked as complete', [
+                                            'orderID' => $orderID,
+                                            'deliver_timestamp' => $order->deliver_timestamp
+                                        ]);
+                                    }
+                                }
+                            }
                         }
+
+                        
                     }
                 }
             }

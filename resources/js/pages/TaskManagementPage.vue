@@ -180,6 +180,7 @@
                     class="btn btn-sm btn-outline-primary" 
                     @click="openAssignUserModal()"
                     v-if="!selectedTask.userID"
+                    :disabled="selectedTask.assignButtonDisabled"
                   >
                     <i class="fas fa-user-plus"></i> Assign
                   </button>
@@ -187,6 +188,7 @@
                     class="btn btn-sm btn-outline-secondary" 
                     @click="openAssignUserModal()"
                     v-else
+                    :disabled="selectedTask.assignButtonDisabled"
                   >
                     <i class="fas fa-user-edit"></i> Change
                   </button>
@@ -622,12 +624,29 @@ export default {
     };
     
     // View task details
-    const viewTaskDetails = (task) => {
+    const viewTaskDetails = async (task) => {
       selectedTask.value = task;
       
       // Initialize modal if not already done
       if (!taskDetailsModal) {
         taskDetailsModal = new bootstrap.Modal(document.getElementById('taskDetailsModal'));
+      }
+      
+      // Verify task user assignment immediately when opening task details
+      try {
+        const response = await taskService.verifyTaskUser(task.taskID);
+        console.log('Verify Response:', JSON.stringify(response));
+        
+        // If task has an assigned user, update the task data
+        if (response.success === false && response.assigned_user) {
+          selectedTask.value.userID = response.assigned_user.userID;
+          selectedTask.value.user_name = response.assigned_user.fullname;
+          selectedTask.value.user_email = response.assigned_user.email;
+        }
+      } catch (error) {
+        console.error('Error verifying task user:', error);
+        // Add a flag to disable the assign button if verification fails
+        selectedTask.value.assignButtonDisabled = true;
       }
       
       taskDetailsModal.show();
@@ -793,6 +812,18 @@ export default {
       try {
         const response = await taskService.verifyTaskUser(selectedTask.value.taskID);
         console.log('Verify Response:', JSON.stringify(response)); // Log the response to the console
+        
+        // Check if the task already has an assigned user
+        if (response.success === false && response.assigned_user) {
+          // Show error message if task already has a user
+          alert(response.message);
+          // Refresh task details to show current assignment
+          selectedTask.value.userID = response.assigned_user.userID;
+          selectedTask.value.user_name = response.assigned_user.fullname;
+          selectedTask.value.user_email = response.assigned_user.email;
+          return;
+        }
+        
         if (response.success) {
           // Hide the task details modal
           taskDetailsModal.hide();
@@ -811,18 +842,17 @@ export default {
           assignUserModal.show();
           searchUsers(); // Search immediately when opening the modal
         } else {
-          // Show error message if task already has a user
+          // Show error message for other errors
           alert(response.message);
-          // Refresh task details to show current assignment
-          if (response.assigned_user) {
-            selectedTask.value.userID = response.assigned_user.userID;
-            selectedTask.value.user_name = response.assigned_user.fullname;
-            selectedTask.value.user_email = response.assigned_user.email;
-          }
         }
       } catch (error) {
         console.error('Error verifying task user:', error);
-        alert('Failed to verify task assignment status');
+        
+        // Disable the assign/change button by setting a flag
+        selectedTask.value.assignButtonDisabled = true;
+        
+        // Show error message
+        alert('Failed to verify task assignment status. The assign button has been disabled.');
       }
     };
 

@@ -143,7 +143,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/tasks', 'App\Http\Controllers\Api\TaskController@index');
         Route::put('/tasks/{id}', 'App\Http\Controllers\Api\TaskController@update');
         Route::get('/slaughterers/search', 'App\Http\Controllers\Api\TaskController@searchSlaughterers');
-        Route::get('/tasks/{id}/verify-user', [App\Http\Controllers\Api\TaskController::class, 'verifyTaskUser']);
+        Route::get('/tasks/{id}/verify/user', [App\Http\Controllers\Api\TaskController::class, 'verifyTaskUser']);
     });
 
     // SME company type routes

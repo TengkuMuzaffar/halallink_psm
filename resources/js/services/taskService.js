@@ -59,7 +59,7 @@ export const taskService = {
    * @returns {Promise} - Promise with verification result
    */
   verifyTaskUser(taskId) {
-    return fetchData(`/api/tasks/${taskId}/verify-user`);
+    return fetchData(`/api/tasks/${taskId}/verify/user`);
   },
 };
 
