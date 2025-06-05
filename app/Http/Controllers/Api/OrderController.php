@@ -35,19 +35,29 @@ class OrderController extends Controller
                 return response()->json(['message' => 'Company not found'], 404);
             }
             
-            // Get pagination parameters
+            // Get global pagination parameters
             $perPage = $request->input('per_page', 10);
-            $page = $request->input('page', 1);
+            
+            // Get location-specific pagination parameters if provided
+            $locationPages = $request->input('location_pages', []);
             
             // Get locations belonging to the company
             $locationsQuery = Location::where('companyID', $companyID);
             
-            // Apply search filter if provided (search by company_name)
+            // Apply search filter if provided (search by company_name, company_address, or orderID)
             if ($request->has('search') && !empty($request->search)) {
                 $searchTerm = '%' . $request->search . '%';
                 $locationsQuery->where(function($q) use ($searchTerm) {
                     $q->where('company_address', 'LIKE', $searchTerm)
-                      ->orWhere('company_name', 'LIKE', $searchTerm);
+                      ->orWhereHas('company', function($query) use ($searchTerm) {
+                          $query->where('company_name', 'LIKE', $searchTerm);
+                      })
+                      // Add search by orderID
+                      ->orWhereHas('checkpoints.order', function($query) use ($searchTerm) {
+                          // Remove the % wildcards for exact orderID matching
+                          $exactSearchTerm = trim($searchTerm, '%');
+                          $query->where('orderID', $exactSearchTerm);
+                      });
                 });
             }
             
@@ -56,6 +66,7 @@ class OrderController extends Controller
             
             // Initialize array for organizing data
             $groupedData = [];
+            $paginationData = [];
             
             // Process each location
             foreach ($locations as $location) {
@@ -135,6 +146,7 @@ class OrderController extends Controller
                 }
                 
                 // Process each order
+                $allOrdersForLocation = [];
                 foreach ($orderCheckpoints as $orderID => $checkpointList) {
                     $order = Order::with(['user'])->find($orderID);
                     if (!$order) continue;
@@ -145,8 +157,40 @@ class OrderController extends Controller
                         'order_status' => $order->order_status,
                         'created_at' => $order->created_at,
                         'user' => $order->user,
-                        'checkpoints' => []
+                        'items' => [] // New array to store all items at order level
                     ];
+                    
+                    // Process all items for this order once
+                    $orderItems = [];
+                    $itemDetailsById = [];
+                    
+                    if (isset($cartItemsByOrder[$orderID])) {
+                        foreach ($cartItemsByOrder[$orderID] as $cartItem) {
+                            $item = $cartItem->item;
+                            
+                            if ($item) {
+                                $itemDetails = [
+                                    'itemID' => $item->itemID,
+                                    'cartID' => $cartItem->cartID,
+                                    'item_cart_delivered' => $cartItem->item_cart_delivered,
+                                    'item_name' => $item->poultry ? $item->poultry->poultry_name : 'Unknown',
+                                    'measurement_type' => $item->measurement_type,
+                                    'measurement_value' => $item->measurement_value,
+                                    'price' => $item->price,
+                                    'quantity' => $cartItem->quantity,
+                                    'price_at_purchase' => $cartItem->price_at_purchase,
+                                    'total_price' => $cartItem->price_at_purchase * $cartItem->quantity,
+                                    'supplier_locationID' => $item->locationID,
+                                    'supplier_location_address' => $item->location ? $item->location->company_address : 'Unknown',
+                                    'slaughterhouse_locationID' => $item->slaughterhouse_locationID,
+                                    'slaughterhouse_location_address' => $item->slaughterhouse ? $item->slaughterhouse->company_address : 'N/A'
+                                ];
+                                
+                                $orderData['items'][] = $itemDetails;
+                                $itemDetailsById[$item->itemID] = $itemDetails;
+                            }
+                        }
+                    }
                     
                     // Initialize status tracking variables
                     $hasNoVerification = false;
@@ -208,52 +252,17 @@ class OrderController extends Controller
                             }
                         }
                         
-                        // Get items from checkpoint's item_record
-                        $checkpointItems = [];
+                        // Get item IDs from checkpoint's item_record
+                        $checkpointItemIds = [];
                         if ($checkpoint->item_record) {
                             $itemIDs = is_array($checkpoint->item_record) 
                                 ? $checkpoint->item_record 
                                 : json_decode($checkpoint->item_record, true);
                             
-                            if (is_array($itemIDs) && isset($cartItemsByOrder[$orderID])) {
-                                // Filter cart items for this checkpoint
-                                $relevantCartItems = array_filter($cartItemsByOrder[$orderID], function($cartItem) use ($itemIDs) {
-                                    return in_array($cartItem->itemID, $itemIDs);
-                                });
-                                
-                                foreach ($relevantCartItems as $cartItem) {
-                                    $item = $cartItem->item;
-                                    
-                                    if ($item) {
-                                        $checkpointItems[] = [
-                                            'itemID' => $item->itemID,
-                                            'cartID' => $cartItem->cartID,
-                                            'item_cart_delivered' => $cartItem->item_cart_delivered,
-                                            'item_name' => $item->poultry ? $item->poultry->poultry_name : 'Unknown',
-                                            'measurement_type' => $item->measurement_type,
-                                            'measurement_value' => $item->measurement_value,
-                                            'price' => $item->price,
-                                            'quantity' => $cartItem->quantity,
-                                            'price_at_purchase' => $cartItem->price_at_purchase,
-                                            'total_price' => $cartItem->price_at_purchase * $cartItem->quantity,
-                                            'supplier_locationID' => $item->locationID,
-                                            'supplier_location_address' => $item->location ? $item->location->company_address : 'Unknown',
-                                            'slaughterhouse_locationID' => $item->slaughterhouse_locationID,
-                                            'slaughterhouse_location_address' => $item->slaughterhouse ? $item->slaughterhouse->company_address : 'N/A',
-                                            'item_cart_delivered' => $cartItem->item_cart_delivered
-                                        ];
-                                    }
-                                }
+                            if (is_array($itemIDs)) {
+                                $checkpointItemIds = $itemIDs;
                             }
                         }
-                        
-                        // Add checkpoint data
-                        $orderData['checkpoints'][] = [
-                            'checkID' => $checkpoint->checkID,
-                            'checkpoint_status' => $checkpointStatus,
-                            'arrange_number' => $checkpoint->arrange_number,
-                            'items' => $checkpointItems
-                        ];
                     }
                     
                     // Calculate order status based on the new requirements
@@ -276,12 +285,37 @@ class OrderController extends Controller
                         }
                     }
                     
-                    // Add order data to location
-                    $groupedData[$locationID]['orders'][$orderID] = $orderData;
+                    // Add order to the location's orders array
+                    $allOrdersForLocation[] = $orderData;
                 }
                 
-                // Convert orders from associative to indexed array
-                $groupedData[$locationID]['orders'] = array_values($groupedData[$locationID]['orders']);
+                // Get the current page for this location
+                $currentPage = isset($locationPages[$locationID]) ? (int)$locationPages[$locationID] : 1;
+                if ($currentPage < 1) $currentPage = 1;
+                
+                // Calculate pagination for this location
+                $totalOrders = count($allOrdersForLocation);
+                $lastPage = ceil($totalOrders / $perPage);
+                if ($lastPage < 1) $lastPage = 1;
+                
+                if ($currentPage > $lastPage) $currentPage = $lastPage;
+                
+                // Paginate orders for this location
+                $paginatedOrders = array_slice($allOrdersForLocation, ($currentPage - 1) * $perPage, $perPage);
+                
+                // Store pagination data for this location
+                $paginationData[$locationID] = [
+                    'total' => $totalOrders,
+                    'per_page' => $perPage,
+                    'current_page' => $currentPage,
+                    'last_page' => $lastPage,
+                    'from' => $totalOrders > 0 ? (($currentPage - 1) * $perPage) + 1 : 0,
+                    'to' => min($currentPage * $perPage, $totalOrders)
+                ];
+                
+                // Add paginated orders to the location data
+                $groupedData[$locationID]['orders'] = $paginatedOrders;
+                $groupedData[$locationID]['pagination'] = $paginationData[$locationID];
                 
                 // Remove locations with no orders after filtering
                 if (empty($groupedData[$locationID]['orders'])) {
@@ -289,25 +323,12 @@ class OrderController extends Controller
                 }
             }
             
-            // Convert to array and paginate manually
+            // Convert to array
             $locationArray = array_values($groupedData);
-            $total = count($locationArray);
-            
-            $paginatedData = array_slice($locationArray, ($page - 1) * $perPage, $perPage);
-            
-            $pagination = [
-                'total' => $total,
-                'per_page' => $perPage,
-                'current_page' => $page,
-                'last_page' => ceil($total / $perPage),
-                'from' => (($page - 1) * $perPage) + 1,
-                'to' => min($page * $perPage, $total)
-            ];
             
             return response()->json([
                 'success' => true,
-                'data' => $paginatedData,
-                'pagination' => $pagination
+                'data' => $locationArray
             ]);
             
         } catch (\Exception $e) {
@@ -657,4 +678,403 @@ class OrderController extends Controller
             return response()->json(['message' => 'Error fetching orders: ' . $e->getMessage()], 500);
         }
     }
+
+
+// Add this new method to OrderController
+public function getLocationsByCompanyType(Request $request)
+{
+    try {
+        $user = Auth::user();
+        $companyID = $user->companyID;
+        
+        // Get company information
+        $company = Company::find($companyID);
+        if (!$company) {
+            return response()->json(['message' => 'Company not found'], 404);
+        }
+        
+        // Determine location type based on company type
+        $locationType = null;
+        switch ($company->company_type) {
+            case 'broiler':
+                $locationType = 'supplier';
+                break;
+            case 'sme':
+                $locationType = 'kitchen';
+                break;
+            case 'slaughterhouse':
+                $locationType = 'slaughterhouse';
+                break;
+            default:
+                // If company type doesn't match, return all locations for this company
+                break;
+        }
+        
+        // Build locations query
+        $locationsQuery = Location::where('companyID', $companyID);
+        
+        // Filter by location type if determined
+        if ($locationType) {
+            $locationsQuery->where('location_type', $locationType);
+        }
+        
+        // Apply search filter if provided
+        // if ($request->has('search') && !empty($request->search)) {
+        //     $searchTerm = '%' . $request->search . '%';
+        //     $locationsQuery->where(function($q) use ($searchTerm) {
+        //         $q->where('company_address', 'LIKE', $searchTerm)
+        //           ->orWhereHas('company', function($query) use ($searchTerm) {
+        //               $query->where('company_name', 'LIKE', $searchTerm);
+        //           })
+        //           ->orWhereHas('checkpoints.order', function($query) use ($searchTerm) {
+        //               $exactSearchTerm = trim($searchTerm, '%');
+        //               $query->where('orderID', $exactSearchTerm);
+        //           });
+        //     });
+        // }
+        
+        $locations = $locationsQuery->get();
+        $locationData = [];
+        
+        foreach ($locations as $location) {
+            $locationID = $location->locationID;
+            
+            // Get order count for this location with basic filters
+            $orderCountQuery = Order::whereHas('checkpoints', function($query) use ($locationID) {
+                $query->where('locationID', $locationID);
+            });
+            
+            // // Apply date range filters if provided
+            // if ($request->has('date_from') && !empty($request->date_from)) {
+            //     $orderCountQuery->whereDate('created_at', '>=', $request->date_from);
+            // }
+            
+            // if ($request->has('date_to') && !empty($request->date_to)) {
+            //     $orderCountQuery->whereDate('created_at', '<=', $request->date_to);
+            // }
+            
+            $orderCount = $orderCountQuery->count();
+            
+            // Only include locations that have orders
+            if ($orderCount > 0) {
+                $locationData[] = [
+                    'locationID' => $locationID,
+                    'companyID' => $location->companyID,
+                    'company_address' => $location->company_address ?? 'Unknown Location',
+                    'company_name' => $location->company->company_name ?? '',
+                    'location_type' => $location->location_type ?? 'Unknown Type',
+                    'order_count' => $orderCount
+                ];
+            }
+        }
+        
+        return response()->json([
+            'success' => true,
+            'data' => $locationData,
+            'company_type' => $company->company_type,
+            'filtered_location_type' => $locationType
+        ]);
+        
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Error fetching locations: ' . $e->getMessage()
+        ], 500);
+    }
+}
+// Add this new method to fetch orders for a specific location
+public function getOrdersByLocationID(Request $request, $locationID)
+{
+    try {
+        $user = Auth::user();
+        $companyID = $user->companyID;
+        
+        // Verify location belongs to the company
+        $location = Location::where('locationID', $locationID)
+                           ->where('companyID', $companyID)
+                           ->first();
+        
+        if (!$location) {
+            return response()->json(['message' => 'Location not found or access denied'], 404);
+        }
+        
+        $perPage = $request->input('per_page', 10);
+        $currentPage = $request->input('page', 1);
+        
+        // Get checkpoints for this location
+        $checkpoints = Checkpoint::where('locationID', $locationID)
+            ->with(['order', 'verifies'])
+            ->get();
+            
+        if ($checkpoints->isEmpty()) {
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'orders' => [],
+                    'pagination' => [
+                        'total' => 0,
+                        'per_page' => $perPage,
+                        'current_page' => $currentPage,
+                        'last_page' => 1,
+                        'from' => 0,
+                        'to' => 0
+                    ]
+                ]
+            ]);
+        }
+        
+        // Collect all order IDs for this location
+        $orderIDs = $checkpoints->pluck('orderID')->filter()->unique()->values()->toArray();
+        
+        // Apply filters
+        $filteredOrderIDs = $orderIDs;
+        if (!empty($orderIDs)) {
+            $orderQuery = Order::whereIn('orderID', $orderIDs);
+            
+            // Apply date range filters
+            if ($request->has('date_from') && !empty($request->date_from)) {
+                $orderQuery->whereDate('created_at', '>=', $request->date_from);
+            }
+            
+            if ($request->has('date_to') && !empty($request->date_to)) {
+                $orderQuery->whereDate('created_at', '<=', $request->date_to);
+            }
+            
+            // Add search filter for order ID or user information
+            if ($request->has('search') && !empty($request->search)) {
+                $searchTerm = $request->search;
+                $orderQuery->where(function($query) use ($searchTerm) {
+                    $query->where('orderID', 'like', '%' . $searchTerm . '%')
+                          ->orWhereHas('user', function($userQuery) use ($searchTerm) {
+                              $userQuery->where('name', 'like', '%' . $searchTerm . '%')
+                                       ->orWhere('email', 'like', '%' . $searchTerm . '%');
+                          });
+                });
+            }
+            
+            // Add order status filter (from order table)
+            if ($request->has('order_status') && !empty($request->order_status)) {
+                $orderQuery->where('order_status', $request->order_status);
+            }
+            
+            // Add payment status filter
+            if ($request->has('payment_status') && !empty($request->payment_status)) {
+                $orderQuery->where('payment_status', $request->payment_status);
+            }
+            
+            // Add date range for specific date field
+            if ($request->has('delivery_date_from') && !empty($request->delivery_date_from)) {
+                $orderQuery->whereDate('delivery_date', '>=', $request->delivery_date_from);
+            }
+            
+            if ($request->has('delivery_date_to') && !empty($request->delivery_date_to)) {
+                $orderQuery->whereDate('delivery_date', '<=', $request->delivery_date_to);
+            }
+            
+            $filteredOrderIDs = $orderQuery->pluck('orderID')->toArray();
+        }
+        
+        if (empty($filteredOrderIDs)) {
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'orders' => [],
+                    'pagination' => [
+                        'total' => 0,
+                        'per_page' => $perPage,
+                        'current_page' => $currentPage,
+                        'last_page' => 1,
+                        'from' => 0,
+                        'to' => 0
+                    ]
+                ]
+            ]);
+        }
+        
+        // Preload all cart items for these orders
+        $cartItemsByOrder = [];
+        if (!empty($filteredOrderIDs)) {
+            $allCartItems = Cart::whereIn('orderID', $filteredOrderIDs)
+                ->with(['item.poultry', 'item.location', 'item.slaughterhouse'])
+                ->get();
+            
+            foreach ($allCartItems as $cartItem) {
+                if (!isset($cartItemsByOrder[$cartItem->orderID])) {
+                    $cartItemsByOrder[$cartItem->orderID] = [];
+                }
+                $cartItemsByOrder[$cartItem->orderID][] = $cartItem;
+            }
+        }
+        
+        // Group checkpoints by order
+        $orderCheckpoints = [];
+        foreach ($checkpoints as $checkpoint) {
+            if (!$checkpoint->orderID || !in_array($checkpoint->orderID, $filteredOrderIDs)) continue;
+            
+            $orderID = $checkpoint->orderID;
+            if (!isset($orderCheckpoints[$orderID])) {
+                $orderCheckpoints[$orderID] = [];
+            }
+            
+            $orderCheckpoints[$orderID][] = $checkpoint;
+        }
+        
+        // Process each order (reuse existing logic from the original method)
+        $allOrdersForLocation = [];
+        foreach ($orderCheckpoints as $orderID => $checkpointList) {
+            $order = Order::with(['user'])->find($orderID);
+            if (!$order) continue;
+            
+            // Initialize order data
+            $orderData = [
+                'orderID' => $orderID,
+                'order_status' => $order->order_status,
+                'created_at' => $order->created_at,
+                'user' => $order->user,
+                'items' => []
+            ];
+            
+            // Process items
+            if (isset($cartItemsByOrder[$orderID])) {
+                foreach ($cartItemsByOrder[$orderID] as $cartItem) {
+                    $item = $cartItem->item;
+                    
+                    if ($item) {
+                        $itemDetails = [
+                            'itemID' => $item->itemID,
+                            'cartID' => $cartItem->cartID,
+                            'item_cart_delivered' => $cartItem->item_cart_delivered,
+                            'item_name' => $item->poultry ? $item->poultry->poultry_name : 'Unknown',
+                            'measurement_type' => $item->measurement_type,
+                            'measurement_value' => $item->measurement_value,
+                            'price' => $item->price,
+                            'quantity' => $cartItem->quantity,
+                            'price_at_purchase' => $cartItem->price_at_purchase,
+                            'total_price' => $cartItem->price_at_purchase * $cartItem->quantity,
+                            'supplier_locationID' => $item->locationID,
+                            'supplier_location_address' => $item->location ? $item->location->company_address : 'Unknown',
+                            'slaughterhouse_locationID' => $item->slaughterhouse_locationID,
+                            'slaughterhouse_location_address' => $item->slaughterhouse ? $item->slaughterhouse->company_address : 'N/A'
+                        ];
+                        
+                        $orderData['items'][] = $itemDetails;
+                    }
+                }
+            }
+            
+            // Process checkpoints and calculate status (reuse existing logic)
+            $hasNoVerification = false;
+            $hasIncompleteVerification = false;
+            $allComplete = true;
+            
+            foreach ($checkpointList as $checkpoint) {
+                // Skip checkpoint logic (same as original)
+                if ($checkpoint->arrange_number == 2 || $checkpoint->arrange_number == 3) {
+                    $checkpoint2 = null;
+                    foreach ($checkpointList as $cp) {
+                        if ($cp->arrange_number == 2) {
+                            $checkpoint2 = $cp;
+                            break;
+                        }
+                    }
+                    
+                    if ($checkpoint2) {
+                        $task = Task::where('checkID', $checkpoint2->checkID)->first();
+                        
+                        if ($checkpoint->arrange_number == 2 && $task && $task->task_status == 'complete') {
+                            continue;
+                        }
+                        
+                        if ($checkpoint->arrange_number == 3 && $task && $task->task_status == 'pending') {
+                            continue;
+                        }
+                    }
+                }
+                
+                // Determine checkpoint status
+                if (!$checkpoint->verifies || $checkpoint->verifies->isEmpty()) {
+                    $hasNoVerification = true;
+                    $allComplete = false;
+                } else {
+                    $hasIncomplete = false;
+                    foreach ($checkpoint->verifies as $verify) {
+                        if ($verify->verify_status !== 'complete') {
+                            $hasIncomplete = true;
+                            $hasIncompleteVerification = true;
+                            $allComplete = false;
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            // Calculate order status
+            if ($hasNoVerification) {
+                $orderStatus = 'waiting_for_delivery';
+            } else if ($hasIncompleteVerification) {
+                $orderStatus = 'in_progress';
+            } else if ($allComplete) {
+                $orderStatus = 'complete';
+            } else {
+                $orderStatus = 'waiting_for_delivery';
+            }
+            
+            $orderData['calculated_status'] = $orderStatus;
+            
+            // Apply status filter if provided (calculated status)
+            if ($request->has('status') && !empty($request->status)) {
+                if ($orderStatus !== $request->status) {
+                    continue;
+                }
+            }
+            
+            // Add minimum/maximum order value filters
+            if ($request->has('min_total') && !empty($request->min_total)) {
+                $orderTotal = array_sum(array_column($orderData['items'], 'total_price'));
+                if ($orderTotal < $request->min_total) {
+                    continue;
+                }
+            }
+            
+            if ($request->has('max_total') && !empty($request->max_total)) {
+                $orderTotal = array_sum(array_column($orderData['items'], 'total_price'));
+                if ($orderTotal > $request->max_total) {
+                    continue;
+                }
+            }
+            
+            $allOrdersForLocation[] = $orderData;
+        }
+        
+        // Apply pagination
+        $totalOrders = count($allOrdersForLocation);
+        $lastPage = max(1, ceil($totalOrders / $perPage));
+        if ($currentPage > $lastPage) $currentPage = $lastPage;
+        
+        $paginatedOrders = array_slice($allOrdersForLocation, ($currentPage - 1) * $perPage, $perPage);
+        
+        $paginationData = [
+            'total' => $totalOrders,
+            'per_page' => $perPage,
+            'current_page' => $currentPage,
+            'last_page' => $lastPage,
+            'from' => $totalOrders > 0 ? (($currentPage - 1) * $perPage) + 1 : 0,
+            'to' => min($currentPage * $perPage, $totalOrders)
+        ];
+        
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'orders' => $paginatedOrders,
+                'pagination' => $paginationData
+            ]
+        ]);
+        
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Error fetching location orders: ' . $e->getMessage()
+        ], 500);
+    }
+}
 }

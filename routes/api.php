@@ -125,7 +125,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/orders/{order}', [OrderController::class, 'show']);
         Route::post('/orders', [OrderController::class, 'store']);
         Route::put('/orders/{order}', [OrderController::class, 'update']);
-
+        // New routes for optimized order loading
+       // New optimized endpoints
+        Route::get('/orders/location/company/type', [OrderController::class, 'getLocationsByCompanyType']);
+        Route::get('/orders/location/{locationID}', [OrderController::class, 'getOrdersByLocationID']);
     });
     Route::middleware('role.company:admin,sme,broiler,slaughterhouse, sme, logistic')->group(function () {
     // Certification routes

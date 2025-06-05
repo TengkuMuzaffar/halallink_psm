@@ -120,26 +120,33 @@
           <div v-for="(location, locationIndex) in locations" :key="location.locationID" class="location-card mb-4">
             <div class="card theme-inner-card">
               <div class="card-header theme-card-header">
-                <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center">
-                  <div class="mb-2 mb-md-0">
-                    <span class="badge theme-badge-location me-2">{{ location.location_type }}</span>
-                    <strong>{{ location.company_address }}</strong>
-                  </div>
-                  <div class="d-flex justify-content-between align-items-center">
-                    <span class="badge theme-badge-primary me-3">{{ location.orders.length }} orders</span>
-                    <button 
-                      class="btn btn-sm btn-primary" 
-                      @click="generateLocationQR(location.locationID, location.companyID || 0)"
-                      title="Generate QR Code for this location"
-                    >
-                      <i class="fas fa-qrcode"></i>
-                    </button>
-                  </div>
+              <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center">
+                <div class="mb-2 mb-md-0">
+                  <span class="badge theme-badge-location me-2">{{ location.location_type }}</span>
+                  <strong>{{ location.company_address }}</strong>
+                </div>
+                <div class="d-flex justify-content-between align-items-center">
+                  <span class="badge theme-badge-primary me-3">{{ location.orders.length }} orders</span>
+                  <!-- Removed the loading spinner from header -->
+                  <!-- Keep the QR code button -->
+                  <button 
+                    class="btn btn-sm btn-primary" 
+                    @click="generateLocationQR(location.locationID, location.companyID || 0)"
+                    title="Generate QR Code for this location"
+                  >
+                    <i class="fas fa-qrcode"></i>
+                  </button>
                 </div>
               </div>
+            </div>
               <div class="card-body p-0">
-                <!-- Orders Table -->
-                <div class="table-responsive">
+                <!-- Orders Table with Overlay Loading -->
+                <div class="table-responsive position-relative">
+                  <!-- Overlay Loading Spinner -->
+                  <div v-if="locationLoading[location.locationID]" class="table-overlay">
+                    <LoadingSpinner overlay message="Loading orders..." />
+                  </div>
+                  
                   <table class="table table-hover mb-0 theme-table">
                     <thead class="theme-table-header">
                       <tr>
@@ -242,36 +249,41 @@
                 </div>
               </div>
             </div>
+            
+            <!-- Location-specific Pagination -->
+            <div v-if="!loading && location.orders && location.orders.length > 0" class="d-flex justify-content-between align-items-center p-3 border-top theme-pagination-container">
+              <div>
+                <span class="theme-pagination-text" v-if="locationPaginations[location.locationID]">
+                  Showing {{ locationPaginations[location.locationID].from || 1 }}-{{ locationPaginations[location.locationID].to || location.orders.length }} of {{ locationPaginations[location.locationID].total || location.orders.length }}
+                </span>
+              </div>
+              <nav aria-label="Order pagination" v-if="locationPaginations[location.locationID] && locationPaginations[location.locationID].last_page > 1">
+                <ul class="pagination mb-0">
+                  <li class="page-item" :class="{ disabled: !locationPaginations[location.locationID] || locationPaginations[location.locationID].current_page <= 1 || locationLoading[location.locationID] }">
+                    <a class="page-link" href="#" @click.prevent="!locationLoading[location.locationID] && changePage(location.locationID, (locationPaginations[location.locationID]?.current_page || 1) - 1)">
+                      <i class="fas fa-chevron-left"></i>
+                    </a>
+                  </li>
+                  <li 
+                      v-for="page in getPaginationRange(location.locationID)" 
+                      :key="`${location.locationID}-${page}`" 
+                      class="page-item"
+                      :class="{ 
+                        active: locationPaginations[location.locationID] && page == locationPaginations[location.locationID].current_page, 
+                        disabled: locationLoading[location.locationID]
+                      }"
+                    >
+                    <a class="page-link" href="#" @click.prevent="!locationLoading[location.locationID] && changePage(location.locationID, page)">{{ page }}</a>
+                  </li>
+                  <li class="page-item" :class="{ disabled: !locationPaginations[location.locationID] || locationPaginations[location.locationID].current_page >= locationPaginations[location.locationID].last_page || locationLoading[location.locationID] }">
+                    <a class="page-link" href="#" @click.prevent="!locationLoading[location.locationID] && changePage(location.locationID, (locationPaginations[location.locationID]?.current_page || 1) + 1)">
+                      <i class="fas fa-chevron-right"></i>
+                    </a>
+                  </li>
+                </ul>
+              </nav>
+            </div>
           </div>
-        </div>
-        
-        <!-- Pagination -->
-        <div v-if="!loading && locations && locations.length > 0" class="d-flex justify-content-between align-items-center mt-4 theme-pagination-container">
-          <div>
-            <span class="theme-pagination-text">Showing {{ pagination.from || 1 }}-{{ pagination.to || locations.length }} of {{ pagination.total || locations.length }}</span>
-          </div>
-          <nav aria-label="Order pagination">
-            <ul class="pagination mb-0">
-              <li class="page-item" :class="{ disabled: currentPage <= 1 || loading }">
-                <a class="page-link theme-pagination-link" href="#" @click.prevent="!loading && changePage(currentPage - 1)">
-                  <i class="fas fa-chevron-left"></i>
-                </a>
-              </li>
-              <li 
-                v-for="page in paginationRange" 
-                :key="page" 
-                class="page-item"
-                :class="{ active: page === currentPage, disabled: loading }"
-              >
-                <a class="page-link theme-pagination-link" href="#" @click.prevent="!loading && changePage(page)">{{ page }}</a>
-              </li>
-              <li class="page-item" :class="{ disabled: currentPage >= pagination.last_page || loading }">
-                <a class="page-link theme-pagination-link" href="#" @click.prevent="!loading && changePage(currentPage + 1)">
-                  <i class="fas fa-chevron-right"></i>
-                </a>
-              </li>
-            </ul>
-          </nav>
         </div>
       </div>
     </div>
@@ -323,7 +335,9 @@ export default {
       processing_orders: 0,
       waiting_orders: 0
     });
-   
+    const locationLoading = ref({});
+    const refreshIntervals = ref({});
+
     // QR Code state - we can remove these since we'll use OrderDetailModal's QR functionality
     const selectedOrderId = ref(null);
     const selectedOrder = ref(null);
@@ -345,8 +359,11 @@ export default {
     const sortDirection = ref('desc');
     
     // Pagination
-    const currentPage = ref(1);
     const perPage = ref(10);
+    const locationPages = ref({});
+    const locationPaginations = ref({});
+    // Keep this for backward compatibility
+    const currentPage = ref(1);
     const pagination = ref({
       current_page: 1,
       last_page: 1,
@@ -475,53 +492,101 @@ export default {
       }, 500);
     };
     
-    // Fetch orders with filters, sorting, and pagination
-    const fetchOrders = async () => {
+    // Fetch locations first, then load orders for each location
+    const fetchLocations = async () => {
       try {
-        loading.value = true;
-        error.value = null;
-        
         const params = {
-          page: currentPage.value,
-          per_page: perPage.value,
-          search: searchQuery.value || null,
-          status: statusFilter.value || null,
-          sort_field: sortField.value,
-          sort_direction: sortDirection.value
+          search: searchQuery.value,
+          date_from: dateRangeFilter.from,
+          date_to: dateRangeFilter.to
         };
         
-        // Add date range filters if set
-        if (dateRangeFilter.from) {
-          params.date_from = dateRangeFilter.from;
-        }
-        if (dateRangeFilter.to) {
-          params.date_to = dateRangeFilter.to;
-        }
+        const response = await orderService.fetchLocationsByCompanyType(params);
         
-        const response = await orderService.fetchOrders(params);
-        console.log("Orders response:", JSON.stringify(response, null, 4));
-        
-        if (response.success && response.data) {
-          // Set locations data
-          locations.value = response.data;
+        if (response.success) {
+          // Transform the data to match existing structure
+          locations.value = response.data.map(location => ({
+            ...location,
+            orders: [], // Will be loaded separately
+            pagination: {
+              total: location.order_count,
+              per_page: 10,
+              current_page: 1,
+              last_page: Math.ceil(location.order_count / 10),
+              from: 0,
+              to: 0
+            }
+          }));
           
-          // Update pagination if available
-          if (response.pagination) {
-            pagination.value = response.pagination;
+          console.log(`Loaded ${response.data.length} locations for company type: ${response.company_type}`);
+          if (response.filtered_location_type) {
+            console.log(`Filtered by location type: ${response.filtered_location_type}`);
           }
-        } else {
-          locations.value = [];
-          console.error('Unexpected response format:', response);
         }
       } catch (err) {
-        console.error('Error fetching orders:', err);
-        error.value = err.message || 'Failed to load orders. Please try again later.';
-        locations.value = [];
-      } finally {
-        loading.value = false;
+        console.error('Error fetching locations:', err);
+        error.value = 'Failed to load locations';
       }
     };
     
+    // For backward compatibility
+    const fetchOrders = fetchLocations;
+    
+    // Load orders for a specific location
+    const loadLocationOrders = async (locationID, page = null) => {
+      try {
+        locationLoading.value[locationID] = true;
+        
+        // Use provided page or get from locationPages, default to 1
+        const currentPage = page || locationPages.value[locationID] || 1;
+        
+        const params = {
+          page: currentPage,
+          per_page: 10,
+          status: statusFilter.value,
+          date_from: dateRangeFilter.from,
+          date_to: dateRangeFilter.to
+        };
+        
+        const response = await orderService.fetchOrdersByLocationID(locationID, params);
+        
+        if (response.success) {
+          // Find the location and update its orders
+          const locationIndex = locations.value.findIndex(loc => loc.locationID === locationID);
+          if (locationIndex !== -1) {
+            locations.value[locationIndex].orders = response.data.orders;
+            locations.value[locationIndex].pagination = response.data.pagination;
+            
+            // Update locationPaginations for UI
+            locationPaginations.value[locationID] = response.data.pagination;
+            
+            // Store the current page
+            locationPages.value[locationID] = currentPage;
+          }
+        }
+      } catch (err) {
+        console.error('Error loading location orders:', err);
+        error.value = 'Failed to load orders for location';
+      } finally {
+        locationLoading.value[locationID] = false;
+      }
+    };    
+
+    const startLocationAutoRefresh = (locationID) => {
+      // Clear any existing interval for this location
+      if (refreshIntervals.value[locationID]) {
+        clearInterval(refreshIntervals.value[locationID]);
+      }
+      
+      // Set up new interval for 20 seconds (20000ms)
+      refreshIntervals.value[locationID] = setInterval(() => {
+        // Only refresh if not currently loading this location to avoid conflicts
+        if (!locationLoading.value[locationID]) {
+          loadLocationOrders(locationID);
+        }
+      }, 20000);
+    };
+
     // Fetch order stats
     const fetchOrderStats = async () => {
       try {
@@ -562,53 +627,113 @@ export default {
     });
 
     // Apply filters (status and date range)
-    const applyFilters = () => {
-      currentPage.value = 1; // Reset to first page when filtering
-      fetchOrders();
+    const applyFilters = async () => {
+      // Step 1: Refresh locations with new filters
+      await fetchLocations();
+      
+      // Step 2: Reload orders for each location with filters
+      if (locations.value.length > 0) {
+        await Promise.all(
+          locations.value.map(location => 
+            loadLocationOrders(location.locationID, 1)
+          )
+        );
+      }
     };
     
-    // Change page
-    const changePage = (page) => {
-      if (page < 1 || page > pagination.value.last_page) return;
-      currentPage.value = page;
-      fetchOrders();
+    // Change page for a specific location
+    const changePage = (locationID, page) => {
+      const pagination = locationPaginations.value[locationID];
+      if (!pagination || page < 1 || page > pagination.last_page) return;
+      
+      locationPages.value[locationID] = page;
+      loadLocationOrders(locationID, page); // Pass the page parameter
+    };
+    
+    // Helper function to get pagination range for a specific location
+    const getPaginationRange = (locationID) => {
+      const pagination = locationPaginations.value[locationID];
+      if (!pagination) return [];
+      
+      const range = [];
+      const currentPage = pagination.current_page;
+      const maxVisiblePages = 5; // Limit to 5 pages maximum
+      
+      if (pagination.last_page <= maxVisiblePages) {
+        // If 5 or fewer pages, show all
+        for (let i = 1; i <= pagination.last_page; i++) {
+          range.push(i);
+        }
+      } else {
+        // Show limited pages with current page in the middle
+        let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+        let endPage = Math.min(pagination.last_page, startPage + maxVisiblePages - 1);
+        
+        // Adjust if we're near the end
+        if (endPage === pagination.last_page) {
+          startPage = Math.max(1, endPage - maxVisiblePages + 1);
+        }
+        
+        for (let i = startPage; i <= endPage; i++) {
+          range.push(i);
+        }
+      }
+      
+      return range;
     };
     
     // Add the refreshData function
     const refreshData = async () => {
-      // Reset to first page when refreshing
-      currentPage.value = 1;
-      // Clear any error messages
+      loading.value = true;
       error.value = null;
-      // Fetch fresh data
-      await Promise.all([
-        fetchOrders(),
-        isSMECompany.value ? fetchOrderStats() : Promise.resolve()
-      ]);
+      
+      try {
+        // Step 1: Fetch locations based on company type
+        await fetchLocations();
+        
+        // Step 2: Load orders for each location (first page only)
+        if (locations.value.length > 0) {
+          await Promise.all(
+            locations.value.map(location => 
+              loadLocationOrders(location.locationID, 1)
+            )
+          );
+        }
+        
+        // Fetch order stats if SME company
+        if (isSMECompany.value) {
+          await fetchOrderStats();
+        }
+      } catch (err) {
+        console.error('Error refreshing data:', err);
+        error.value = 'Failed to refresh data';
+      } finally {
+        loading.value = false;
+        startAutoRefresh();
+      }
     };
     
     // Start auto-refresh
     const startAutoRefresh = () => {
-      // Clear any existing interval
-      if (refreshInterval) {
-        clearInterval(refreshInterval);
-      }
+      // Clear any existing intervals
+      stopAutoRefresh();
       
-      // Set up new interval for 20 seconds (20000ms)
-      refreshInterval = setInterval(() => {
-        // Only refresh if not currently loading to avoid conflicts
-        if (!loading.value) {
-          refreshData();
-        }
-      }, 20000);
+      // Start auto-refresh for each location
+      if (locations.value && locations.value.length > 0) {
+        locations.value.forEach(location => {
+          startLocationAutoRefresh(location.locationID);
+        });
+      }
     };
     
     // Stop auto-refresh
     const stopAutoRefresh = () => {
-      if (refreshInterval) {
-        clearInterval(refreshInterval);
-        refreshInterval = null;
-      }
+      Object.keys(refreshIntervals.value).forEach(locationID => {
+        if (refreshIntervals.value[locationID]) {
+          clearInterval(refreshIntervals.value[locationID]);
+          delete refreshIntervals.value[locationID];
+        }
+      });
     };
     
     // Reset filters
@@ -620,16 +745,27 @@ export default {
       applyFilters();
     };
     
-    // Lifecycle hooks
     onMounted(async () => {
-      await refreshData();
+      loading.value = true;
+      await fetchLocations();
+      
+      // Load orders for each location immediately
+      if (locations.value && locations.value.length > 0) {
+        const loadPromises = locations.value.map(location => {
+          return loadLocationOrders(location.locationID);
+        });
+        await Promise.all(loadPromises);
+      }
+      
+      // Fetch stats if needed
+      if (isSMECompany.value) {
+        await fetchOrderStats();
+      }
+      
+      loading.value = false;
+      
       // Start auto-refresh after initial load
       startAutoRefresh();
-    });
-    
-    onUnmounted(() => {
-      // Clean up interval when component is unmounted
-      stopAutoRefresh();
     });
     
     // View order details
@@ -662,6 +798,11 @@ export default {
       getAllOrderItems,
       pagination,
       paginationRange,
+      locationPages,
+      locationPaginations,
+      locationLoading, // Add this line to expose locationLoading to the template
+      refreshIntervals, // You might also want to expose this if needed in the template
+      getPaginationRange,
       formatLargeNumber,
       formatCurrency,
       formatDate,
@@ -682,33 +823,40 @@ export default {
       isBroilerCompany,
       isSMECompany,
       startAutoRefresh,
-      stopAutoRefresh
+      stopAutoRefresh,
+      loadLocationOrders
     };
   }
 }
 
-// Helper function to get all items from all checkpoints in an order
+// Helper function to get all items from an order
 const getAllOrderItems = (order) => {
-  if (!order || !order.checkpoints) return [];
+  if (!order) return [];
   
-  // Flatten all items from all checkpoints into a single array
-  const allItems = [];
-  
-  for (const checkpoint of order.checkpoints) {
-    if (checkpoint.items && checkpoint.items.length) {
-      allItems.push(...checkpoint.items);
-    }
+  // Get items directly from the order
+  if (order.items && Array.isArray(order.items)) {
+    return order.items;
   }
   
-  return allItems;
+  // Fallback to old structure (items in checkpoints)
+  if (order.checkpoints) {
+    // Flatten all items from all checkpoints into a single array
+    const allItems = [];
+    
+    for (const checkpoint of order.checkpoints) {
+      if (checkpoint.items && checkpoint.items.length) {
+        allItems.push(...checkpoint.items);
+      }
+    }
+    
+    return allItems;
+  }
+  
+  return [];
 };
 </script>
 
 <style scoped>
-.order-management {
-  padding: 20px 0;
-}
-
 /* Theme colors */
 .theme-card {
   --primary-color: #123524;
@@ -857,32 +1005,63 @@ const getAllOrderItems = (order) => {
   margin-bottom: 1rem;
 }
 
-/* Pagination */
-.theme-pagination-container {
-  background-color: var(--lighter-bg);
-  border-top: 1px solid var(--border-color);
-  padding: 0.75rem 1rem;
+
+
+/* Clean pagination styles matching EmployeeManagement.vue exactly */
+.pagination {
+  margin-bottom: 0;
 }
 
-.theme-pagination-text {
-  color: var(--text-color);
+.page-link {
+  color: #123524;
 }
 
-.theme-pagination-link {
-  color: var(--primary-color);
-  border-color: var(--border-color);
+.page-item.active .page-link {
+  background-color: #123524 !important;
+  border-color: #123524 !important;
+  color: #fff !important;
 }
 
-.theme-pagination-link:hover {
-  background-color: var(--light-bg);
-  color: var(--primary-color);
-  border-color: var(--border-color);
+.page-item.disabled .page-link {
+  color: #6c757d;
+  pointer-events: none;
+  background-color: #fff;
+  border-color: #dee2e6;
 }
 
-.page-item.active .theme-pagination-link {
-  background-color: var(--primary-color);
-  border-color: var(--primary-color);
-  color: var(--secondary-color);
+.page-link:hover {
+  color: #0a1f15;
+  background-color: #e9ecef;
+  border-color: #dee2e6;
+}
+
+.page-link:focus {
+  box-shadow: 0 0 0 0.25rem rgba(18, 53, 36, 0.25);
+}
+
+/* Table overlay loading */
+.table-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.9);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+}
+
+/* Dark theme support for overlay */
+[data-bs-theme="dark"] .table-overlay {
+  background-color: rgba(33, 37, 41, 0.9);
+}
+
+/* Ensure table container has relative positioning */
+.table-responsive {
+  position: relative;
 }
 
 /* Base badge styles */
@@ -898,6 +1077,7 @@ const getAllOrderItems = (order) => {
     vertical-align: baseline;
     border-radius: 0.25rem;
 }
+
 .theme-badge-location {
     color: #fff;
     background-color: #123524;
@@ -909,7 +1089,8 @@ const getAllOrderItems = (order) => {
     white-space: nowrap;
     vertical-align: baseline;
     border-radius: 0.25rem;
-  }
+}
+
 /* Badge color variants */
 .theme-badge-primary {
   color: #fff;
@@ -946,105 +1127,7 @@ const getAllOrderItems = (order) => {
   background-color: #212529;
 }
 
-/* Other existing styles */
-.theme-badge-accent {
-  background-color: var(--accent-color);
-  color: var(--secondary-color);
-}
-
-/* List styles */
-.theme-list-item {
-  border-color: var(--border-color);
-  transition: background-color 0.2s ease;
-}
-
-.theme-list-item:hover {
-  background-color: var(--lighter-bg);
-}
-
-.theme-list-item-active {
-  background-color: var(--primary-color);
-  border-color: var(--primary-color);
-  color: var(--secondary-color);
-}
-
-.theme-list-item-active .text-muted {
-  color: rgba(239, 227, 194, 0.7) !important;
-}
-
-/* Table styles */
-.theme-table {
-  border-color: var(--border-color);
-}
-
-.theme-table-header {
-  background-color: var(--light-bg);
-  color: var(--primary-color);
-}
-
-.theme-inner-table {
-  border-color: var(--border-color);
-}
-
-/* Icon styles */
-.theme-icon {
-  color: var(--accent-color);
-}
-
-.theme-list-item-active .theme-icon {
-  color: var(--accent-color);
-}
-
-/* Spinner */
-.theme-spinner {
-  color: var(--accent-color);
-}
-
-/* Details section */
-.theme-details {
-  background-color: var(--lighter-bg);
-}
-
-.theme-subtitle {
-  color: var(--primary-color);
-  border-bottom: 1px solid var(--border-color);
-  padding-bottom: 0.5rem;
-  margin-bottom: 1rem;
-}
-
-/* Pagination */
-.theme-pagination-container {
-  background-color: var(--lighter-bg);
-  border-top: 1px solid var(--border-color);
-  padding: 0.75rem 1rem;
-}
-
-.theme-pagination-text {
-  color: var(--text-color);
-}
-
-.theme-pagination-link {
-  color: var(--primary-color);
-  border-color: var(--border-color);
-}
-
-.theme-pagination-link:hover {
-  background-color: var(--light-bg);
-  color: var(--primary-color);
-  border-color: var(--border-color);
-}
-
-.page-item.active .theme-pagination-link {
-  background-color: var(--primary-color);
-  border-color: var(--primary-color);
-  color: var(--secondary-color);
-}
-
 /* Original styles with theme modifications */
-.pagination {
-  margin-bottom: 0;
-}
-
 .badge {
   font-size: 0.85em;
   padding: 0.35em 0.65em;
@@ -1069,5 +1152,17 @@ const getAllOrderItems = (order) => {
 
 .btn-link:hover {
   color: #2e5c1d;
+}
+.theme-pagination-container .page-item.active .page-link {
+  background-color: #123524 !important;
+  border-color: #123524 !important;
+  color: #fff !important;
+}
+
+/* Add this new rule to maintain active styling even when disabled */
+.theme-pagination-container .page-item.active.disabled .page-link {
+  background-color: #123524 !important;
+  border-color: #123524 !important;
+  color: #fff !important;
 }
 </style>

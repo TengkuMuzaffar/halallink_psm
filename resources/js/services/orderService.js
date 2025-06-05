@@ -2,7 +2,26 @@ import { fetchData } from '../utils/api';
 
 export const orderService = {
   /**
-   * Fetch orders with optional filters and pagination
+   * Fetch locations based on company type (Step 1)
+   * @param {Object} params - Query parameters for filtering
+   * @returns {Promise} - Promise with locations data
+   */
+  fetchLocationsByCompanyType(params = {}) {
+    return fetchData('/api/orders/location/company/type', { params });
+  },
+  
+  /**
+   * Fetch orders for a specific location (Step 2)
+   * @param {number} locationID - Location ID
+   * @param {Object} params - Query parameters including pagination and filters
+   * @returns {Promise} - Promise with location orders data
+   */
+  fetchOrdersByLocationID(locationID, params = {}) {
+    return fetchData(`/api/orders/location/${locationID}`, { params });
+  },
+  
+  /**
+   * Fetch orders with optional filters and pagination (legacy - keep for compatibility)
    * @param {Object} params - Query parameters
    * @returns {Promise} - Promise with response data
    */
