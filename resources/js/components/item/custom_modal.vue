@@ -24,8 +24,7 @@
             <!-- Poultry Selection -->
             <div class="mb-3">
               <label class="form-label">Poultry Type</label>
-              <select class="form-select" v-model="formData.poultryID" required>
-                <option value="">Select Poultry</option>
+              <select class="form-select" :value="formData.poultryID" @input="e => handlePoultryChange(e.target.value)" required>                <option value="">Select Poultry</option>
                 <option v-for="poultry in poultryTypes" :key="poultry.poultryID" :value="poultry.poultryID">
                   {{ poultry.poultry_name }}
                 </option>
@@ -34,21 +33,19 @@
 
             <!-- Company Location -->
             <div class="mb-3">
-              <label class="form-label">Storage Location</label>
-              <select class="form-select" v-model="formData.locationID" required>
-                <option value="">Select Storage Location</option>
+              <label class="form-label">Poultry Facility Location</label>
+              <select class="form-select" :value="formData.locationID" @input="e => handleLocationChange(e.target.value)" required>                <option value="">Select Storage Location</option>
                 <option v-for="location in companyLocations" :key="location.locationID" :value="location.locationID">
                   {{ location.company_address }}
                 </option>
               </select>
-              <div class="form-text">Select where the item will be stored</div>
+              <div class="form-text">Select the facility where the poultry is housed and cared for</div>
             </div>
 
             <!-- Slaughterhouse Location -->
             <div class="mb-3">
               <label class="form-label">Slaughterhouse Location</label>
-              <select class="form-select" v-model="formData.slaughterhouse_locationID">
-                <option value="">Select Slaughterhouse</option>
+              <select class="form-select" :value="formData.slaughterhouse_locationID" @input="e => handleSlaughterhouseChange(e.target.value)">                <option value="">Select Slaughterhouse</option>
                 <option v-for="location in slaughterhouseLocations" :key="location.locationID" :value="location.locationID">
                   {{ location.company_address }}
                 </option>
@@ -60,8 +57,7 @@
             <div class="row mb-3">
               <div class="col">
                 <label class="form-label">Measurement Type</label>
-                <select class="form-select" v-model="formData.measurement_type" required>
-                  <option value="kg">Kilogram (KG)</option>
+                <select class="form-select" :value="formData.measurement_type" @input="e => handleMeasurementTypeChange(e.target.value)" required>                  <option value="kg">Kilogram (KG)</option>
                   <option value="unit">Unit</option>
                 </select>
               </div>
@@ -69,14 +65,15 @@
                 <label class="form-label">
                   {{ formData.measurement_type === 'kg' ? 'Weight per Item (KG)' : 'Size per Item' }}
                 </label>
+                <!-- For measurement_value input -->
                 <input 
                   type="number" 
                   class="form-control" 
-                  v-model="formData.measurement_value" 
+                  :value="formData.measurement_value" 
+                  @input="e => handleMeasurementValueChange(e.target.value)"
                   required 
                   min="0" 
                   step="0.01"
-                  :placeholder="formData.measurement_type === 'kg' ? 'Enter weight in KG' : 'Enter size'"
                 >
                 <div class="form-text">
                   {{ formData.measurement_type === 'kg' ? 'Weight of each item in kilograms' : 'Size/volume of each item' }}
@@ -89,24 +86,26 @@
               <div class="col">
                 <label class="form-label">Price per Item (RM)</label>
                 <input 
-                  type="number" 
-                  class="form-control" 
-                  v-model="formData.price" 
-                  required 
-                  min="0" 
-                  step="0.01"
-                  placeholder="Enter price"
-                >
+                type="number" 
+                class="form-control" 
+                :value="formData.price" 
+                @input="e => handlePriceChange(e.target.value)"
+                required 
+                min="0" 
+                step="0.01"
+              >
+              <div class="form-text">Price per item in RM</div>
+
               </div>
               <div class="col">
                 <label class="form-label">Quantity in Stock</label>
                 <input 
                   type="number" 
                   class="form-control" 
-                  v-model="formData.stock" 
+                  :value="formData.stock" 
+                  @input="e => handleStockChange(e.target.value)"
                   required 
                   min="0"
-                  placeholder="Enter quantity"
                 >
                 <div class="form-text">Number of items available</div>
               </div>
@@ -176,41 +175,120 @@ export default {
     const closeButton = ref(null);
     const modalTitle = ref(null);
     const imagePreview = ref(null);
+    const file = ref(null); // Add this line to store the selected file
     
+    // Initialize formData with props.initialData if available
     const formData = reactive({
-      itemID: null,
-      poultryID: '',
-      locationID: '',
-      slaughterhouse_locationID: '',
-      measurement_type: 'kg',
-      measurement_value: '',
-      price: '',
-      stock: '',
-      item_image: null
+      ...{
+        itemID: null,
+        poultryID: '',
+        locationID: '',
+        slaughterhouse_locationID: '',
+        measurement_type: 'kg',
+        measurement_value: '',
+        price: '',
+        stock: '',
+        item_image: null
+      },
+      ...props.initialData
     });
 
-    // Watch for changes in initialData and update formData
+    // Add the missing handleImageChange function
+    const handleImageChange = (e) => {
+      const selectedFile = e.target.files[0];
+      if (selectedFile) {
+        file.value = selectedFile;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          imagePreview.value = e.target.result;
+        };
+        reader.readAsDataURL(selectedFile);
+        formData.item_image = selectedFile;
+      }
+    };
+
+    // Individual field watchers
+    const handlePoultryChange = (value) => {
+      // console.log('🐔 Poultry changed:', value);
+      formData.poultryID = value;
+    };
+
+    const handleLocationChange = (value) => {
+      // console.log('📍 Location changed:', value);
+      formData.locationID = value;
+    };
+
+    const handleSlaughterhouseChange = (value) => {
+      // console.log('🏢 Slaughterhouse changed:', value);
+      formData.slaughterhouse_locationID = value;
+    };
+
+    const handleMeasurementTypeChange = (value) => {
+      // console.log('📏 Measurement type changed:', value);
+      formData.measurement_type = value;
+    };
+
+    const handleMeasurementValueChange = (value) => {
+      // console.log('⚖️ Measurement value changed:', value);
+      formData.measurement_value = Number(value) || null;
+    };
+
+    const handlePriceChange = (value) => {
+      // console.log('💰 Price changed:', value);
+      formData.price = Number(value) || null;
+    };
+
+    const handleStockChange = (value) => {
+      // console.log('📦 Stock changed:', value);
+      formData.stock = Number(value) || null;
+    };
+
+    // Watch for changes in initialData
     watch(() => props.initialData, (newVal) => {
-      Object.assign(formData, newVal);
+      if (newVal) {
+        Object.assign(formData, newVal);
+      }
     }, { deep: true });
 
+    // Modified handleSubmit
     const handleSubmit = () => {
+      // Validate all fields before submission
+      if (!formData.poultryID) {
+        // console.warn('Poultry type is required');
+        return;
+      }
+
+      if (!formData.stock || formData.stock < 0) {
+        // console.warn('Valid stock quantity is required');
+        return;
+      }
+
+      // Only handle file operations if a file is selected
+      if (file.value) {
+        // Update formData with the selected file
+        formData.item_image = file.value;
+
+        // Create preview
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          imagePreview.value = e.target.result;
+        };
+        reader.readAsDataURL(file.value);
+
+        // Emit the file
+        emit('image-change', file.value);
+      }
+
+      // console.log('✅ All validations passed, submitting:', formData);
       emit('submit', formData);
     };
 
-    const handleImageChange = (event) => {
-      const file = event.target.files[0];
-      if (!file) return;
-
-      // Create preview
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        imagePreview.value = e.target.result;
-      };
-      reader.readAsDataURL(file);
-
-      // Emit the file
-      emit('image-change', file);
+    const closeModal = () => {
+      const modalElement = document.getElementById(props.modalId);
+      const bsModal = bootstrap.Modal.getInstance(modalElement);
+      if (bsModal) {
+        bsModal.hide();
+      }
     };
 
     const title = computed(() => props.isEditing ? 'Edit Item' : 'Add New Item');
@@ -222,33 +300,18 @@ export default {
       }
     };
 
-    const closeModal = () => {
-      const modalElement = document.getElementById(props.modalId);
-      const bsModal = bootstrap.Modal.getInstance(modalElement);
-      if (bsModal) {
-        bsModal.hide();
-      }
-    };
-
-    onMounted(() => {
-      const modalElement = document.getElementById(props.modalId);
-      if (modalElement) {
-        modalElement.addEventListener('shown.bs.modal', handleModalShow);
-      }
-    });
-
-    onBeforeUnmount(() => {
-      const modalElement = document.getElementById(props.modalId);
-      if (modalElement) {
-        modalElement.removeEventListener('shown.bs.modal', handleModalShow);
-      }
-    });
-
     return {
       closeButton,
       modalTitle,
       closeModal,
       imagePreview,
+      handlePoultryChange,
+      handleLocationChange,
+      handleSlaughterhouseChange,
+      handleMeasurementTypeChange,
+      handleMeasurementValueChange,
+      handlePriceChange,
+      handleStockChange,
       formData,
       handleSubmit,
       handleImageChange,

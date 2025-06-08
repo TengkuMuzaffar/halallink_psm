@@ -422,7 +422,7 @@ export default {
       console.log('Processing checkout with locationID:', locationID);
       
       // Show loading modal
-      modal.loading('Processing Payment', 'Please wait while we connect to the payment gateway...');
+      // modal.loading('Processing Payment', 'Please wait while we connect to the payment gateway...');
       
       // Call the payment creation endpoint with location ID
       const response = await api.post('/api/payment/create', {

@@ -97,11 +97,9 @@ export const itemService = {
         try {
             // Fetch company locations
             const companyResponse = await api.get('/api/items/company/locations');
-            // console.log('Company Locations Response:', JSON.stringify(companyResponse, null, 2));
             
             // Fetch slaughterhouse locations
             const slaughterhouseResponse = await api.get('/api/items/slaughterhouse/locations');
-            // console.log('Slaughterhouse Locations Response:', JSON.stringify(slaughterhouseResponse, null, 2));
             
             return {
                 companyLocations: companyResponse?.data || [],
@@ -109,6 +107,7 @@ export const itemService = {
             };
         } catch (error) {
             console.error('Error fetching locations:', error);
+            // Use modal dialog instead of toast
             modal.danger('Error', 'Failed to load locations. Please try again.');
             return { companyLocations: [], slaughterhouseLocations: [] };
         }
@@ -121,18 +120,32 @@ export const itemService = {
      * @returns {Promise} - Promise with response data
      */
     async saveItem(itemData, isEditing = false) {
+        console.log('itemService.saveItem called with:', itemData);
+        console.log('isEditing:', isEditing);
+        
         const formData = new FormData();
         
+        console.log('Processing itemData entries:');
         for (const [key, value] of Object.entries(itemData)) {
+            console.log(`  ${key}:`, value, `(type: ${typeof value})`);
             if (key !== 'item_image' && value !== null) {
                 formData.append(key, value);
+                console.log(`    Added ${key} to FormData`);
             }
         }
         
         if (itemData.item_image instanceof File) {
             formData.append('item_image', itemData.item_image);
+            console.log('Added item_image file to FormData:', itemData.item_image.name);
+        } else {
+            console.log('item_image is not a File instance:', itemData.item_image);
         }
-
+        
+        console.log('Final FormData entries:');
+        for (let pair of formData.entries()) {
+            console.log(`  ${pair[0]}:`, pair[1]);
+        }
+    
         try {
             const response = await (isEditing ? 
                 api.post(`/api/items/${itemData.itemID}`, formData, {
@@ -142,26 +155,40 @@ export const itemService = {
                     headers: { 'Content-Type': 'multipart/form-data' }
                 })
             );
-
+    
             // Notify listeners about the update
             this.notifyItemUpdate(response.data);
             
-            // Show success toast
-            modal.toast(
-                isEditing ? 'Item updated successfully' : 'Item created successfully',
-                'success',
-                { position: 'top-right', delay: 3000 }
+            // Show success modal instead of toast
+            modal.success(
+                isEditing ? 'Item Updated' : 'Item Created',
+                isEditing ? 'Item has been updated successfully.' : 'Item has been created successfully.'
             );
             
             return response;
         } catch (error) {
             console.error('Error saving item:', error);
-            // Show error toast
-            modal.toast(
-                `Failed to ${isEditing ? 'update' : 'create'} item: ${error.response?.data?.message || error.message}`,
-                'danger',
-                { position: 'top-right', delay: 5000 }
-            );
+            console.error('Error response:', error.response?.data);
+            
+            // Handle validation errors (422 Unprocessable Content)
+            if (error.response?.status === 422 && error.response?.data?.errors) {
+                // Format validation errors for display
+                const errorMessages = Object.values(error.response.data.errors)
+                    .flat()
+                    .join('\n• ');
+                
+                // Show validation errors in a modal
+                modal.danger(
+                    'Validation Error',
+                    `Please correct the following errors:\n\n• ${errorMessages}`
+                );
+            } else {
+                // Show general error modal
+                modal.danger(
+                    `Failed to ${isEditing ? 'Update' : 'Create'} Item`,
+                    error.response?.data?.message || error.message || 'An unexpected error occurred.'
+                );
+            }
             throw error;
         }
     },
@@ -178,21 +205,20 @@ export const itemService = {
             // Notify listeners about the deletion
             this.notifyItemUpdate({ deleted: itemID });
             
-            // Show success toast
-            modal.toast(
-                'Item deleted successfully',
-                'success',
-                { position: 'top-right', delay: 3000 }
+            // Show success modal instead of toast
+            modal.success(
+                'Item Deleted',
+                'Item has been deleted successfully.'
             );
             
             return response;
         } catch (error) {
             console.error('Error deleting item:', error);
-            // Show error toast
-            modal.toast(
-                `Failed to delete item: ${error.response?.data?.message || error.message}`,
-                'danger',
-                { position: 'top-right', delay: 5000 }
+            
+            // Show error modal instead of toast
+            modal.danger(
+                'Delete Failed',
+                error.response?.data?.message || error.message || 'Failed to delete item.'
             );
             throw error;
         }

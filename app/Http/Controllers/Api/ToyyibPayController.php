@@ -9,10 +9,13 @@ use App\Models\Payment;
 use App\Models\Checkpoint;
 use App\Models\Task;
 use App\Models\Trip;
+use App\Models\User;
 use App\Models\SortLocation;
+use App\Mail\OrderPaidNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
 class ToyyibPayController extends Controller
@@ -333,6 +336,99 @@ class ToyyibPayController extends Controller
         }
     }
 
+    /**
+     * Send order notification emails to relevant companies
+     * 
+     * @param Order $order The order that was paid
+     * @param array $cartItems The cart items in the order
+     * @return void
+     */
+    private function sendOrderNotifications(Order $order, $cartItems)
+    {
+        try {
+            // Get the buyer information
+            $buyer = User::find($order->userID);
+            if (!$buyer) {
+                \Log::warning('Buyer not found for order notification', ['orderID' => $order->orderID]);
+                return;
+            }
+
+            // Group items by company
+            $companiesItems = [];
+            
+            foreach ($cartItems as $cartItem) {
+                if (!$cartItem->item || !$cartItem->item->user || !$cartItem->item->user->company) {
+                    continue;
+                }
+                
+                $company = $cartItem->item->user->company;
+                $companyID = $company->companyID;
+                
+                if (!isset($companiesItems[$companyID])) {
+                    $companiesItems[$companyID] = [
+                        'company_id' => $companyID,
+                        'company_name' => $company->company_name,
+                        'items' => [],
+                        'employees' => []
+                    ];
+                    
+                    // Get all employees of this company
+                    $employees = User::where('companyID', $companyID)->get();
+                    foreach ($employees as $employee) {
+                        $companiesItems[$companyID]['employees'][] = [
+                            'email' => $employee->email,
+                            'name' => $employee->fullname
+                        ];
+                    }
+                }
+                
+                // Add item details
+                $companiesItems[$companyID]['items'][] = [
+                    'item_id' => $cartItem->item->itemID,
+                    'item_name' => $cartItem->item->poultry ? $cartItem->item->poultry->poultry_name : 'Item #' . $cartItem->item->itemID,
+                    'quantity' => $cartItem->quantity,
+                    'price' => $cartItem->price_at_purchase
+                ];
+            }
+            
+            // Send notification to each company
+            foreach ($companiesItems as $companyData) {
+                if (empty($companyData['employees']) || empty($companyData['items'])) {
+                    continue;
+                }
+                
+                // Primary recipient (first employee or admin)
+                $primaryRecipient = $companyData['employees'][0]['email'];
+                
+                // CC recipients (other employees)
+                $ccRecipients = [];
+                for ($i = 1; $i < count($companyData['employees']); $i++) {
+                    $ccRecipients[] = $companyData['employees'][$i]['email'];
+                }
+                
+                // Create and send the email
+                $mail = new OrderPaidNotification($order, $cartItems, $buyer, $companyData);
+                
+                Mail::to($primaryRecipient)
+                    ->cc($ccRecipients)
+                    ->send($mail);
+                    
+                \Log::info('Order notification sent to company', [
+                    'companyID' => $companyData['company_id'],
+                    'orderID' => $order->orderID,
+                    'primaryRecipient' => $primaryRecipient,
+                    'ccCount' => count($ccRecipients)
+                ]);
+            }
+        } catch (\Exception $e) {
+            \Log::error('Error sending order notifications: ' . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
+        }
+    }
+
     public function paymentStatus(Request $request)
     {
         try {
@@ -391,15 +487,25 @@ class ToyyibPayController extends Controller
                 case '1': // Success
                     $payment->payment_status = 'completed';
                     $payment->transaction_id = $transactionId;
-                    $order->markAsPaid(); // Using the markAsPaid method to set status and timestamp
+                    $order->markAsPaid(); 
                     
-                    // Update stock for each item
-                    $cartItems = Cart::where('orderID', $order->orderID)->with(['item'])->get();
+                    // Get cart items with necessary relationships
+                    $cartItems = Cart::where('orderID', $order->orderID)
+                                ->with([
+                                    'item.user.company',
+                                    'item.location.company',
+                                    'item.slaughterhouse.company'
+                                ])
+                                ->get();
+                    
                     foreach ($cartItems as $cartItem) {
                         if ($cartItem->item) {
                             $cartItem->item->decreaseStock($cartItem->quantity);
                         }
                     }
+                    
+                    // Send notifications to companies
+                    $this->sendOrderNotifications($order, $cartItems);
                     
                     // Create checkpoints
                     $this->createCheckpoints($order);

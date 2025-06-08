@@ -77,7 +77,7 @@
               <div v-for="item in cartItems" :key="item.cartID" class="cart-item">
                 <div class="d-flex">
                   <img 
-                    :src="item.item?.poultry?.poultry_image ? `/storage/${item.item.poultry.poultry_image}` : '/images/no-image.jpg'" 
+                    :src="item.item?.image ? `/storage/${item.item.image}` : (item.item?.poultry?.poultry_image ? `/storage/${item.item.poultry.poultry_image}` : '/images/no-image.jpg')" 
                     :alt="item.item?.poultry?.poultry_name || 'Product'"
                     class="cart-item-image"
                   >
@@ -122,8 +122,18 @@
                 </div>
               </div>
               
+              <!-- Cart total and checkout button -->
               <div class="cart-total">
-                Total: RM {{ formatPrice(cartTotal) }}
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <h5 class="mb-0">Total:</h5>
+                  <h5 class="mb-0">RM {{ formatPrice(cartTotal) }}</h5>
+                </div>
+                
+                <!-- Add ToyyibPay notification -->
+                <div class="toyyibpay-notice mt-2 mb-3">
+                  <i class="bi bi-info-circle me-1"></i>
+                  A processing fee of RM1.00 will be charged by ToyyibPay during checkout.
+                </div>
               </div>
               
               <!-- Delivery Location Selection -->
@@ -205,6 +215,17 @@
           </div>
         </div>
       </div>
+      
+      <!-- Add payment processing overlay -->
+      <div v-if="isPaymentProcessing" class="payment-processing-overlay">
+        <div class="payment-processing-content">
+          <div class="spinner-grow text-primary mb-3" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <h5 class="mb-3">Processing Payment</h5>
+          <p class="text-muted">Please wait while we connect to the payment gateway...</p>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -226,6 +247,7 @@ export default {
   setup() {
     // Add new state for checkout processing
     const isProcessingCheckout = ref(false);
+    const isPaymentProcessing = ref(false); // New state for payment processing
     
     // State variables
     const selectedProduct = ref(null);
@@ -603,6 +625,7 @@ export default {
         // Reset location error
         locationError.value = false;
         isProcessingCheckout.value = true;
+        isPaymentProcessing.value = true; // Show payment processing overlay
         
         // Use the marketplaceService checkout method
         await marketplaceService.checkout(selectedLocationID.value);
@@ -611,6 +634,7 @@ export default {
         // Error handling is done in the marketplaceService.checkout method
       } finally {
         isProcessingCheckout.value = false;
+        isPaymentProcessing.value = false; // Hide payment processing overlay
       }
     };
     
@@ -804,5 +828,43 @@ export default {
 
 .delivery-location {
   background-color: #f8f9fa;
+}
+
+.payment-processing-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.9);
+  z-index: 2000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  backdrop-filter: blur(3px);
+}
+
+.payment-processing-content {
+  text-align: center;
+  background-color: white;
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  max-width: 400px;
+  width: 90%;
+}
+
+.spinner-grow {
+  width: 3rem;
+  height: 3rem;
+}
+
+.toyyibpay-notice {
+  background-color: #f8f9fa;
+  border-left: 3px solid #6c757d;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: #6c757d;
+  border-radius: 0 4px 4px 0;
 }
 </style>

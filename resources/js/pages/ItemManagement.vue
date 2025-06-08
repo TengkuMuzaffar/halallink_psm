@@ -79,11 +79,12 @@
           <template #poultry="{ item }">
             <div class="d-flex align-items-center">
               <img 
-                v-if="item.poultry_image" 
-                :src="item.poultry_image" 
-                alt="Poultry Image" 
+                v-if="item.item_image" 
+                :src="item.item_image" 
+                alt="Item Image" 
                 class="img-thumbnail me-2" 
-                style="width: 40px; height: 40px; object-fit: cover;"
+                style="width: 40px; height: 40px; object-fit: cover; cursor: pointer;"
+                @click="previewImage = item.item_image"
               >
               <div v-else class="bg-light d-flex align-items-center justify-content-center me-2" style="width: 40px; height: 40px;">
                 <i class="fas fa-feather text-muted"></i>
@@ -160,6 +161,33 @@
       @submit="saveItem"
       @image-change="handleImageChange"
     />
+
+    <!-- Image Preview Modal -->
+    <div 
+      v-if="previewImage" 
+      class="modal fade show d-block" 
+      style="background-color: rgba(0,0,0,0.5);"
+      @click.self="previewImage = ''"
+    >
+      <div class="modal-dialog modal-dialog-centered modal-xl">
+        <div class="modal-content bg-transparent border-0">
+          <div class="text-end p-2">
+            <button 
+              type="button" 
+              class="btn-close bg-white" 
+              @click="previewImage = ''"
+              aria-label="Close"
+            ></button>
+          </div>
+          <img 
+            :src="previewImage" 
+            class="img-fluid" 
+            alt="Full size preview"
+            style="max-height: 90vh; object-fit: contain;"
+          >
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -183,6 +211,9 @@ export default {
   setup() {
     const router = useRouter();
     const store = useStore();
+    
+    // Add this new ref
+    const previewImage = ref('');
     
     // State variables
     const loading = ref(true);
@@ -340,18 +371,23 @@ export default {
     };
     
     // Update saveItem to use service
-    const saveItem = async () => {
+    const saveItem = async (formData) => {
+      console.log('Received formData in saveItem:', formData);
+      console.log('FormData type check:', typeof formData);
+      console.log('FormData keys:', Object.keys(formData));
+      
       try {
         formLoading.value = true;
         items.value = [];
         loading.value = true;
-
-        await itemService.saveItem(itemForm, isEditing.value);
-
+    
+        // Use the formData passed from the modal instead of itemForm
+        await itemService.saveItem(formData, isEditing.value);
+    
         // Close modal
         const modalInstance = bootstrap.Modal.getInstance(document.getElementById('itemModal'));
         if (modalInstance) modalInstance.hide();
-
+    
         // Refresh data after a short delay to allow modal to close
         setTimeout(() => {
           fetchItems();
@@ -476,9 +512,15 @@ export default {
         };
         
         // Handle image change
-        const handleImageChange = (event) => {
-          const file = event.target.files[0];
-          if (!file) return;
+        const handleImageChange = (file) => {
+          if (!file) {
+            itemForm.item_image = null;
+            imagePreview.value = null;
+            return;
+          }
+          
+          // Update the form data with the file
+          itemForm.item_image = file;
           
           // Create preview
           const reader = new FileReader();
@@ -595,6 +637,7 @@ export default {
       isEditing,
       formLoading,
       imagePreview,
+      previewImage,
       selectedItem,
       itemForm,
       // Functions
