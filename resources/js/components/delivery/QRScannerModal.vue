@@ -146,7 +146,7 @@ export default {
             if (numericSegments.length >= 2) {
               urlLocationID = parseInt(numericSegments[0]);
               companyID = parseInt(numericSegments[1]);
-              console.log('Extracted from URL - Location ID:', urlLocationID, 'Company ID:', companyID);
+              // console.log('Extracted from URL - Location ID:', urlLocationID, 'Company ID:', companyID);
             }
           } catch (err) {
             console.warn('Could not extract IDs from URL, using props value:', err);
@@ -161,10 +161,10 @@ export default {
           };
 
           // Log the data being sent
-          console.log('Sending data to server:', {
-            url: url,
-            postData: postData
-          });
+          // console.log('Sending data to server:', {
+          //   url: url,
+          //   postData: postData
+          // });
 
           // Show success message
           scanResult.value = 'QR code detected! Processing...';
@@ -176,14 +176,14 @@ export default {
                 // Close modal and redirect to verification page
                 setTimeout(() => {
                   closeModal();
-                  console.log("url info: "+JSON.stringify(data, null, 2));
+                  // console.log("url info: "+JSON.stringify(data, null, 2));
                   // Use the redirectUrl from the API response if available
                   if (data.redirect && data.redirectUrl) {
-                    console.log('Navigating to:', data.redirectUrl);
+                    // console.log('Navigating to:', data.redirectUrl);
                     window.location.href = data.redirectUrl;
                   } else {
                     // Handle cases where redirect is not needed or URL is missing
-                    console.log('API response indicates no redirect needed or URL missing.');
+                    // console.log('API response indicates no redirect needed or URL missing.');
                     // Optionally, show a success message or close the modal without redirecting
                     scanResult.value = data.message || 'Processing complete.';
                   }
@@ -274,7 +274,7 @@ export default {
             );
             
             html5QrcodeScanner.render(onScanSuccess);
-            console.log('QR scanner initialized successfully');
+            // console.log('QR scanner initialized successfully');
             
             // Apply custom styling to the scanner UI after rendering
             setTimeout(() => {
@@ -317,7 +317,7 @@ export default {
       if (html5QrcodeScanner) {
         try {
           html5QrcodeScanner.clear();
-          console.log('QR scanner cleared successfully');
+          // console.log('QR scanner cleared successfully');
         } catch (err) {
           console.error('Error clearing QR scanner:', err);
         }

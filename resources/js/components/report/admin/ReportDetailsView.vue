@@ -89,7 +89,7 @@ export default {
         const response = await reportService.getReportValidity(props.reportId);
         // Update this line to access the correct properties in the response
         report.value = response.report_validity;
-        console.log(report.value.reports);
+        // console.log(report.value.reports);
         // If you need to access companies separately
         // companies.value = response.companies;
       } catch (error) {

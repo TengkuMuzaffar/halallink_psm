@@ -55,9 +55,9 @@ class SmeOrderSeeder extends Seeder
 
         $this->command->info('Creating orders for SME users...');
         
-        // For each SME user, create 5-12 random orders
+        // For each SME user, create 3-5 random orders
         foreach ($smeUsers as $user) {
-            $numOrders = rand(5, 12);
+            $numOrders = rand(3, 5);
             $this->command->info("Creating {$numOrders} orders for user {$user->name}");
             
             $progressBar = $this->command->getOutput()->createProgressBar($numOrders);

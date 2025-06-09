@@ -5,6 +5,7 @@
         type="email" 
         v-model="email" 
         placeholder="Email"
+        autocomplete="email"
         required
       >
     </div>
@@ -14,6 +15,7 @@
         type="password" 
         v-model="password" 
         placeholder="Password"
+        autocomplete="current-password"
         required
       >
       <div class="form-text text-end">

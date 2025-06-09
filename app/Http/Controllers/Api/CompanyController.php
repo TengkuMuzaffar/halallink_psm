@@ -60,7 +60,7 @@ class CompanyController extends Controller
             }
             
             // Get companies with their admin information with pagination
-            $perPage = $request->input('per_page', 3); // Default to 3 items per page
+            $perPage = $request->input('per_page', 10); // Default to 3 items per page
             $page = $request->input('page', 1);
             
             $paginatedCompanies = $query->with(['admin' => function($query) {
@@ -208,7 +208,7 @@ class CompanyController extends Controller
             // Handle company image if provided
             $imagePath = null;
             if ($request->hasFile('company_image')) {
-                $imagePath = $request->file('company_image')->store('company_images', 'public');
+                $imagePath = $request->file('company_image')->store('company_image', 'public');
             }
 
             // Create company
@@ -298,7 +298,7 @@ class CompanyController extends Controller
                 }
                 
                 // Store new image
-                $imagePath = $request->file('company_image')->store('company_images', 'public');
+                $imagePath = $request->file('company_image')->store('company_image', 'public');
                 $company->company_image = $imagePath;
             }
             

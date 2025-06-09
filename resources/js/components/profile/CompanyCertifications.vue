@@ -201,7 +201,7 @@ export default {
         );
       } catch (error) {
         // User cancelled or modal error
-        console.log('Delete cancelled');
+        // console.log('Delete cancelled');
       }
     };
     
@@ -213,7 +213,7 @@ export default {
       if (cert.certID) {
         try {
           await api.delete(`/api/profile/certifications/${cert.certID}`);
-          console.log('Certification deleted from server');
+          // console.log('Certification deleted from server');
         } catch (error) {
           console.error('Error deleting certification from server:', error);
           modal.danger('Error', 'Failed to delete certification from server');

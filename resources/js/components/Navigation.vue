@@ -126,8 +126,8 @@ export default {
     
     // Watch for changes to the user and log for debugging
     watch(user, (newUser) => {
-      console.log('User updated in Navigation:', newUser);
-      console.log('Company data:', userCompany.value);
+      // console.log('User updated in Navigation:', newUser);
+      // console.log('Company data:', userCompany.value);
     });
     
     const isActive = (path) => {

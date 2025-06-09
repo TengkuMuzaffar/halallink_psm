@@ -46,7 +46,7 @@ export default {
     
     const isAuthenticated = computed(() => store.getters.isAuthenticated);
     const user = computed(() => store.getters.user);
-    console.log('User from store here:', user.value);
+    // console.log('User from store here:', user.value);
     // Determine which profile image to display based on user role
     const userProfileImage = computed(() => {
       if (!user.value) return '/images/blank.jpg';

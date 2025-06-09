@@ -211,7 +211,7 @@ export default {
   created() {
     // Get selectionID from URL query parameters
     const selectionID = this.$route.query.selectionID;
-    console.log('Selection ID From Parameter:', selectionID);
+    // console.log('Selection ID From Parameter:', selectionID);
     if (selectionID) {
       this.activeTab = 'execute';
       this.pendingSelectionID = selectionID;
@@ -232,7 +232,7 @@ export default {
                 const delivery = this.executionDeliveries.find(
                   d => d.deliveryID === selectionIDNum
                 );
-                console.log('Delivery Found:', delivery);
+                // console.log('Delivery Found:', delivery);
                 if (delivery) {
                   this.$refs.deliveryExecution.viewDelivery(delivery);
                   this.pendingSelectionID = null; // Clear the pending ID
@@ -281,7 +281,7 @@ export default {
     },
 
     handleTripsPageChange(page) {
-      console.log('Changing page to:', page);
+      // console.log('Changing page to:', page);
       this.tripsPagination.current_page = page;
       this.fetchTrips();
     },
@@ -330,9 +330,9 @@ export default {
     },
     // Add this new method
     deselectDelivery() {
-      console.log('Deselecting delivery, current selectedDeliveryID:', this.selectedDeliveryID);
+      // console.log('Deselecting delivery, current selectedDeliveryID:', this.selectedDeliveryID);
       this.selectedDeliveryID = null;
-      console.log('After deselection, selectedDeliveryID:', this.selectedDeliveryID);
+      // console.log('After deselection, selectedDeliveryID:', this.selectedDeliveryID);
       // Use the correct method name
       this.fetchTrips();
     },
@@ -481,7 +481,7 @@ export default {
           per_page: this.tripsPagination.per_page,
           phase: this.activePhase // Add phase parameter to API request
         });
-        console.log('API Response Assign Deliveries:', JSON.stringify(response, null, 4));
+        // console.log('API Response Assign Deliveries:', JSON.stringify(response, null, 4));
         if (response.success) {
           this.groupedDeliveries = response.data;
           this.tripsPagination = response.pagination;
@@ -613,7 +613,7 @@ export default {
           toLocation: null
         };
         
-        console.log('Assignment form initialized:', this.assignmentForm);
+        // console.log('Assignment form initialized:', this.assignmentForm);
         
         // Instead of using getLocationInfo which doesn't exist, directly set location info
         this.locationInfo = {
@@ -624,12 +624,12 @@ export default {
         // Try to get location info from the grouped deliveries if available
         if (this.groupedDeliveries[locationID]) {
           const locationData = this.groupedDeliveries[locationID];
-          console.log('Location data found:', locationData);
+          // console.log('Location data found:', locationData);
           
           // Find the order in the location's orders
           if (locationData.orders && locationData.orders[orderID]) {
             const orderData = locationData.orders[orderID];
-            console.log('Order data found:', orderData);
+            // console.log('Order data found:', orderData);
             
             // Set the location info
             this.locationInfo = {
@@ -728,13 +728,13 @@ export default {
       try {
         this.executeDeliveriesLoading = true;
         this.executeError = null; // Reset error before fetching
-        console.log('Fetching execution deliveries with filters:', filters);
+        // console.log('Fetching execution deliveries with filters:', filters);
         const response = await deliveryService.getExecutionDeliveries(filters);
         // console.log('execution deliveries structure:', JSON.stringify(response, null, 2));
 
         if (response.success) {
           this.executionDeliveries =  Object.values(response.data);
-          console.log('execution deliveries structure:', JSON.stringify(this.executionDeliveries, null, 2));
+          // console.log('execution deliveries structure:', JSON.stringify(this.executionDeliveries, null, 2));
 
         } else {
           this.executeError = response.message || 'Failed to load execution deliveries';

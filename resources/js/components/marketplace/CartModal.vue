@@ -417,7 +417,7 @@ export default {
       isLoadingLocations.value = true;
       try {
         const locationsData = await marketplaceService.fetchUserLocations();
-        console.log('Loaded locations:', locationsData);
+        // console.log('Loaded locations:', locationsData);
         
         // Filter locations to only include kitchen type
         const kitchenLocations = Array.isArray(locationsData) 
@@ -561,10 +561,10 @@ export default {
         };
         
         // Log the data being sent to the API for debugging
-        console.log('Sending to API:', {
-          itemID: itemID,
-          order_quantity: quantity.value
-        });
+        // console.log('Sending to API:', {
+        //   itemID: itemID,
+        //   order_quantity: quantity.value
+        // });
         
         // Use marketplaceService with suppressErrorModal option to prevent duplicate modals
         const result = await marketplaceService.addToCart(product, { suppressErrorModal: true });
@@ -615,7 +615,7 @@ export default {
     // Update cart item - no longer used directly
     const updateCartItem = async (item) => {
       // This method is kept for compatibility but no longer used directly
-      console.log('Direct updateCartItem is deprecated, use saveChanges instead');
+      // console.log('Direct updateCartItem is deprecated, use saveChanges instead');
     };
     
     // Remove cart item

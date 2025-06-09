@@ -253,21 +253,21 @@ export default {
         loading.value = true;
         const response = await api.get('/api/profile');
         profileData.value = response;
-        console.log('Fetched profile data:', response);
+        // console.log('Fetched profile data:', response);
         // Check email verification status - make sure we're checking the right property
         emailVerified.value = !!response.email_verified_at;
         
         // Also update the store with the latest verification status
         store.commit('SET_EMAIL_VERIFIED', !!response.email_verified_at);
         
-        console.log('Email verification status:', {
-          email_verified_at: response.email_verified_at,
-          emailVerified: emailVerified.value
-        });
+        // console.log('Email verification status:', {
+        //   email_verified_at: response.email_verified_at,
+        //   emailVerified: emailVerified.value
+        // });
         
         loading.value = false;
       } catch (error) {
-        console.error('Error fetching profile data:', error);
+        // console.error('Error fetching profile data:', error);
         loading.value = false;
         modal.danger('Error', 'Failed to load profile data');
       }
@@ -289,7 +289,7 @@ export default {
         modal.success('Email Sent', response.message || 'Verification link sent to your email address');
         sendingVerification.value = false;
       } catch (error) {
-        console.error('Error sending verification email:', error);
+        // console.error('Error sending verification email:', error);
         sendingVerification.value = false;
         // Replace showToast with danger modal
         modal.danger('Error', 'Failed to send verification email');
@@ -344,12 +344,12 @@ export default {
         const formData = new FormData();
         
         // Use formattedProfileData instead of profileData
-        console.log('Profile data being sent:', {
-          email: formattedProfileData.value.email,
-          tel_number: formattedProfileData.value.tel_number,
-          fullname: !isAdmin.value ? formattedProfileData.value.fullname : 'N/A (admin)',
-          company_name: isAdmin.value ? formattedProfileData.value.company_name : 'N/A (not admin)'
-        });
+        // console.log('Profile data being sent:', {
+        //   email: formattedProfileData.value.email,
+        //   tel_number: formattedProfileData.value.tel_number,
+        //   fullname: !isAdmin.value ? formattedProfileData.value.fullname : 'N/A (admin)',
+        //   company_name: isAdmin.value ? formattedProfileData.value.company_name : 'N/A (not admin)'
+        // });
         
         // Add common fields from formattedProfileData
         formData.append('email', formattedProfileData.value.email || '');
@@ -373,7 +373,7 @@ export default {
         for (let [key, value] of formData.entries()) {
           formDataEntries[key] = value instanceof File ? `File: ${value.name}` : value;
         }
-        console.log('Profile update formdata:', formDataEntries);
+        // console.log('Profile update formdata:', formDataEntries);
         
         // Send the request
         const response = await api.post('/api/profile/update', formData, {
@@ -382,7 +382,7 @@ export default {
           }
         });
         
-        console.log('Profile update response:', response);
+        // console.log('Profile update response:', response);
         // Update local data and Vuex store with complete user data
         if (response.user) {
           // Update the complete user object including company data
@@ -413,7 +413,7 @@ export default {
           modal.danger('Error', 'Failed to update profile: No user data returned');
         }
       } catch (error) {
-        console.error('Error updating profile:', error);
+        // console.error('Error updating profile:', error);
         modal.danger('Error', 'Failed to update profile');
       }
     };
@@ -426,7 +426,7 @@ export default {
       
       try {
         passwordLoading.value = true;
-        console.log(passwordData.value);
+        // console.log(passwordData.value);
         await api.post('/api/profile/password', passwordData.value);
         
         // Reset form
@@ -441,7 +441,7 @@ export default {
         
         passwordLoading.value = false;
       } catch (error) {
-        console.error('Error updating password:', error);
+        // console.error('Error updating password:', error);
         
         // Show error message
         if (error.response?.status === 422) {
@@ -449,7 +449,7 @@ export default {
           const errorData = error.response.data.errors || {};
           let errorMessage = 'Invalid password data';
           
-          console.log('Validation errors:', errorData); // Add this to see all errors
+          // console.log('Validation errors:', errorData); // Add this to see all errors
           
           // Check for specific validation errors
           if (errorData.current_password) {
@@ -501,7 +501,7 @@ export default {
         
         // Don't reset the loading state here - let the timer continue
       } catch (error) {
-        console.error('Error sending password reset email:', error);
+        // console.error('Error sending password reset email:', error);
         
         // Check for throttling (429 Too Many Requests)
         if (error.response?.status === 429) {

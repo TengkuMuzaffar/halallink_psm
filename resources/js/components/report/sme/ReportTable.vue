@@ -172,7 +172,7 @@ export default {
         const response = await reportService.downloadReportQrCode(item.reportValidityID);
         
         // Log the response to see what's being returned
-        console.log('QR Code Response:', response);
+        // console.log('QR Code Response:', response);
         
         modal.success('Success', 'QR code download initiated.');
       } catch (err) {

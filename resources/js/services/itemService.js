@@ -25,7 +25,7 @@ export const itemService = {
             try {
                 callback(itemData);
             } catch (error) {
-                console.error('Error in item update callback:', error);
+                // console.error('Error in item update callback:', error);
             }
         });
     },
@@ -40,7 +40,7 @@ export const itemService = {
             const response = await api.get('/api/items', { params });
             
             // Properly log the response data as JSON
-            // console.log("Items response:", JSON.stringify(response, null, 2));
+            console.log("Items response:", JSON.stringify(response, null, 2));
             
             // Check if we have data and extract it correctly
             if (response?.data) {
@@ -55,7 +55,7 @@ export const itemService = {
                 };
             }
         } catch (error) {
-            console.error('Error fetching items:', error);
+            // console.error('Error fetching items:', error);
             throw error;
         }
     },
@@ -70,7 +70,7 @@ export const itemService = {
             const response = await api.get('/api/items/stats', { params });
             return response || this.getDefaultItemStats();
         } catch (error) {
-            console.error('Error fetching item stats:', error);
+            // console.error('Error fetching item stats:', error);
             throw error;
         }
     },
@@ -84,7 +84,7 @@ export const itemService = {
             const response = await api.get('/api/poultries');
             return response?.data || [];
         } catch (error) {
-            console.error('Error fetching poultry types:', error);
+            // console.error('Error fetching poultry types:', error);
             throw error;
         }
     },
@@ -106,7 +106,7 @@ export const itemService = {
                 slaughterhouseLocations: slaughterhouseResponse?.data || []
             };
         } catch (error) {
-            console.error('Error fetching locations:', error);
+            // console.error('Error fetching locations:', error);
             // Use modal dialog instead of toast
             modal.danger('Error', 'Failed to load locations. Please try again.');
             return { companyLocations: [], slaughterhouseLocations: [] };
@@ -120,30 +120,30 @@ export const itemService = {
      * @returns {Promise} - Promise with response data
      */
     async saveItem(itemData, isEditing = false) {
-        console.log('itemService.saveItem called with:', itemData);
-        console.log('isEditing:', isEditing);
+        // console.log('itemService.saveItem called with:', itemData);
+        // console.log('isEditing:', isEditing);
         
         const formData = new FormData();
         
-        console.log('Processing itemData entries:');
+        // console.log('Processing itemData entries:');
         for (const [key, value] of Object.entries(itemData)) {
-            console.log(`  ${key}:`, value, `(type: ${typeof value})`);
+            // console.log(`  ${key}:`, value, `(type: ${typeof value})`);
             if (key !== 'item_image' && value !== null) {
                 formData.append(key, value);
-                console.log(`    Added ${key} to FormData`);
+                // console.log(`    Added ${key} to FormData`);
             }
         }
         
         if (itemData.item_image instanceof File) {
             formData.append('item_image', itemData.item_image);
-            console.log('Added item_image file to FormData:', itemData.item_image.name);
+            // console.log('Added item_image file to FormData:', itemData.item_image.name);
         } else {
-            console.log('item_image is not a File instance:', itemData.item_image);
+            // console.log('item_image is not a File instance:', itemData.item_image);
         }
         
-        console.log('Final FormData entries:');
+        // console.log('Final FormData entries:');
         for (let pair of formData.entries()) {
-            console.log(`  ${pair[0]}:`, pair[1]);
+            // console.log(`  ${pair[0]}:`, pair[1]);
         }
     
         try {
@@ -167,8 +167,8 @@ export const itemService = {
             
             return response;
         } catch (error) {
-            console.error('Error saving item:', error);
-            console.error('Error response:', error.response?.data);
+            // console.error('Error saving item:', error);
+            // console.error('Error response:', error.response?.data);
             
             // Handle validation errors (422 Unprocessable Content)
             if (error.response?.status === 422 && error.response?.data?.errors) {
@@ -213,7 +213,7 @@ export const itemService = {
             
             return response;
         } catch (error) {
-            console.error('Error deleting item:', error);
+            // console.error('Error deleting item:', error);
             
             // Show error modal instead of toast
             modal.danger(

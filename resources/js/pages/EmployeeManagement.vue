@@ -273,7 +273,7 @@ export default {
           
           const response = await api.get('/api/employees', { params });
           
-          console.log('API Response:', response);
+          // console.log('API Response:', response);
           
           if (response.data && response.success) {
             employees.value = response.data;
@@ -361,7 +361,7 @@ export default {
       
       // Copy registration link
       const copyRegistrationLink = () => {
-        console.log('Copying registration link:', store.state);
+        // console.log('Copying registration link:', store.state);
         const registrationLink = `${window.location.origin}/register-employee?formID=${store.state.user.company.formID}`;
         
         // Use the modal utility for the copy operation
@@ -447,7 +447,7 @@ export default {
       
       // Edit employee
       const editEmployee = (employee) => {
-        console.log('Editing employee:', employee);
+        // console.log('Editing employee:', employee);
         // Implement edit logic here
         // This could open a form modal or navigate to an edit page
       };

@@ -150,9 +150,9 @@ export default {
       return today.toISOString().split('T')[0];
     },
     filteredDeliveries() {
-      console.log('Filtering deliveries:', this.deliveries);
+      // console.log('Filtering deliveries:', this.deliveries);
       if (!this.deliveries) {
-        console.log('Deliveries is null or undefined');
+        // console.log('Deliveries is null or undefined');
         return [];
       }
       
@@ -165,7 +165,7 @@ export default {
         
         // Convert object to array
         const deliveriesArray = Object.values(this.deliveries);
-        console.log('Converted object to array:', deliveriesArray);
+        // console.log('Converted object to array:', deliveriesArray);
         return this.applyFilters(deliveriesArray);
       }
       
@@ -175,7 +175,7 @@ export default {
       }
       
       // Fallback for any other case
-      console.log('Deliveries is in an unexpected format');
+      // console.log('Deliveries is in an unexpected format');
       return [];
     }
   },
@@ -183,7 +183,7 @@ export default {
     viewDelivery(delivery) {
       // Transform the delivery object to match the expected format in the modal
       this.modalLoading = true;
-      console.log("selected deliveries: "+ JSON.stringify(delivery, null, 3));
+      // console.log("selected deliveries: "+ JSON.stringify(delivery, null, 3));
 
       // Create a copy of the delivery to avoid modifying the original
       const transformedDelivery = { ...delivery };
@@ -283,7 +283,7 @@ export default {
        });
      },
     startDelivery(deliveryID) {
-      console.log('Starting delivery:', deliveryID);
+      // console.log('Starting delivery:', deliveryID);
       
       deliveryService.startDelivery(deliveryID)
         .then(response => {

@@ -128,7 +128,7 @@ export default {
       try {
         const statsData = await DashboardService.getStats();
         stats.value = statsData;
-        console.log('Fetched dashboard stats:', statsData);
+        // console.log('Fetched dashboard stats:', statsData);
       } catch (err) {
         console.error('Error fetching dashboard data:', err);
         error.value = 'Failed to load dashboard data';
@@ -159,25 +159,48 @@ export default {
           creator: 'HalalLink Dashboard'
         });
         
-        // Add title
-        doc.setFontSize(18);
+        // ===== FRONT PAGE =====
+        // Add company logo
+        const logoImg = new Image();
+        logoImg.src = '/images/HalalLink_v1.png';
+        
+        // Wait for the image to load
+        await new Promise((resolve) => {
+          logoImg.onload = resolve;
+          // Fallback if image fails to load
+          setTimeout(resolve, 1000);
+        });
+        
+        // Add logo to center of page
+        const logoWidth = 100; // mm
+        const logoHeight = 50; // mm
+        const logoX = (210 - logoWidth) / 2; // Center on A4 page (210mm width)
+        const logoY = 60; // Position from top
+        doc.addImage(logoImg, 'PNG', logoX, logoY, logoWidth, logoHeight);
+        
+        // Add title below logo
+        doc.setFontSize(24);
         doc.setTextColor(18, 53, 36); // Primary color
-        doc.text('HalalLink Performance Report', 105, 15, { align: 'center' });
+        doc.text('Performance Report', 105, 140, { align: 'center' });
         
         // Add date
-        doc.setFontSize(10);
+        doc.setFontSize(14);
         doc.setTextColor(102, 102, 102); // Light text color
         const today = new Date().toLocaleDateString();
-        doc.text(`Generated on: ${today}`, 105, 22, { align: 'center' });
+        doc.text(`Generated on: ${today}`, 105, 155, { align: 'center' });
+        
+        // ===== SECOND PAGE: STATS AND REGISTRATION TREND =====
+        doc.addPage();
+        
+        // Add title
+        doc.setFontSize(18);
+        doc.setTextColor(18, 53, 36);
+        doc.text('Company Statistics', 105, 20, { align: 'center' });
         
         // Add company stats
-        doc.setFontSize(14);
-        doc.setTextColor(18, 53, 36);
-        doc.text('Company Statistics', 20, 35);
-        
-        doc.setFontSize(10);
+        doc.setFontSize(12);
         doc.setTextColor(0, 0, 0);
-        let yPos = 45;
+        let yPos = 35;
         
         if (companyStats.value) {
           // Properly format each stat for the PDF
@@ -187,6 +210,34 @@ export default {
           });
         }
         
+        // Add company registration trend chart
+        const registrationChartElement = document.querySelector('#company-registration-chart .chart-container');
+        if (registrationChartElement) {
+          // Add descriptive text
+          doc.setFontSize(14);
+          doc.setTextColor(18, 53, 36);
+          doc.text('Company Registration Trend', 105, 70, { align: 'center' });
+          
+          // Add some descriptive text below the title
+          doc.setFontSize(10);
+          doc.setTextColor(0, 0, 0);
+          doc.text('This chart shows the trend of company registrations over time.', 105, 80, { align: 'center' });
+          
+          const registrationCanvas = await html2canvas(registrationChartElement, {
+            scale: 2,
+            useCORS: true,
+            logging: false,
+            willReadFrequently: true
+          });
+          
+          const registrationImgData = registrationCanvas.toDataURL('image/png');
+          const imgWidth = 170; // mm
+          const imgHeight = (registrationCanvas.height * imgWidth) / registrationCanvas.width;
+          
+          doc.addImage(registrationImgData, 'PNG', 20, 90, imgWidth, imgHeight);
+        }
+        
+        // ===== THIRD PAGE: MARKET LINE CHART =====
         // Capture and add the Market Line Chart (without header)
         const marketChartElement = document.querySelector('#market-line-chart .chart-container');
         if (marketChartElement) {
@@ -211,7 +262,7 @@ export default {
             scale: 2, // Higher scale for better quality
             useCORS: true,
             logging: false,
-            willReadFrequently: true // Add this line
+            willReadFrequently: true
           });
           
           const marketImgData = marketCanvas.toDataURL('image/png');
@@ -221,6 +272,7 @@ export default {
           doc.addImage(marketImgData, 'PNG', 20, chartYPos, imgWidth, imgHeight);
         }
         
+        // ===== FOURTH PAGE: BROILER SALES PIE CHART =====
         // Capture and add the Broiler Sales Pie Chart (without header)
         const salesChartElement = document.querySelector('#broiler-sales-chart .chart-container');
         if (salesChartElement) {
@@ -245,7 +297,7 @@ export default {
             scale: 2,
             useCORS: true,
             logging: false,
-            willReadFrequently: true // Add this line
+            willReadFrequently: true
           });
           
           const salesImgData = salesCanvas.toDataURL('image/png');

@@ -541,7 +541,7 @@ export default {
         };
         
         const response = await taskService.fetchTasks(params);
-        console.log('Response:', JSON.stringify(response, null, 2)); // Log the response to the console  
+        // console.log('Response:', JSON.stringify(response, null, 2)); // Log the response to the console  
         tasks.value = response.data;
         
         // Update pagination from response
@@ -635,7 +635,7 @@ export default {
       // Verify task user assignment immediately when opening task details
       try {
         const response = await taskService.verifyTaskUser(task.taskID);
-        console.log('Verify Response:', JSON.stringify(response));
+        // console.log('Verify Response:', JSON.stringify(response));
         
         // If task has an assigned user, update the task data
         if (response.success === false && response.assigned_user) {
@@ -786,7 +786,7 @@ export default {
       try {
         // Call the API even if search query is empty
         const response = await taskService.searchSlaughterers(userSearchQuery.value);
-        console.log('Search Response:', JSON.stringify(response)); // Log the response to the console
+        // console.log('Search Response:', JSON.stringify(response)); // Log the response to the console
         if (response.success && response.data) {
           userSearchResults.value = response.data;
         } else {
@@ -811,7 +811,7 @@ export default {
     const openAssignUserModal = async () => {
       try {
         const response = await taskService.verifyTaskUser(selectedTask.value.taskID);
-        console.log('Verify Response:', JSON.stringify(response)); // Log the response to the console
+        // console.log('Verify Response:', JSON.stringify(response)); // Log the response to the console
         
         // Check if the task already has an assigned user
         if (response.success === false && response.assigned_user) {

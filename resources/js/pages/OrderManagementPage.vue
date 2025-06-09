@@ -460,7 +460,7 @@ export default {
           orderDetailModalRef.value.showQRCode(null, locationID, companyID);
         }
       } catch (error) {
-        console.error('Error generating QR code:', error);
+        // console.error('Error generating QR code:', error);
       }
     };
     
@@ -518,13 +518,13 @@ export default {
             }
           }));
           
-          console.log(`Loaded ${response.data.length} locations for company type: ${response.company_type}`);
+          // console.log(`Loaded ${response.data.length} locations for company type: ${response.company_type}`);
           if (response.filtered_location_type) {
-            console.log(`Filtered by location type: ${response.filtered_location_type}`);
+            // console.log(`Filtered by location type: ${response.filtered_location_type}`);
           }
         }
       } catch (err) {
-        console.error('Error fetching locations:', err);
+        // console.error('Error fetching locations:', err);
         error.value = 'Failed to load locations';
       }
     };
@@ -565,7 +565,7 @@ export default {
           }
         }
       } catch (err) {
-        console.error('Error loading location orders:', err);
+        // console.error('Error loading location orders:', err);
         error.value = 'Failed to load orders for location';
       } finally {
         locationLoading.value[locationID] = false;
@@ -591,7 +591,7 @@ export default {
     const fetchOrderStats = async () => {
       try {
         const stats = await orderService.fetchOrderStats();
-        console.log('Order stats response:', JSON.stringify(stats)); // Add debugging
+        // console.log('Order stats response:', JSON.stringify(stats)); // Add debugging
         
         // Check if stats exist and have the expected format
         if (stats && typeof stats === 'object') {
@@ -603,10 +603,10 @@ export default {
             complete_orders: stats.complete_orders || 0
           };
         } else {
-          console.error('Invalid stats format received:', stats);
+          // console.error('Invalid stats format received:', stats);
         }
       } catch (err) {
-        console.error('Error fetching order stats:', err);
+        // console.error('Error fetching order stats:', err);
       }
     };
     
@@ -705,7 +705,7 @@ export default {
           await fetchOrderStats();
         }
       } catch (err) {
-        console.error('Error refreshing data:', err);
+        // console.error('Error refreshing data:', err);
         error.value = 'Failed to refresh data';
       } finally {
         loading.value = false;

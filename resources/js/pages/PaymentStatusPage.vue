@@ -71,7 +71,7 @@ export default {
       try {
         // Get query parameters from URL
         const urlParams = route.query;
-        console.log('Payment status URL params:', urlParams);
+        // console.log('Payment status URL params:', urlParams);
         
         // Check if we have billcode and order_id for verification
         if (urlParams.billcode && urlParams.order_id) {
@@ -102,7 +102,7 @@ export default {
           errorMessage.value = message || 'Payment was not successful. Please try again.';
         }
       } catch (error) {
-        console.error('Error processing payment status:', error);
+        // console.error('Error processing payment status:', error);
         success.value = false;
         errorMessage.value = 'An error occurred while processing your payment. Please contact support.';
       } finally {

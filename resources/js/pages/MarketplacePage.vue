@@ -178,7 +178,7 @@ export default {
     // View product details
     const viewProductDetails = (product) => {
       // Implement product details view (could navigate to a details page)
-      console.log('View details for product:', product);
+      // console.log('View details for product:', product);
       // Example: router.push(`/marketplace/product/${product.id}`);
     };
 
@@ -201,7 +201,7 @@ export default {
           })
           .catch(error => {
             // Don't show error modal here - it's already handled in marketplaceService
-            console.error('Error adding to cart:', error);
+            // console.error('Error adding to cart:', error);
           });
       }
     };
@@ -223,24 +223,24 @@ export default {
         const cartData = await marketplaceService.getCartItems();
         updateCartBadge(cartData);
       } catch (err) {
-        console.error('Error refreshing cart count:', err);
+        // console.error('Error refreshing cart count:', err);
       }
     };
     
     // Extract the badge update logic to a separate function
     const updateCartBadge = (data) => {
-      console.log('Updating cart badge with data:', data);
+      // console.log('Updating cart badge with data:', data);
       let count = 0;
       
       if (data && data.cart_items && Array.isArray(data.cart_items)) {
         count = data.cart_items.length;
-        console.log('Cart badge updated with unique item count:', count);
+        // console.log('Cart badge updated with unique item count:', count);
       } else if (data && data.cart_item) {
         count = 1;
-        console.log('Cart badge updated for first item added:', count);
+        // console.log('Cart badge updated for first item added:', count);
       } else if (data && typeof data.cart_count === 'number') {
         count = data.cart_count;
-        console.log('Cart badge updated with cart_count fallback:', count);
+        // console.log('Cart badge updated with cart_count fallback:', count);
       }
       
       // Update the badge count
@@ -253,14 +253,14 @@ export default {
         const cartData = await marketplaceService.getCartItems();
         updateCartBadge(cartData);
       } catch (err) {
-        console.error('Error initializing cart badge:', err);
+        // console.error('Error initializing cart badge:', err);
         cartItemCount.value = 0;
       }
     };
 
     // Update the onCartUpdate callback to use our updateCartBadge function
     marketplaceService.onCartUpdate((data) => {
-      console.log('Cart update received in marketplace page:', data);
+      // console.log('Cart update received in marketplace page:', data);
       updateCartBadge(data);
     });
     

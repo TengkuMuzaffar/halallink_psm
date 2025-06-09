@@ -21,7 +21,7 @@ class UserCompanySeeder extends Seeder
 
         // 1. Admin | admin - 1 account
         $adminCompany = Company::create([
-            'company_name' => 'HalalLink Admin',
+            'company_name' => 'White Space Resources',
             'company_type' => 'admin',
             'company_image' => 'companies/admin-logo.png',
         ]);
@@ -53,12 +53,23 @@ class UserCompanySeeder extends Seeder
             ]);
         }
 
-        // Admin | logistics - 2 accounts
-        for ($i = 1; $i <= 2; $i++) {
+        // Calculate date range for the past year
+        $startDate = Carbon::now()->subYear();
+        $endDate = Carbon::now();
+        $dateRange = $endDate->diffInDays($startDate);
+
+        // Admin | logistics - 10 accounts
+        for ($i = 1; $i <= 10; $i++) {
+            // Calculate a random date within the past year
+            $randomDaysAgo = rand(0, $dateRange);
+            $registrationDate = Carbon::now()->subDays($randomDaysAgo);
+            
             $logisticsCompany = Company::create([
                 'company_name' => "Logistics Company $i",
                 'company_type' => 'logistic',
                 'company_image' => "companies/logistics-$i.png",
+                'created_at' => $registrationDate,
+                'updated_at' => $registrationDate,
             ]);
 
             // Admin user with no fullname
@@ -69,7 +80,9 @@ class UserCompanySeeder extends Seeder
                 'role' => 'admin',
                 'status' => 'active',
                 'tel_number' => "601234567" . (80 + $i),
-                'email_verified_at' => Carbon::now(),
+                'email_verified_at' => $registrationDate,
+                'created_at' => $registrationDate,
+                'updated_at' => $registrationDate,
                 'image' => 'users/default.png',
             ]);
 
@@ -83,19 +96,26 @@ class UserCompanySeeder extends Seeder
                     'role' => 'employee',
                     'status' => 'active',
                     'tel_number' => "6012348" . $i . str_pad($j, 2, '0', STR_PAD_LEFT),
-                    'email_verified_at' => Carbon::now(),
+                    'email_verified_at' => $registrationDate,
+                    'created_at' => $registrationDate,
+                    'updated_at' => $registrationDate,
                     'image' => 'users/default.png',
                 ]);
             }
         }
 
-        // Apply the same pattern for broiler, SME, and slaughterhouse companies
-        // 3. Admin | broiler - 3 accounts
-        for ($i = 1; $i <= 3; $i++) {
+        // Admin | broiler - 10 accounts
+        for ($i = 1; $i <= 10; $i++) {
+            // Calculate a random date within the past year
+            $randomDaysAgo = rand(0, $dateRange);
+            $registrationDate = Carbon::now()->subDays($randomDaysAgo);
+            
             $broilerCompany = Company::create([
                 'company_name' => "Broiler Company $i",
                 'company_type' => 'broiler',
                 'company_image' => "companies/broiler-$i.png",
+                'created_at' => $registrationDate,
+                'updated_at' => $registrationDate,
             ]);
 
             // Admin user with no fullname
@@ -106,7 +126,9 @@ class UserCompanySeeder extends Seeder
                 'role' => 'admin',
                 'status' => 'active',
                 'tel_number' => "601234567" . (70 + $i),
-                'email_verified_at' => Carbon::now(),
+                'email_verified_at' => $registrationDate,
+                'created_at' => $registrationDate,
+                'updated_at' => $registrationDate,
                 'image' => 'users/default.png',
             ]);
 
@@ -120,18 +142,26 @@ class UserCompanySeeder extends Seeder
                     'role' => 'employee',
                     'status' => 'active',
                     'tel_number' => "6012345" . $i . str_pad($j, 2, '0', STR_PAD_LEFT),
-                    'email_verified_at' => Carbon::now(),
+                    'email_verified_at' => $registrationDate,
+                    'created_at' => $registrationDate,
+                    'updated_at' => $registrationDate,
                     'image' => 'users/default.png',
                 ]);
             }
         }
 
-        // 5. Admin | SME - 2 accounts
-        for ($i = 1; $i <= 2; $i++) {
+        // Admin | SME - 15 accounts
+        for ($i = 1; $i <= 15; $i++) {
+            // Calculate a random date within the past year
+            $randomDaysAgo = rand(0, $dateRange);
+            $registrationDate = Carbon::now()->subDays($randomDaysAgo);
+            
             $smeCompany = Company::create([
                 'company_name' => "SME Company $i",
                 'company_type' => 'sme',
                 'company_image' => "companies/sme-$i.png",
+                'created_at' => $registrationDate,
+                'updated_at' => $registrationDate,
             ]);
 
             // Admin user with no fullname
@@ -142,7 +172,9 @@ class UserCompanySeeder extends Seeder
                 'role' => 'admin',
                 'status' => 'active',
                 'tel_number' => "601234567" . (50 + $i),
-                'email_verified_at' => Carbon::now(),
+                'email_verified_at' => $registrationDate,
+                'created_at' => $registrationDate,
+                'updated_at' => $registrationDate,
                 'image' => 'users/default.png',
             ]);
 
@@ -156,13 +188,15 @@ class UserCompanySeeder extends Seeder
                     'role' => 'employee',
                     'status' => 'active',
                     'tel_number' => "6012346" . $i . str_pad($j, 2, '0', STR_PAD_LEFT),
-                    'email_verified_at' => Carbon::now(),
+                    'email_verified_at' => $registrationDate,
+                    'created_at' => $registrationDate,
+                    'updated_at' => $registrationDate,
                     'image' => 'users/default.png',
                 ]);
             }
         }
 
-        // 7. Admin | slaughterhouse - 1 account
+        // Admin | slaughterhouse - 1 account
         $slaughterhouseCompany = Company::create([
             'company_name' => 'Slaughterhouse Company',
             'company_type' => 'slaughterhouse',

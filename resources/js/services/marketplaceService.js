@@ -28,7 +28,7 @@ export default {
       try {
         callback(cartData);
       } catch (error) {
-        console.error('Error in cart update callback:', error);
+        // console.error('Error in cart update callback:', error);
       }
     });
   },
@@ -43,7 +43,7 @@ export default {
       const response = await api.get('/api/marketplace/items', { params });
       return response;
     } catch (error) {
-      console.error('Error fetching marketplace items:', error);
+      // console.error('Error fetching marketplace items:', error);
       throw error;
     }
   },
@@ -57,7 +57,7 @@ export default {
       const response = await api.get('/api/poultries');
       return response.data || [];
     } catch (error) {
-      console.error('Error fetching poultry types:', error);
+      // console.error('Error fetching poultry types:', error);
       modal.danger('Error', 'Failed to load poultry types. Please refresh the page.');
       return [];
     }
@@ -73,7 +73,7 @@ export default {
       const now = Date.now();
       if (this.cachedLocations && this.lastLocationsFetch && 
           (now - this.lastLocationsFetch) < this.locationCacheTimeout) {
-        console.log('Using cached locations');
+        // console.log('Using cached locations');
         return this.cachedLocations;
       }
 
@@ -88,7 +88,7 @@ export default {
       
       return [];
     } catch (error) {
-      console.error('Error fetching user locations:', error);
+      // console.error('Error fetching user locations:', error);
       modal.danger('Error', 'Failed to load delivery locations. Please try again.');
       return [];
     }
@@ -116,7 +116,7 @@ export default {
    */
   async addToCart(product, options = {}) {
     try {
-      console.log('Adding to cart:', product);
+      // console.log('Adding to cart:', product);
       
       // Use order_quantity if available, otherwise fall back to quantity
       const orderQuantity = product.order_quantity || product.quantity || 1;
@@ -134,7 +134,7 @@ export default {
       
       return response.data;
     } catch (error) {
-      console.error('Error adding to cart:', error);
+      // console.error('Error adding to cart:', error);
       
       // Only show error modal if not suppressed
       if (!options.suppressErrorModal) {
@@ -172,7 +172,7 @@ export default {
         // If response.data exists, use it
         if (response.data) {
           // Log the response.data for debugging
-          console.log('Cart items response.data:', response.data);
+          // console.log('Cart items response.data:', response.data);
           
           // The API is correctly returning a success response with cart data
           if (response.data.success) {
@@ -188,7 +188,7 @@ export default {
             return cartData;
           } else {
             // Return default structure if response indicates failure
-            console.warn('Cart API response indicates failure:', response.data.message);
+            // console.warn('Cart API response indicates failure:', response.data.message);
             return {
               cart_items: [],
               cart_count: 0,
@@ -214,7 +214,7 @@ export default {
               cart_total: 0
             };
           } else {
-            // console.warn('Cart API response has unexpected format:', response);
+            console.warn('Cart API response has unexpected format:', response);
             return {
               cart_items: [],
               cart_count: 0,
@@ -224,7 +224,7 @@ export default {
         }
       } else {
         // Return default structure if response is null or undefined
-        console.warn('Cart API response is null or undefined');
+        // console.warn('Cart API response is null or undefined');
         return {
           cart_items: [],
           cart_count: 0,
@@ -232,7 +232,7 @@ export default {
         };
       }
     } catch (error) {
-      console.error('Error fetching cart items:', error);
+      // console.error('Error fetching cart items:', error);
       // Return default structure in case of error
       return {
         cart_items: [],
@@ -264,7 +264,7 @@ export default {
       
       return response.data;
     } catch (error) {
-      console.error('Error updating cart item:', error);
+      // console.error('Error updating cart item:', error);
       
       // Only show error modal if not suppressed
       if (!options.suppressErrorModal) {
@@ -305,14 +305,14 @@ export default {
           const cartData = await this.getCartItems();
           // getCartItems already calls notifyCartUpdate
         } catch (err) {
-          console.warn('Error refreshing cart count after removal:', err);
+          // console.warn('Error refreshing cart count after removal:', err);
           // Don't show an error modal here to prevent multiple modals
         }
       }
       
       return response.data;
     } catch (error) {
-      console.error('Error removing cart item:', error);
+      // console.error('Error removing cart item:', error);
       
       // Only show error modal if not suppressed
       if (!options.suppressErrorModal) {
@@ -351,7 +351,7 @@ export default {
       // Fallback if component not found
       window.location.href = '/cart';
     } catch (error) {
-      console.error('Error viewing cart:', error);
+      // console.error('Error viewing cart:', error);
       modal.danger('Error', 'Failed to load cart items. Please try again.');
       throw error;
     }
@@ -419,35 +419,35 @@ export default {
         throw new Error('Please select a delivery location');
       }
       
-      console.log('Processing checkout with locationID:', locationID);
+      // console.log('Processing checkout with locationID:', locationID);
       
       // Call the payment creation endpoint with location ID
       const response = await api.post('/api/payment/create', {
         locationID: locationID
       });
       
-      console.log('Payment API response:', response);
+      // console.log('Payment API response:', response);
       
       // Check if the response contains a redirect URL
       if (response && response.redirect_url) {
-        console.log('Response data:', response.redirect_url);
+        // console.log('Response data:', response.redirect_url);
         // Redirect to the payment gateway
         window.location.href = response.redirect_url;
          
       } else {
         // Handle unexpected response
-        console.error('Invalid response format:', response);
+        // console.error('Invalid response format:', response);
         throw new Error('Invalid payment response format');
       }
     } catch (error) {
-      console.error('Error processing checkout:', error);
+      // console.error('Error processing checkout:', error);
       
       // Extract error message from response if available
       let errorMessage = 'Unable to process payment. Please try again.';
       
       // Check for specific error codes
       if (error.response) {
-        console.error('Error response:', error.response);
+        // console.error('Error response:', error.response);
         
         // Check for 526 error code (payment gateway down)
         if (error.response.status === 526) {
@@ -482,7 +482,7 @@ export default {
       const { billcode, order_id, status_id, transaction_id } = params;
       
       // Log the parameters for debugging
-      console.log('Verifying payment with params:', params);
+      // console.log('Verifying payment with params:', params);
       
       if (!billcode || !order_id) {
         modal.close();
@@ -511,7 +511,7 @@ export default {
           try {
             await this.getCartItems();
           } catch (err) {
-            console.warn('Error refreshing cart after payment:', err);
+            // console.warn('Error refreshing cart after payment:', err);
           }
           
           return response.data;
@@ -522,7 +522,7 @@ export default {
         }
       } else {
         // Handle unexpected response
-        console.error('Invalid payment verification response:', response);
+        // console.error('Invalid payment verification response:', response);
         modal.danger('Verification Error', 'Unable to verify payment. Please contact support.');
         return Promise.reject(new Error('Invalid response from payment verification'));
       }
@@ -530,7 +530,7 @@ export default {
       // // Close loading modal
       // modal.close();
       
-      console.error('Error verifying payment:', error);
+      // console.error('Error verifying payment:', error);
       
       // Show appropriate error message
       if (error.response && error.response.data && error.response.data.message) {
@@ -556,13 +556,13 @@ export default {
       const message = urlParams.msg;
       const transactionId = urlParams.transaction_id;
       
-      console.log('Payment status callback received:', {
-        statusId,
-        billCode,
-        orderId,
-        message,
-        transactionId
-      });
+      // console.log('Payment status callback received:', {
+      //   statusId,
+      //   billCode,
+      //   orderId,
+      //   message,
+      //   transactionId
+      // });
       
       // Check if payment was successful (status_id=1 means success)
       if (statusId === '1' && message === 'ok') {
@@ -580,7 +580,7 @@ export default {
         return Promise.reject(new Error(statusMessage));
       }
     } catch (error) {
-      console.error('Error handling payment status:', error);
+      // console.error('Error handling payment status:', error);
       modal.danger('Payment Error', 'An error occurred while processing your payment status.');
       return Promise.reject(error);
     }

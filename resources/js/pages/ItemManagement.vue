@@ -372,9 +372,9 @@ export default {
     
     // Update saveItem to use service
     const saveItem = async (formData) => {
-      console.log('Received formData in saveItem:', formData);
-      console.log('FormData type check:', typeof formData);
-      console.log('FormData keys:', Object.keys(formData));
+      // console.log('Received formData in saveItem:', formData);
+      // console.log('FormData type check:', typeof formData);
+      // console.log('FormData keys:', Object.keys(formData));
       
       try {
         formLoading.value = true;

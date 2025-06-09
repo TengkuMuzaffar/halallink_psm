@@ -340,7 +340,7 @@ export default {
     // };
     
     const editCompany = (company) => {
-      console.log('Editing company:', company);
+      // console.log('Editing company:', company);
       // Implement edit logic here
     };
     

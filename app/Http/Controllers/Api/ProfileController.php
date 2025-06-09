@@ -137,7 +137,7 @@ class ProfileController extends Controller
                     }
                     
                     // Store new image
-                    $imagePath = $request->file('company_image')->store('company_images', 'public');
+                    $imagePath = $request->file('company_image')->store('company_image', 'public');
                     $company->company_image = $imagePath;
                 }
                 

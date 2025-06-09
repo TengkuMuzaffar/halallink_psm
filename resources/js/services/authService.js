@@ -32,9 +32,9 @@ export const register = async (userData) => {
     // Check if userData is FormData
     if (userData instanceof FormData) {
       // Log FormData entries for debugging
-      console.log('Sending FormData to server:');
+      // console.log('Sending FormData to server:');
       for (let pair of userData.entries()) {
-        console.log(pair[0] + ': ' + (pair[1] instanceof File ? `File: ${pair[1].name} (${pair[1].type})` : pair[1]));
+        // console.log(pair[0] + ': ' + (pair[1] instanceof File ? `File: ${pair[1].name} (${pair[1].type})` : pair[1]));
       }
       
       // Use axios directly for FormData

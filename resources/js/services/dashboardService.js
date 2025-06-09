@@ -7,10 +7,10 @@ class DashboardService {
   async getStats() {
     try {
       const response = await api.get('/api/dashboard/stats');
-      console.log('Dashboard stats:', response);
+      // console.log('Dashboard stats:', response);
       return response;
     } catch (error) {
-      console.error('Error fetching dashboard stats:', error);
+      // console.error('Error fetching dashboard stats:', error);
       throw error;
     }
   }
@@ -22,7 +22,7 @@ class DashboardService {
   async getBroilerSalesData(period = 'month') {
     try {
       const response = await api.get(`/api/dashboard/broiler-sales?period=${period}`);
-      console.log('Broiler sales data:', response);
+      // console.log('Broiler sales data:', response);
       return response;
     } catch (error) {
       console.error('Error fetching broiler sales data:', error);
@@ -52,7 +52,7 @@ class DashboardService {
   async getCompanyRegistrationTrend(period = 'month') {
     try {
       const response = await api.get(`/api/dashboard/company/registration-trend?period=${period}`);
-      console.log('Company registration trend data:', response);
+      // console.log('Company registration trend data:', response);
       return response;
     } catch (error) {
       console.error('Error fetching company registration trend data:', error);

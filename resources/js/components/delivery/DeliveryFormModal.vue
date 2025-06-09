@@ -139,7 +139,7 @@ export default {
       try {
         loading.value = true;
         const response = await deliveryService.getDrivers(formData.value.scheduled_date);
-        console.log(response); // Add this line to log the response to the console
+        // console.log(response); // Add this line to log the response to the console
         if (response.success) {
           drivers.value = response.data;
         } else {

@@ -100,7 +100,7 @@ export default {
     };
 
     onMounted(() => {
-      console.log('Route query:', route.query);
+      // console.log('Route query:', route.query);
       // Check if formID is provided in the route
       if (!route.query.formID) {
         console.error('No formID in query params');
