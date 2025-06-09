@@ -32,7 +32,7 @@
             <tr>
                 <th>No.</th>
                 <th>Company Name</th>
-                <th>Company Type</th>
+                <th>Email</th>
             </tr>
         </thead>
         <tbody>
@@ -40,7 +40,7 @@
             <tr>
                 <td>{{ $index + 1 }}</td>
                 <td>{{ $company->company_name }}</td>
-                <td>{{ $company->company_type }}</td>
+                <td>{{ $company->admin ? $company->admin->email : 'N/A' }}</td>
             </tr>
             @endforeach
         </tbody>

@@ -74,15 +74,23 @@
             
             <div v-else>
               <!-- Cart items list -->
-              <div v-for="item in cartItems" :key="item.cartID" class="cart-item">
+              <div v-for="item in cartItems" :key="item.cartID" class="cart-item" :class="{'unavailable-item': isItemUnavailable(item)}">
                 <div class="d-flex">
                   <img 
                     :src="item.item?.image ? `/storage/${item.item.image}` : (item.item?.poultry?.poultry_image ? `/storage/${item.item.poultry.poultry_image}` : '/images/no-image.jpg')" 
                     :alt="item.item?.poultry?.poultry_name || 'Product'"
                     class="cart-item-image"
+                    :class="{'unavailable-image': isItemUnavailable(item)}"
                   >
                   <div class="cart-item-details flex-grow-1">
-                    <h6 class="cart-item-title">{{ item.item?.poultry?.poultry_name || 'Product' }} ({{ item.item?.measurement_value || 0 }} {{ item.item?.measurement_type || 'units' }})</h6>
+                    <div class="d-flex align-items-center">
+                      <h6 class="cart-item-title mb-0">{{ item.item?.poultry?.poultry_name || 'Product' }} ({{ item.item?.measurement_value || 0 }} {{ item.item?.measurement_type || 'units' }})</h6>
+                      <span v-if="isItemUnavailable(item)" class="badge bg-danger ms-2">Unavailable</span>
+                    </div>
+                    <p v-if="isItemUnavailable(item)" class="text-danger mb-1 mt-1">
+                      <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                      This item is no longer available and will be removed at checkout
+                    </p>
                     <p class="cart-item-price">RM {{ formatPrice(item.price_at_purchase) }}</p>
                     <p class="cart-item-seller">
                       <i class="bi bi-shop me-1"></i>{{ item.item?.user?.company?.company_name || 'Unknown Seller' }}
@@ -96,7 +104,7 @@
                       <button 
                         class="btn btn-sm btn-outline-secondary" 
                         @click="decreaseCartItemQuantity(item)"
-                        :disabled="!isEditing"
+                        :disabled="!isEditing || isItemUnavailable(item)"
                       >-</button>
                       <input 
                         type="number" 
@@ -104,12 +112,12 @@
                         v-model.number="item.quantity" 
                         min="1" 
                         max="99"
-                        :disabled="!isEditing"
+                        :disabled="!isEditing || isItemUnavailable(item)"
                       >
                       <button 
                         class="btn btn-sm btn-outline-secondary" 
                         @click="increaseCartItemQuantity(item)"
-                        :disabled="!isEditing"
+                        :disabled="!isEditing || isItemUnavailable(item)"
                       >+</button>
                     </div>
                     <button 
@@ -216,14 +224,39 @@
         </div>
       </div>
       
-      <!-- Add payment processing overlay -->
+      <!-- Professional Payment Processing UI (replaces the old overlay) -->
       <div v-if="isPaymentProcessing" class="payment-processing-overlay">
         <div class="payment-processing-content">
-          <div class="spinner-grow text-primary mb-3" role="status">
-            <span class="visually-hidden">Loading...</span>
+          <div class="payment-logo">
+            <i class="bi bi-shield-check"></i>
           </div>
-          <h5 class="mb-3">Processing Payment</h5>
-          <p class="text-muted">Please wait while we connect to the payment gateway...</p>
+          <div class="payment-spinner">
+            <div class="spinner-ring">
+              <div></div>
+              <div></div>
+              <div></div>
+              <div></div>
+            </div>
+          </div>
+          <h4 class="payment-title">Processing Payment</h4>
+          <p class="payment-message">Connecting to secure payment gateway...</p>
+          <div class="payment-steps">
+            <div class="payment-step active">
+              <div class="step-indicator"><i class="bi bi-check-circle-fill"></i></div>
+              <div class="step-label">Preparing order</div>
+            </div>
+            <div class="payment-step current">
+              <div class="step-indicator"><div class="step-pulse"></div></div>
+              <div class="step-label">Processing payment</div>
+            </div>
+            <div class="payment-step">
+              <div class="step-indicator"><i class="bi bi-circle"></i></div>
+              <div class="step-label">Completing transaction</div>
+            </div>
+          </div>
+          <div class="payment-security-note">
+            <i class="bi bi-lock-fill"></i> Your payment information is secure
+          </div>
         </div>
       </div>
     </div>
@@ -618,29 +651,66 @@ export default {
       try {
         // Validate location selection
         if (!selectedLocationID.value) {
-          locationError.value = true;
+          locationError.value = 'Please select a delivery location';
           return;
         }
         
-        // Reset location error
-        locationError.value = false;
-        isProcessingCheckout.value = true;
-        isPaymentProcessing.value = true; // Show payment processing overlay
+        // Clear any previous errors
+        locationError.value = '';
         
-        // Use the marketplaceService checkout method
+        // Set processing flags
+        isProcessingCheckout.value = true;
+        isPaymentProcessing.value = true;
+        
+        // Don't close the cart modal - keep it open and show the payment overlay on top
+        // The payment overlay will be visible because of isPaymentProcessing.value = true
+        
+        // Call checkout service
         await marketplaceService.checkout(selectedLocationID.value);
+        
+        // Note: If checkout is successful, the user will be redirected to the payment gateway
+        // by the checkout method in marketplaceService.js, so we don't need to handle success here
+        
       } catch (error) {
         console.error('Checkout error:', error);
-        // Error handling is done in the marketplaceService.checkout method
+        
+        // Hide our payment processing UI
+        isPaymentProcessing.value = false;
+        
+        // Close the cart modal before showing the error modal
+        if (viewCartModal.value) {
+          viewCartModal.value.hide();
+        }
+        
+        // Show error modal with callback to reopen cart
+        modal.danger('Checkout Error', error.message || 'Unable to process payment. Please try again.', {
+          onHidden: () => {
+            // Reopen the cart modal after error modal is closed
+            if (viewCartModal.value) {
+              viewCartModal.value.show();
+            }
+          }
+        });
+        
       } finally {
+        // Reset processing flags
         isProcessingCheckout.value = false;
-        isPaymentProcessing.value = false; // Hide payment processing overlay
       }
-    };
+    }
     
     // Format price
     const formatPrice = (price) => {
       return parseFloat(price).toFixed(2);
+    };
+    
+    // Add function to check if an item is unavailable (soft deleted)
+    const isItemUnavailable = (cartItem) => {
+      // Check if item or its location is deleted/unavailable
+      return !cartItem.item || 
+             !cartItem.item.poultry || 
+             !cartItem.item.location ||
+             cartItem.item.deleted_at || 
+             cartItem.item.location.deleted_at;
     };
     
     return {
@@ -651,6 +721,7 @@ export default {
       isEditing,
       isLoading,
       isProcessingCheckout,
+      isPaymentProcessing, // Add this line
       // Add new location-related properties
       locations,
       selectedLocationID,
@@ -671,7 +742,8 @@ export default {
       removeCartItem,
       proceedToCheckout,
       formatPrice,
-      loadLocations
+      loadLocations,
+      isItemUnavailable
     };
   }
 }
@@ -680,8 +752,221 @@ export default {
 <style scoped>
 .cart-modal-container {
   /* This container is invisible but holds the modals */
+  /* Add CSS variables here to ensure they're available in the scoped styles */
+  --primary-color: #123524;
+  --secondary-color: #EFE3C2;
+  --accent-color: #3E7B27;
+  --text-color: #333;
+  --light-text: #666;
+  --border-color: rgba(18, 53, 36, 0.2);
+  --light-bg: rgba(239, 227, 194, 0.2);
+  --lighter-bg: rgba(239, 227, 194, 0.1);
+}
+/* New Professional Payment Processing UI */
+.payment-processing-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.97);
+  z-index: 2000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  backdrop-filter: blur(5px);
 }
 
+.payment-processing-content {
+  text-align: center;
+  background-color: white;
+  padding: 3rem;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(18, 53, 36, 0.15);
+  max-width: 500px;
+  width: 90%;
+  border: 1px solid var(--border-color);
+}
+
+.payment-logo {
+  margin-bottom: 1.5rem;
+}
+
+.payment-logo i {
+  font-size: 3rem;
+  color: var(--primary-color);
+}
+
+.payment-spinner {
+  margin: 1.5rem auto;
+}
+
+.payment-title {
+  color: var(--primary-color);
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+.payment-message {
+  color: var(--light-text);
+  margin-bottom: 2rem;
+}
+
+.payment-steps {
+  display: flex;
+  justify-content: space-between;
+  margin: 2rem 0;
+  position: relative;
+}
+
+.payment-steps::before {
+  content: '';
+  position: absolute;
+  top: 15px;
+  left: 40px;
+  right: 40px;
+  height: 2px;
+  background-color: var(--border-color);
+  z-index: 1;
+}
+
+.payment-step {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  text-align: center;
+}
+
+.step-indicator {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background-color: white;
+  border: 2px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 10px;
+}
+
+.payment-step.active .step-indicator {
+  background-color: var(--accent-color);
+  border-color: var(--accent-color);
+  color: white;
+}
+
+.payment-step.current .step-indicator {
+  border-color: var(--primary-color);
+  border-width: 2px;
+}
+
+.step-pulse {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background-color: var(--primary-color);
+  animation: pulse 1.5s infinite;
+}
+
+.step-label {
+  font-size: 0.8rem;
+  color: var(--light-text);
+  max-width: 100px;
+  margin: 0 auto;
+}
+
+.payment-step.active .step-label,
+.payment-step.current .step-label {
+  color: var(--primary-color);
+  font-weight: 500;
+}
+
+.payment-security-note {
+  margin-top: 2rem;
+  color: var(--light-text);
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.payment-security-note i {
+  margin-right: 0.5rem;
+  color: var(--accent-color);
+}
+
+/* Spinner Ring Animation */
+.spinner-ring {
+  display: inline-block;
+  position: relative;
+  width: 64px;
+  height: 64px;
+}
+
+.spinner-ring div {
+  box-sizing: border-box;
+  display: block;
+  position: absolute;
+  width: 51px;
+  height: 51px;
+  margin: 6px;
+  border: 6px solid var(--primary-color);
+  border-radius: 50%;
+  animation: spinner-ring 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+  border-color: var(--primary-color) transparent transparent transparent;
+}
+
+.spinner-ring div:nth-child(1) {
+  animation-delay: -0.45s;
+}
+
+.spinner-ring div:nth-child(2) {
+  animation-delay: -0.3s;
+}
+
+.spinner-ring div:nth-child(3) {
+  animation-delay: -0.15s;
+}
+
+@keyframes spinner-ring {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.8);
+    opacity: 0.8;
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 576px) {
+  .payment-processing-content {
+    padding: 2rem 1.5rem;
+  }
+  
+  .payment-steps::before {
+    left: 20px;
+    right: 20px;
+  }
+  
+  .step-label {
+    font-size: 0.7rem;
+  }
+}
 .add-to-cart-item {
   display: flex;
   align-items: center;
@@ -866,5 +1151,25 @@ export default {
   font-size: 0.875rem;
   color: #6c757d;
   border-radius: 0 4px 4px 0;
+}
+/* Styles for unavailable items */
+.unavailable-item {
+  position: relative;
+  background-color: rgba(255, 235, 235, 0.5);
+  border-radius: 0.25rem;
+  padding: 0.5rem;
+  margin-bottom: 0.5rem;
+  border-left: 3px solid #dc3545;
+}
+
+.unavailable-image {
+  opacity: 0.6;
+}
+
+/* Responsive adjustments */
+@media (max-width: 576px) {
+  .unavailable-item {
+    padding: 0.25rem;
+  }
 }
 </style>

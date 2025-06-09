@@ -449,4 +449,60 @@ class QRcodeController extends Controller
             ], 500);
         }
     }
+
+
+    /**
+     * Generate QR code for SME report with embedded logo and custom colors
+     *
+     * @param  int  $reportValidityID
+     * @return \Illuminate\Http\Response
+     */
+    public function generateSmeReportQR($reportValidityID)
+    {
+        try {
+            // Check if report validity exists
+            $reportValidity = \App\Models\ReportValidity::find($reportValidityID);
+            
+            if (!$reportValidity) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Report not found'
+                ], 404);
+            }
+            
+            // Generate URL for QR code - pointing to the report PDF
+            $url = url("/report-pdf/{$reportValidityID}");
+            
+            // Get logo path for embedding in QR code center
+            $logoPath = public_path('images/HalalLink_v1.png');
+            
+            // Set colors from theme
+            $primaryColor = '#123524'; // Dark green
+            $secondaryColor = '#EFE3C2'; // Light beige
+            
+            // Generate QR code with embedded logo and custom colors
+            $qrCode = QrCode::format('png')
+                ->size(300)
+                ->errorCorrection('H') // High error correction for logo embedding
+                ->color(hexdec(substr($primaryColor, 1, 2)), 
+                    hexdec(substr($primaryColor, 3, 2)), 
+                    hexdec(substr($primaryColor, 5, 2)))
+                ->backgroundColor(hexdec(substr($secondaryColor, 1, 2)), 
+                                hexdec(substr($secondaryColor, 3, 2)), 
+                                hexdec(substr($secondaryColor, 5, 2)))
+                ->merge($logoPath, 0.3, true) // Embed logo at 30% size
+                ->generate($url);
+            
+            // Return as downloadable PNG
+            return response($qrCode, 200)
+                ->header('Content-Type', 'image/png')
+                ->header('Content-Disposition', "attachment; filename=sme-report-qr-{$reportValidityID}.png");
+        } catch (\Exception $e) {
+            Log::error('Error generating SME report QR code: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to generate QR code: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }

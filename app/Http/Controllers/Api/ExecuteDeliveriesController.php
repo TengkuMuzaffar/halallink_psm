@@ -240,7 +240,7 @@ class ExecuteDeliveriesController extends Controller
                             }
 
                             // Get item details
-                            $item = Item::with('poultry')->find($itemID);
+                            $item = Item::withTrashed()->with('poultry')->find($itemID);
                             if ($item) {
                                 $startCheckpointData['items'][$itemID] = [
                                     'item_name' => $item->poultry ? $item->poultry->poultry_name : 'Unknown',
@@ -325,7 +325,7 @@ class ExecuteDeliveriesController extends Controller
                             }
 
                             // Get item details
-                            $item = Item::with('poultry')->find($itemID);
+                            $item = Item::withTrashed()->with('poultry')->find($itemID);
                             if ($item) {
                                 $endCheckpointData['items'][$itemID] = [
                                     'item_name' => $item->poultry ? $item->poultry->poultry_name : 'Unknown',
@@ -469,10 +469,12 @@ class ExecuteDeliveriesController extends Controller
                                 }
                             }
                             
+                            // When building location data
                             $startLocationWithCheckpoints = [
                                 'locationID' => $startLocationID,
                                 'company_address' => $startLocations[$startLocationID]['company_address'],
-                                'checkpoints' => $filteredCheckpoints
+                                'checkpoints' => $filteredCheckpoints,
+                                'is_deleted' => Location::withTrashed()->find($startLocationID)->trashed() // Add flag
                             ];
                             
                             // Add location status
@@ -551,7 +553,8 @@ class ExecuteDeliveriesController extends Controller
                             $endLocationWithCheckpoints = [
                                 'locationID' => $endLocationID,
                                 'company_address' => $endLocation['company_address'],
-                                'checkpoints' => $locationCheckpoints[$endLocationID] ?? []
+                                'checkpoints' => $locationCheckpoints[$endLocationID] ?? [],
+                                'is_deleted' => Location::withTrashed()->find($endLocationID)->trashed() // Add flag for soft-deleted status
                             ];
                             
                             // Add location status

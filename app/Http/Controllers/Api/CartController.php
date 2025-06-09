@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Cart;
 use App\Models\Item;
+use App\Models\Location;
 use App\Models\Order;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -95,6 +96,25 @@ class CartController extends Controller
 
             // Get item details and check stock availability
             $item = Item::findOrFail($request->itemID);
+            
+            // Check if item is soft deleted
+            if ($item->trashed()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Item not available',
+                    'error' => 'This item is no longer available for purchase.'
+                ], 400);
+            }
+            
+            // Check if item's location is soft deleted
+            $location = Location::find($item->locationID);
+            if (!$location || $location->trashed()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Item not available',
+                    'error' => 'This item is from a location that is no longer available.'
+                ], 400);
+            }
             
             // Check if requested quantity exceeds available stock
             if ($request->order_quantity > $item->stock) {
@@ -210,7 +230,27 @@ class CartController extends Controller
             }
             
             // Check if requested quantity exceeds available stock
-            $item = Item::findOrFail($cartItem->itemID);
+            $item = Item::withTrashed()->findOrFail($cartItem->itemID);
+            
+            // Check if item is soft deleted
+            if ($item->trashed()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Item not available',
+                    'error' => 'This item is no longer available for purchase.'
+                ], 400);
+            }
+            
+            // Check if item's location is soft deleted
+            $location = Location::withTrashed()->find($item->locationID);
+            if (!$location || $location->trashed()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Item not available',
+                    'error' => 'This item is from a location that is no longer available.'
+                ], 400);
+            }
+            
             if ($request->quantity > $item->stock) {
                 return response()->json([
                     'success' => false,

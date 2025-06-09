@@ -105,6 +105,64 @@ export const downloadReportPdf = (reportValidityID) => {
   document.body.removeChild(link);
 };
 
+/**
+ * Download a QR code for a specific report validity
+ */
+export const downloadReportQrCode = async (reportValidityID) => {
+  try {
+    // Create a URL for the QR code to point to (same as backend implementation)
+    const url = `${window.location.origin}/report-pdf/${reportValidityID}`;
+    
+    // Create a temporary canvas element to generate the QR code
+    const canvas = document.createElement('canvas');
+    canvas.width = 300; // Match the backend size
+    canvas.height = 300;
+    document.body.appendChild(canvas);
+    
+    // Generate QR code using the QRCode library
+    return new Promise((resolve, reject) => {
+      QRCode.toCanvas(canvas, url, {
+        width: 300,
+        margin: 4,
+        color: {
+          dark: '#000000', // Black
+          light: '#FFFFFF'  // White
+        },
+        errorCorrectionLevel: 'M' // Medium error correction is sufficient without logo
+      }, function(error) {
+        if (error) {
+          console.error('Error generating QR code:', error);
+          document.body.removeChild(canvas);
+          reject(error);
+          return;
+        }
+        
+        // Convert canvas to blob and download
+        canvas.toBlob(function(blob) {
+          const url = window.URL.createObjectURL(blob);
+          
+          // Create a temporary link to download the file
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `sme-report-qr-${reportValidityID}.png`;
+          document.body.appendChild(link);
+          link.click();
+          
+          // Clean up
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(link);
+          document.body.removeChild(canvas);
+          
+          resolve(true);
+        }, 'image/png');
+      });
+    });
+  } catch (error) {
+    console.error(`Error generating QR code for report ${reportValidityID}:`, error);
+    throw error;
+  }
+};
+
 export default {
   getReportValidities,
   getReportValidity,
@@ -112,5 +170,6 @@ export default {
   updateReportValidity,
   deleteReportValidity,
   getSmeCompanies,
-  downloadReportPdf
+  downloadReportPdf,
+  downloadReportQrCode // Add the new method to the export
 };

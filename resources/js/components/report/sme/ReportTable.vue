@@ -42,12 +42,20 @@
           <template #actions="{ item }">
             <div class="d-flex justify-content-end">
               <button 
-                class="btn btn-sm btn-outline-primary" 
+                class="btn btn-sm btn-outline-primary me-2" 
                 @click="downloadReport(item)"
                 :disabled="!item.approval"
                 :title="item.approval ? 'Download Report' : 'Report not approved yet'"
               >
                 <i class="fas fa-download"></i>
+              </button>
+              <button 
+                class="btn btn-sm btn-outline-success" 
+                @click="downloadQrCode(item)"
+                :disabled="!item.approval"
+                :title="item.approval ? 'Download QR Code' : 'Report not approved yet'"
+              >
+                <i class="fas fa-qrcode"></i>
               </button>
             </div>
           </template>
@@ -151,6 +159,38 @@ export default {
       }
     };
     
+    // Download QR code (only if approved)
+    const downloadQrCode = async (item) => {
+      if (!item.approval) {
+        modal.warning('QR Code Not Available', 'This report has not been approved yet.');
+        return;
+      }
+      
+      try {
+        loading.value = true;
+        // Use the new downloadReportQrCode method with await
+        const response = await reportService.downloadReportQrCode(item.reportValidityID);
+        
+        // Log the response to see what's being returned
+        console.log('QR Code Response:', response);
+        
+        modal.success('Success', 'QR code download initiated.');
+      } catch (err) {
+        // Log the detailed error information
+        console.error('QR Code Error:', err);
+        console.error('Error details:', {
+          message: err.message,
+          status: err.response?.status,
+          statusText: err.response?.statusText,
+          data: err.response?.data
+        });
+        
+        modal.danger('Error', 'Failed to download QR code: ' + (err.message || 'Unknown error'));
+      } finally {
+        loading.value = false;
+      }
+    };
+    
     // Initialize
     onMounted(() => {
       fetchReportValidities();
@@ -167,6 +207,7 @@ export default {
       handlePageChange,
       handleSearch,
       downloadReport,
+      downloadQrCode, // Add the new method to the return object
       formatDate,
       refreshData
     };
@@ -178,7 +219,7 @@ export default {
 /* Use CSS variables from App.vue */
 .theme-header {
   background-color: var(--primary-color);
-  color: white;
+  color: var(--secondary-color);
   border: none;
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
 }

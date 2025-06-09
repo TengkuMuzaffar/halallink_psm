@@ -455,22 +455,22 @@ class ItemController extends Controller
                 }
             }
             
-            // Check if the item has associated cart items
-            if ($item->cartItems()->exists()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Cannot delete item that has been ordered',
-                    'error' => 'Item exists in cart or orders'
-                ], 400);
-            }
+            // // Check if the item has associated cart items
+            // if ($item->cartItems()->exists()) {
+            //     return response()->json([
+            //         'success' => false,
+            //         'message' => 'Cannot delete item that has been ordered',
+            //         'error' => 'Item exists in cart or orders'
+            //     ], 400);
+            // }
             
-            // Delete image if exists
-            if ($item->item_image) {
-                $imagePath = storage_path('app/public/' . $item->item_image);
-                if (file_exists($imagePath)) {
-                    Storage::disk('public')->delete($item->item_image);
-                }
-            }
+            // // Delete image if exists
+            // if ($item->item_image) {
+            //     $imagePath = storage_path('app/public/' . $item->item_image);
+            //     if (file_exists($imagePath)) {
+            //         Storage::disk('public')->delete($item->item_image);
+            //     }
+            // }
             
             $item->delete();
             

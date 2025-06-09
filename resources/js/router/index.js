@@ -242,6 +242,46 @@ const routes = [
         }
       },
       {
+        path: '/awb/:cartId',
+        name: 'AWBGenerate',
+        beforeEnter: (to, from, next) => {
+          const user = store.getters.user;
+          const companyType = user?.company?.company_type;
+          
+          if (companyType === 'broiler') {
+            // Redirect to the actual AWB endpoint
+            window.location.href = `/awb/${to.params.cartId}`;
+          } else {
+            next({ name: 'Unauthorized' });
+          }
+        },
+        meta: {
+          requiresAuth: true,
+          requiresCompanyType: 'broiler',
+          title: 'AWB Generation'
+        }
+      },
+      {
+        path: '/invoice/:orderId',
+        name: 'InvoiceGenerate',
+        beforeEnter: (to, from, next) => {
+          const user = store.getters.user;
+          const companyType = user?.company?.company_type;
+          
+          if (companyType === 'sme') {
+            // Redirect to the actual invoice endpoint
+            window.location.href = `/invoice/${to.params.orderId}`;
+          } else {
+            next({ name: 'Unauthorized' });
+          }
+        },
+        meta: {
+          requiresAuth: true,
+          requiresCompanyType: 'sme',
+          title: 'Invoice Generation'
+        }
+      },
+      {
         path: 'orders',
         name: 'OrderManagement',
         component: OrderManagement,
@@ -290,7 +330,14 @@ const routes = [
     component: Unauthorized,
     meta: { requiresAuth: false }
   },
- 
+  
+  // Add catch-all route for unknown URLs
+  {
+    path: '/:pathMatch(.*)*',
+    name: 'NotFound',
+    component: NotFound,
+    meta: { requiresAuth: false }
+  }
 ];
 
 const router = createRouter({

@@ -421,16 +421,10 @@ export default {
       
       console.log('Processing checkout with locationID:', locationID);
       
-      // Show loading modal
-      // modal.loading('Processing Payment', 'Please wait while we connect to the payment gateway...');
-      
       // Call the payment creation endpoint with location ID
       const response = await api.post('/api/payment/create', {
         locationID: locationID
       });
-      
-      // Close loading modal
-      modal.close();
       
       console.log('Payment API response:', response);
       
@@ -443,28 +437,31 @@ export default {
       } else {
         // Handle unexpected response
         console.error('Invalid response format:', response);
-        modal.danger('Checkout Error', 'Unable to process payment. Please try again.');
         throw new Error('Invalid payment response format');
       }
     } catch (error) {
-      // Close loading modal
-      modal.close();
-      
       console.error('Error processing checkout:', error);
       
       // Extract error message from response if available
       let errorMessage = 'Unable to process payment. Please try again.';
       
-      if (error.response && error.response.data) {
-        console.error('Error response:', error.response.data);
+      // Check for specific error codes
+      if (error.response) {
+        console.error('Error response:', error.response);
         
-        if (error.response.data && error.response.data.message) {
+        // Check for 526 error code (payment gateway down)
+        if (error.response.status === 526) {
+          errorMessage = 'Failed to connect to payment gateway: 526';
+        }
+        // Check for other error messages in the response
+        else if (error.response.data && error.response.data.message) {
           errorMessage = error.response.data.message;
         }
       }
       
-      modal.danger('Checkout Error', errorMessage);
-      throw error;
+      // Create a new error with the appropriate message
+      const customError = new Error(errorMessage);
+      throw customError;
     }
   },
   

@@ -13,9 +13,7 @@ Route::get('test/deliveries', [App\Http\Controllers\Api\DeliveryController::clas
     ->name('test.deliveries');
 Route::get('test/deliveries/executes', [App\Http\Controllers\Api\ExecuteDeliveriesController::class, 'index'])
     ->name('test.executes');
-Route::get('/awb/{cart}', [AWBController::class, 'generate'])->name('awb.generate');
-Route::get('/report-pdf/{reportValidity}', [ReportPDFController::class, 'generate'])->name('report.pdf.generate');
-Route::get('/invoice/{order}', [InvoiceController::class, 'generate'])->name('invoice.generate');
+
 // Add 'test' prefix to order routes
 Route::prefix('test')->group(function () {
     Route::get('/orders/stats', [OrderController::class, 'getStats']);
@@ -24,6 +22,11 @@ Route::prefix('test')->group(function () {
     Route::post('/orders', [OrderController::class, 'store']);
     Route::put('/orders/{order}', [OrderController::class, 'update']);
 });
+
+// Public routes without middleware
+Route::get('/awb/{cart}', [AWBController::class, 'generate'])->name('awb.generate');
+Route::get('/invoice/{order}', [InvoiceController::class, 'generate'])->name('invoice.generate');
+Route::get('/report-pdf/{reportValidity}', [ReportPDFController::class, 'generate'])->name('report.pdf.generate');
 
 // Catch-all route for Vue
 Route::get('/{any}', function () {

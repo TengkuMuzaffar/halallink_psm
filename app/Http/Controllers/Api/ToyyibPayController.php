@@ -10,6 +10,8 @@ use App\Models\Checkpoint;
 use App\Models\Task;
 use App\Models\Trip;
 use App\Models\User;
+use App\Models\Item;
+use App\Models\Location;
 use App\Models\SortLocation;
 use App\Mail\OrderPaidNotification;
 use Illuminate\Http\Request;
@@ -81,6 +83,29 @@ class ToyyibPayController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => 'No items in cart'
+                ], 400);
+            }
+            
+            // Check for soft-deleted items or locations
+            $unavailableItems = [];
+            foreach ($cartItems as $cartItem) {
+                // Use withTrashed to be able to check trashed status
+                $item = Item::withTrashed()->find($cartItem->itemID);
+                $location = $item ? Location::withTrashed()->find($item->locationID) : null;
+                
+                if (!$item || $item->trashed() || !$location || $location->trashed()) {
+                    $itemName = $item && $item->poultry ? $item->poultry->poultry_name : 'Unknown item';
+                    $unavailableItems[] = $itemName;
+                }
+            }
+            
+            if (!empty($unavailableItems)) {
+                \Log::warning('Payment failed: Cart contains unavailable items', ['unavailableItems' => $unavailableItems]);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Some items in your cart are no longer available',
+                    'error' => 'Please remove the following items from your cart: ' . implode(', ', $unavailableItems),
+                    'unavailable_items' => $unavailableItems
                 ], 400);
             }
             

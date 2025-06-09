@@ -108,14 +108,16 @@ class DeliveryController extends Controller
                                         ->get();
                                     
                                     foreach ($items as $item) {
-                                        $tripData['items'][] = [
-                                            'itemID' => $item->itemID,
-                                            'name' => $item->poultry ? $item->poultry->poultry_name : 'Unknown',
-                                            'measurement_type' => $item->measurement_type,
-                                            'measurement_value' => $item->measurement_value,
-                                            'price' => $item->price
-                                        ];
-                                    }
+                                            $tripData['items'][] = [
+                                                'itemID' => $item->itemID,
+                                                'name' => $item->poultry ? $item->poultry->poultry_name : 'Unknown',
+                                                'measurement_type' => $item->measurement_type,
+                                                'measurement_value' => $item->measurement_value,
+                                                'price' => $item->price,
+                                                'is_deleted' => method_exists($item, 'trashed') && $item->trashed(),
+                                                'location_deleted' => $item->location && method_exists($item->location, 'trashed') ? $item->location->trashed() : false
+                                            ];
+                                        }
                                 }
                             }
                             
@@ -183,7 +185,9 @@ class DeliveryController extends Controller
                                                         'name' => $item->poultry ? $item->poultry->poultry_name : 'Unknown',
                                                         'measurement_type' => $item->measurement_type,
                                                         'measurement_value' => $item->measurement_value,
-                                                        'price' => $item->price
+                                                        'price' => $item->price,
+                                                        'is_deleted' => method_exists($item, 'trashed') && $item->trashed(),
+                                                        'location_deleted' => $item->location && method_exists($item->location, 'trashed') ? $item->location->trashed() : false
                                                     ];
                                                 }
                                             }

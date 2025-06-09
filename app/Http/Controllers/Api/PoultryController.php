@@ -225,6 +225,15 @@ class PoultryController extends Controller
     {
         $poultry = Poultry::findOrFail($id);
         
+        // Check if there are any items associated with this poultry
+        $itemCount = $poultry->items()->count();
+        if ($itemCount > 0) {
+            return response()->json([
+                'message' => 'Cannot delete poultry because it has associated items',
+                'item_count' => $itemCount
+            ], 422); // 422 Unprocessable Entity
+        }
+        
         // Delete the image file if it exists and is stored locally
         if ($poultry->poultry_image) {
             $path = str_replace('/storage/', '', $poultry->poultry_image);

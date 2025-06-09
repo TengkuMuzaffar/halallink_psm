@@ -364,10 +364,23 @@ export default {
               },
               onError: (err) => {
                 console.error('Error deleting poultry:', err);
-                error.value = 'Failed to delete poultry. Please try again.';
                 
-                // Show error message
-                modal.danger('Error', 'Failed to delete poultry. Please try again.');
+                // Check if this is a 422 error (Unprocessable Entity) with associated items
+                if (err.response && err.response.status === 422 && err.response.data) {
+                  const errorData = err.response.data;
+                  error.value = errorData.message;
+                  
+                  // Show specific error message with item count if available
+                  const itemCount = errorData.item_count || 'multiple';
+                  const errorMessage = `${errorData.message}. This poultry has ${itemCount} associated item(s).`;
+                  
+                  modal.danger('Cannot Delete', errorMessage);
+                } else {
+                  error.value = 'Failed to delete poultry. Please try again.';
+                  
+                  // Show generic error message
+                  modal.danger('Error', 'Failed to delete poultry. Please try again.');
+                }
                 
                 // Reload the data even on error to ensure consistent state
                 fetchPoultries();
@@ -499,9 +512,12 @@ export default {
 </script>
 
 <style scoped>
+.poultry-management h1 {
+  color: #123524;
+}
 .theme-header {
   background-color: var(--primary-color);
-  color: white;
+  color: var(--secondary-color);
   border-bottom: none;
 }
 .pagination {

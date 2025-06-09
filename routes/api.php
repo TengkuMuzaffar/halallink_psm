@@ -158,9 +158,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/cart/update', [App\Http\Controllers\Api\CartController::class, 'updateCartItem']);
         Route::delete('/cart/remove/{cartID}', [App\Http\Controllers\Api\CartController::class, 'removeCartItem']);
         Route::delete('/cart/clear', [App\Http\Controllers\Api\CartController::class, 'clearCart']);
-         // Report routes for SME
+        // Inside the middleware('role.company:both,sme') group, after the SME report routes
         Route::get('/reports/sme', [App\Http\Controllers\Api\ReportController::class, 'index']);
         Route::get('/reports/sme/{reportValidityID}', [App\Http\Controllers\Api\ReportController::class, 'show']);
+        // Add the new route for QR code generation
+        Route::get('/reports/sme/{reportValidityID}/qrcode', [App\Http\Controllers\Api\QRcodeController::class, 'generateSmeReportQR']);
     });
     
     Route::middleware('role.company:both,logistic')->group(function () {

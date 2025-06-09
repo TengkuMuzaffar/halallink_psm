@@ -21,7 +21,7 @@ class ReportPDFController extends Controller
         // Get companies related to this report validity
         $companies = Company::whereHas('reports', function($query) use ($reportValidity) {
             $query->where('reportValidityID', $reportValidity->reportValidityID);
-        })->get();
+        })->with('admin')->get();
 
         // Handle null fullname by using email or a default value
         if (empty($reportValidity->user->fullname)) {

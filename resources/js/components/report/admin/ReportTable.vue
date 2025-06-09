@@ -26,17 +26,6 @@
           @search="handleSearch"
         >
           <!-- Custom column slots -->
-          <template #user="{ item }">
-            <div class="d-flex align-items-center">
-              <div v-if="item.user">
-                <span>{{ item.user.fullname }}</span>
-              </div>
-              <div v-else>
-                <span class="text-muted">Unknown</span>
-              </div>
-            </div>
-          </template>
-          
           <template #start_timestamp="{ item }">
             {{ formatDate(item.start_timestamp, true) }}
           </template>
@@ -131,7 +120,7 @@
       </div>
     </div>
 
-    <!-- Custom View Report Modal -->
+    <!-- View Report Modal -->
     <div class="modal fade" id="viewReportModal" tabindex="-1" aria-labelledby="viewReportModalLabel" aria-hidden="true">
       <div class="modal-dialog modal-lg">
         <div class="modal-content">
@@ -140,7 +129,11 @@
             <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
           <div class="modal-body" id="viewReportModalBody">
-            <!-- Content will be dynamically inserted here -->
+            <ReportDetailsView 
+              v-if="currentReportId" 
+              :reportId="currentReportId"
+              @loading="loading = $event"
+            />
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
@@ -162,7 +155,7 @@
 </template>
 
 <script>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, nextTick } from 'vue';
 import ResponsiveTable from '../../ui/ResponsiveTable.vue';
 import CompanySearchAndSelection from './CompanySearchAndSelection.vue';
 import ConfirmationModal from './ConfirmationModal.vue';
@@ -170,12 +163,14 @@ import reportService from '../../../services/reportService';
 import modal from '../../../utils/modal';
 import { formatDate } from '../../../utils/dateUtils';
 import * as bootstrap from 'bootstrap';
+import ReportDetailsView from './ReportDetailsView.vue';
 
 export default {
   name: 'AdminReportTable',
   components: {
-    ResponsiveTable,
     CompanySearchAndSelection,
+    ReportDetailsView,
+    ResponsiveTable,
     ConfirmationModal
   },
   setup() {
@@ -183,7 +178,8 @@ export default {
     const reportValidities = ref([]);
     const loading = ref(true);
     const error = ref(null);
-    
+    // Add to the refs:
+    const currentReportId = ref(null);
     // Pagination
     const currentPage = ref(1);
     const perPage = ref(10);
@@ -208,7 +204,6 @@ export default {
     
     // Table columns
     const columns = [
-      { key: 'user', label: 'Created By', sortable: false },
       { key: 'start_timestamp', label: 'Start Date', sortable: true },
       { key: 'end_timestamp', label: 'End Date', sortable: true },
       { key: 'approval', label: 'Status', sortable: true },
@@ -252,29 +247,18 @@ export default {
     // View report details
     const viewReportDetails = async (item) => {
       try {
-        loading.value = true;
-        const response = await reportService.getReportValidity(item.reportValidityID);
-        
-        // Format companies for display
-        const companiesList = response.companies.map(company => {
-          return `<li>${company.company_name}</li>`;
-        }).join('');
-        
         // Get the modal element
         const modalElement = document.getElementById('viewReportModal');
         const modalBody = document.getElementById('viewReportModalBody');
         
-        // Set modal content
-        modalBody.innerHTML = `
-          <div class="report-details">
-            <p><strong>Created By:</strong> ${item.user ? item.user.fullname : 'Unknown'}</p>
-            <p><strong>Start Date:</strong> ${formatDate(item.start_timestamp, true)}</p>
-            <p><strong>End Date:</strong> ${formatDate(item.end_timestamp, true)}</p>
-            <p><strong>Status:</strong> ${item.approval ? 'Approved' : 'Pending'}</p>
-            <p><strong>Companies:</strong></p>
-            <ul>${companiesList || '<li>No companies selected</li>'}</ul>
-          </div>
-        `;
+        // First set to null to force component to unmount
+        currentReportId.value = null;
+        
+        // Use nextTick to ensure the component is unmounted before setting new ID
+        await nextTick();
+        
+        // Set current reportId
+        currentReportId.value = item.reportValidityID;
         
         // Show the modal
         if (!viewReportModalRef.value) {
@@ -283,8 +267,6 @@ export default {
         viewReportModalRef.value.show();
       } catch (err) {
         modal.danger('Error', 'Failed to load report details');
-      } finally {
-        loading.value = false;
       }
     };
     
@@ -482,16 +464,19 @@ export default {
       fetchReportValidities();
     });
     
+    // At the end of your setup function, add currentReportId to the return statement
     return {
       reportValidities,
       loading,
       error,
-      columns,
       currentPage,
       perPage,
       totalItems,
+      searchQuery,
+      columns,
       formData,
       selectedCompanies,
+      fetchReportValidities,
       handlePageChange,
       handleSearch,
       viewReportDetails,
@@ -502,7 +487,8 @@ export default {
       submitCreateReport,
       closeConfirmationModal,
       formatDate,
-      refreshData
+      refreshData,
+      currentReportId  // Add this line
     };
   }
 };
@@ -512,7 +498,7 @@ export default {
 /* Use CSS variables from App.vue */
 .theme-header {
   background-color: var(--primary-color);
-  color: white;
+  color: var(--secondary-color);
   border: none;
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
 }
