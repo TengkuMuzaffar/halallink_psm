@@ -44,6 +44,21 @@ class DashboardService {
       throw error;
     }
   }
+
+  /**
+   * Get company registration trend data
+   * @param {string} period - 'month', 'quarter', or 'year'
+   */
+  async getCompanyRegistrationTrend(period = 'month') {
+    try {
+      const response = await api.get(`/api/dashboard/company/registration-trend?period=${period}`);
+      console.log('Company registration trend data:', response);
+      return response;
+    } catch (error) {
+      console.error('Error fetching company registration trend data:', error);
+      throw error;
+    }
+  }
 }
 
 export default new DashboardService();

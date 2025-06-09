@@ -97,9 +97,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/stats', [DashboardController::class, 'getStats']);
             Route::get('/broiler-sales', [DashboardController::class, 'getBroilerSalesData']);
             Route::get('/marketplace/activity', [DashboardController::class, 'getMarketplaceActivity']);
-            Route::get('/top-performers', [DashboardController::class, 'getTopPerformers']);
-            Route::get('/performance-metrics', [DashboardController::class, 'getPerformanceMetrics']);
-            Route::get('/industry-benchmarks', [DashboardController::class, 'getIndustryBenchmarks']);
+            Route::get('/company/registration-trend', [DashboardController::class, 'getCompanyRegistrationTrend']);
         });
     });
     

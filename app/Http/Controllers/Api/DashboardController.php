@@ -201,4 +201,99 @@ class DashboardController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Get company registration trend data for line chart
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getCompanyRegistrationTrend(Request $request)
+    {
+        $period = $request->input('period', 'month'); // Default to month
+        
+        // Define date ranges and grouping format based on period
+        switch ($period) {
+            case 'quarter':
+                $startDate = Carbon::now()->subMonths(12); // Show last 4 quarters
+                break;
+            case 'year':
+                $startDate = Carbon::now()->subYears(5); // Show last 5 years
+                break;
+            case 'month':
+            default:
+                $startDate = Carbon::now()->subMonths(12); // Show last 12 months
+                break;
+        }
+        
+        try {
+            // Get company registration counts grouped by date
+            $query = Company::where('created_at', '>=', $startDate);
+                
+            if ($period === 'quarter') {
+                // For quarters, we need to group by year and quarter
+                $registrationCounts = $query->select(
+                    DB::raw("YEAR(created_at) as year"),
+                    DB::raw("QUARTER(created_at) as quarter"),
+                    DB::raw('COUNT(*) as count')
+                )
+                ->groupBy('year', 'quarter')
+                ->orderBy('year')
+                ->orderBy('quarter')
+                ->get()
+                ->map(function ($item) {
+                    return [
+                        'date' => sprintf("Q%d %d", $item->quarter, $item->year),
+                        'count' => $item->count
+                    ];
+                });
+            } else if ($period === 'year') {
+                // For years, we group by year only
+                $registrationCounts = $query->select(
+                    DB::raw("YEAR(created_at) as year"),
+                    DB::raw('COUNT(*) as count')
+                )
+                ->groupBy('year')
+                ->orderBy('year')
+                ->get()
+                ->map(function ($item) {
+                    return [
+                        'date' => (string)$item->year,
+                        'count' => $item->count
+                    ];
+                });
+            } else {
+                // For months, we group by year and month directly
+                $registrationCounts = $query->select(
+                    DB::raw("YEAR(created_at) as year"),
+                    DB::raw("MONTH(created_at) as month"),
+                    DB::raw('COUNT(*) as count')
+                )
+                ->groupBy('year', 'month')
+                ->orderBy('year')
+                ->orderBy('month')
+                ->get()
+                ->map(function ($item) {
+                    // Create a Carbon instance from the year and month
+                    $date = Carbon::createFromDate($item->year, $item->month, 1);
+                    return [
+                        'date' => $date->format('M Y'),
+                        'count' => $item->count
+                    ];
+                });
+            }
+            
+            return response()->json([
+                'period' => $period,
+                'data' => $registrationCounts
+            ]);
+        } catch (\Exception $e) {
+            // Handle any database or processing errors
+            return response()->json([
+                'period' => $period,
+                'error' => 'Error processing data: ' . $e->getMessage(),
+                'data' => []
+            ], 500);
+        }
+    }
 }

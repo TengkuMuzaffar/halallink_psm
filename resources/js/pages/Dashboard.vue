@@ -25,6 +25,13 @@
     <!-- Stats Cards Row -->
     <StatsCards :stats="companyStats" class="mb-4" />
 
+    <!-- Company Registration Trend Chart (Full Width) -->
+    <div class="row mb-4">
+      <div class="col-12">
+        <CompanyRegistrationChart id="company-registration-chart" :period="selectedPeriod" />
+      </div>
+    </div>
+
     <!-- Charts Row -->
     <div class="row mb-4">
       <div class="col-lg-6 mb-4 mb-lg-0">
@@ -41,17 +48,18 @@
 import { ref, computed, onMounted } from 'vue';
 import StatsCards from '../components/dashboard/StatsCards.vue';
 import BroilerSalesPieChart from '../components/dashboard/BroilerSalesPieChart.vue';
-import SalesLineChart from '../components/dashboard/MarketLineChart.vue';
+import MarketLineChart from '../components/dashboard/MarketLineChart.vue';
+import CompanyRegistrationChart from '../components/dashboard/CompanyRegistrationChart.vue';
 import DashboardService from '../services/dashboardService';
 import modal from '../utils/modal';
-import MarketLineChart from '../components/dashboard/MarketLineChart.vue';
 
 export default {
   name: 'Dashboard',
   components: {
     StatsCards,
     BroilerSalesPieChart,
-    MarketLineChart
+    MarketLineChart,
+    CompanyRegistrationChart
   },
   setup() {
     const loading = ref(true);
