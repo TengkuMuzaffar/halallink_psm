@@ -18,7 +18,7 @@
         }
         .header {
             background-color: #123524;
-            color: white;
+            color: white !important;
             padding: 20px;
             text-align: center;
             border-radius: 5px 5px 0 0;
@@ -53,7 +53,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>HalalLink</h1>
+            <h1 style="color: #fff;">HalalLink</h1>
         </div>
         <div class="content">
             <h2>Reset Your Password</h2>

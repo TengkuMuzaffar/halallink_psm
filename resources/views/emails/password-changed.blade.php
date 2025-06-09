@@ -23,6 +23,7 @@
             text-align: center;
             border-radius: 5px 5px 0 0;
         }
+      
         .content {
             background-color: #f9f9f9;
             padding: 20px;
@@ -48,12 +49,15 @@
         h1, h2 {
             color: #123524;
         }
+        .header h1 {
+            color: white;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>HalalLink</h1>
+            <h1 style="color: #fff;">HalalLink</h1>
         </div>
         <div class="content">
             <h2>Password Changed</h2>

@@ -148,7 +148,7 @@
                   </div>
                   
                   <table class="table table-hover mb-0 theme-table">
-                    <thead class="theme-table-header">
+                    <thead class="theme-table-header d-none d-md-table-header-group">
                       <tr>
                         <th scope="col" style="width: 50px"></th>
                         <th scope="col">Order ID</th>
@@ -174,15 +174,16 @@
                               ></i>
                             </button>
                           </td>
-                          <td><strong>#{{ order.orderID }}</strong></td>
-                          <td>
+                          <!-- Desktop view (md and up) -->
+                          <td class="d-none d-md-table-cell"><strong>#{{ order.orderID }}</strong></td>
+                          <td class="d-none d-md-table-cell">
                             <span class="badge" :class="`theme-badge-${getStatusColor(order.calculated_status || order.order_status)}`">
                               {{ formatStatus(order.calculated_status || order.order_status) }}
                             </span>
                           </td>
-                          <td>{{ formatDate(order.created_at) }}</td>
-                          <td v-if="isBroilerCompany">{{ order.user ? (order.user.fullname || order.user.email) : 'N/A' }}</td>
-                          <td v-if="isSMECompany" class="text-center">
+                          <td class="d-none d-md-table-cell">{{ formatDate(order.created_at) }}</td>
+                          <td class="d-none d-md-table-cell" v-if="isBroilerCompany">{{ order.user ? (order.user.fullname || order.user.email) : 'N/A' }}</td>
+                          <td class="d-none d-md-table-cell text-center" v-if="isSMECompany">
                             <button 
                               class="btn btn-sm btn-outline-primary" 
                               @click="generateInvoice(order.orderID)"
@@ -192,8 +193,33 @@
                               <span class="d-none d-sm-inline ms-1">Invoice</span>
                             </button>
                           </td>
+                          
+                          <!-- Mobile view (xs to sm) - Combined column -->
+                          <td class="d-md-none" colspan="5">
+                            <div class="d-flex justify-content-between align-items-start mb-1">
+                              <strong>#{{ order.orderID }}</strong>
+                              <span>{{ formatDate(order.created_at) }}</span>
+                            </div>
+                            <div class="mb-1">
+                              <span class="badge" :class="`theme-badge-${getStatusColor(order.calculated_status || order.order_status)}`">
+                                {{ formatStatus(order.calculated_status || order.order_status) }}
+                              </span>
+                            </div>
+                            <div v-if="isBroilerCompany" class="text-muted small mb-1">
+                              {{ order.user ? (order.user.fullname || order.user.email) : 'N/A' }}
+                            </div>
+                            <div v-if="isSMECompany" class="mt-2">
+                              <button 
+                                class="btn btn-sm btn-outline-primary" 
+                                @click="generateInvoice(order.orderID)"
+                                title="Download Invoice"
+                              >
+                                <i class="fas fa-file-invoice"></i>
+                                <span class="ms-1">Invoice</span>
+                              </button>
+                            </div>
+                          </td>
                         </tr>
-                        
                         <!-- Expanded Order Items -->
                         <tr v-if="expandedOrders[order.orderID]">
                           <td colspan="6" class="p-0">
@@ -251,37 +277,20 @@
             </div>
             
             <!-- Location-specific Pagination -->
-            <div v-if="!loading && location.orders && location.orders.length > 0" class="d-flex justify-content-between align-items-center p-3 border-top theme-pagination-container">
-              <div>
+            <div v-if="!loading && location.orders && location.orders.length > 0" class="d-flex flex-column flex-md-row justify-content-between align-items-center p-3 border-top theme-pagination-container">
+              <div class="mb-2 mb-md-0">
                 <span class="theme-pagination-text" v-if="locationPaginations[location.locationID]">
                   Showing {{ locationPaginations[location.locationID].from || 1 }}-{{ locationPaginations[location.locationID].to || location.orders.length }} of {{ locationPaginations[location.locationID].total || location.orders.length }}
                 </span>
               </div>
-              <nav aria-label="Order pagination" v-if="locationPaginations[location.locationID] && locationPaginations[location.locationID].last_page > 1">
-                <ul class="pagination mb-0">
-                  <li class="page-item" :class="{ disabled: !locationPaginations[location.locationID] || locationPaginations[location.locationID].current_page <= 1 || locationLoading[location.locationID] }">
-                    <a class="page-link" href="#" @click.prevent="!locationLoading[location.locationID] && changePage(location.locationID, (locationPaginations[location.locationID]?.current_page || 1) - 1)">
-                      <i class="fas fa-chevron-left"></i>
-                    </a>
-                  </li>
-                  <li 
-                      v-for="page in getPaginationRange(location.locationID)" 
-                      :key="`${location.locationID}-${page}`" 
-                      class="page-item"
-                      :class="{ 
-                        active: locationPaginations[location.locationID] && page == locationPaginations[location.locationID].current_page, 
-                        disabled: locationLoading[location.locationID]
-                      }"
-                    >
-                    <a class="page-link" href="#" @click.prevent="!locationLoading[location.locationID] && changePage(location.locationID, page)">{{ page }}</a>
-                  </li>
-                  <li class="page-item" :class="{ disabled: !locationPaginations[location.locationID] || locationPaginations[location.locationID].current_page >= locationPaginations[location.locationID].last_page || locationLoading[location.locationID] }">
-                    <a class="page-link" href="#" @click.prevent="!locationLoading[location.locationID] && changePage(location.locationID, (locationPaginations[location.locationID]?.current_page || 1) + 1)">
-                      <i class="fas fa-chevron-right"></i>
-                    </a>
-                  </li>
-                </ul>
-              </nav>
+              <div v-if="locationPaginations[location.locationID] && locationPaginations[location.locationID].last_page > 1">
+                <Pagination 
+                  :pagination="locationPaginations[location.locationID]" 
+                  :max-visible-pages="5"
+                  @page-changed="(page) => changePage(location.locationID, page)"
+                  :class="{ 'pagination-loading': locationLoading[location.locationID] }"
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -307,10 +316,11 @@ import StatsCard from '../components/ui/StatsCard.vue';
 import ResponsiveTable from '../components/ui/ResponsiveTable.vue';
 import LoadingSpinner from '../components/ui/LoadingSpinner.vue';
 import OrderDetailModal from '../components/order/OrderDetailModal.vue';
+import Pagination from '../components/ui/Pagination.vue';
 import { orderService } from '../services/orderService';
 import formatter from '../utils/formatter';
 import * as bootstrap from 'bootstrap';
-import { useStore } from 'vuex'; // Add this import
+import { useStore } from 'vuex';
 
 export default {
   name: 'OrderManagement',
@@ -318,7 +328,8 @@ export default {
     StatsCard,
     ResponsiveTable,
     LoadingSpinner,
-    OrderDetailModal
+    OrderDetailModal,
+    Pagination
   },
   setup() {
     // Add store
@@ -555,10 +566,16 @@ export default {
           const locationIndex = locations.value.findIndex(loc => loc.locationID === locationID);
           if (locationIndex !== -1) {
             locations.value[locationIndex].orders = response.data.orders;
-            locations.value[locationIndex].pagination = response.data.pagination;
             
-            // Update locationPaginations for UI
-            locationPaginations.value[locationID] = response.data.pagination;
+            // Make sure the pagination data is properly updated
+            const paginationData = {
+              ...response.data.pagination,
+              current_page: parseInt(response.data.pagination.current_page) // Ensure it's a number
+            };
+            
+            // Update both location pagination and locationPaginations
+            locations.value[locationIndex].pagination = paginationData;
+            locationPaginations.value[locationID] = paginationData;
             
             // Store the current page
             locationPages.value[locationID] = currentPage;
@@ -646,8 +663,11 @@ export default {
       const pagination = locationPaginations.value[locationID];
       if (!pagination || page < 1 || page > pagination.last_page) return;
       
-      locationPages.value[locationID] = page;
-      loadLocationOrders(locationID, page); // Pass the page parameter
+      // Update the page number first
+      locationPages.value[locationID] = parseInt(page);
+      
+      // Then load the orders for that page
+      loadLocationOrders(locationID, parseInt(page));
     };
     
     // Helper function to get pagination range for a specific location
@@ -955,7 +975,7 @@ const getAllOrderItems = (order) => {
   background-color: var(--lighter-bg);
 }
 
-.theme-list-item-active {
+/* .theme-list-item-active {
   background-color: var(--primary-color);
   border-color: var(--primary-color);
   color: var(--secondary-color);
@@ -963,7 +983,7 @@ const getAllOrderItems = (order) => {
 
 .theme-list-item-active .text-muted {
   color: rgba(239, 227, 194, 0.7) !important;
-}
+} */
 
 /* Table styles */
 .theme-table {
@@ -985,7 +1005,7 @@ const getAllOrderItems = (order) => {
 }
 
 .theme-list-item-active .theme-icon {
-  color: var(--secondary-color);
+  color: var(--primary-color);
 }
 
 /* Spinner */
@@ -1017,9 +1037,9 @@ const getAllOrderItems = (order) => {
 }
 
 .page-item.active .page-link {
-  background-color: #123524 !important;
-  border-color: #123524 !important;
-  color: #fff !important;
+  background-color: var(--primary-color) !important;
+  border-color: var(--primary-color) !important;
+  color: var(--secondary-color) !important;
 }
 
 .page-item.disabled .page-link {
@@ -1154,9 +1174,9 @@ const getAllOrderItems = (order) => {
   color: #2e5c1d;
 }
 .theme-pagination-container .page-item.active .page-link {
-  background-color: #123524 !important;
-  border-color: #123524 !important;
-  color: #fff !important;
+  background-color: var(--primary-color) !important;
+  border-color: var(--primary-color) !important;
+  color: var(--secondary-color) !important;
 }
 
 /* Add this new rule to maintain active styling even when disabled */
@@ -1164,5 +1184,11 @@ const getAllOrderItems = (order) => {
   background-color: #123524 !important;
   border-color: #123524 !important;
   color: #fff !important;
+}
+
+/* Add this to your existing styles */
+.pagination-loading .page-link {
+  pointer-events: none;
+  opacity: 0.7;
 }
 </style>

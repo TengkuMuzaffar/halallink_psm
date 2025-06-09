@@ -46,7 +46,7 @@ class SmeOrderSeeder extends Seeder
         // Get SME locations (delivery destinations)
         $smeLocations = Location::whereHas('company', function($query) {
             $query->where('company_type', 'sme');
-        })->get();
+        })->where('location_type', 'kitchen')->get();
 
         if ($smeLocations->isEmpty()) {
             $this->command->error('No SME locations found. Please run LocationSeeder first.');
