@@ -169,6 +169,18 @@ class OrderController extends Controller
                             $item = $cartItem->item;
                             
                             if ($item) {
+                                // Filter items based on company type and location
+                                $company = Company::find($companyID);
+                                if ($company) {
+                                    if ($company->company_type === 'broiler' && $item->locationID != $locationID) {
+                                        continue; // Skip items that don't match the current location for broiler companies
+                                    }
+                                    
+                                    if ($company->company_type === 'slaughterhouse' && $item->slaughterhouse_locationID != $locationID) {
+                                        continue; // Skip items that don't match the current slaughterhouse location
+                                    }
+                                }
+                                
                                 $itemDetails = [
                                     'itemID' => $item->itemID,
                                     'cartID' => $cartItem->cartID,
@@ -772,6 +784,18 @@ public function getOrdersByLocationID(Request $request, $locationID)
                     $item = $cartItem->item;
                     
                     if ($item) {
+                        // Filter items based on company type and location
+                        $company = Company::find($companyID);
+                        if ($company) {
+                            if ($company->company_type === 'broiler' && $item->locationID != $locationID) {
+                                continue; // Skip items that don't match the current location for broiler companies
+                            }
+                            
+                            if ($company->company_type === 'slaughterhouse' && $item->slaughterhouse_locationID != $locationID) {
+                                continue; // Skip items that don't match the current slaughterhouse location
+                            }
+                        }
+                        
                         $itemDetails = [
                             'itemID' => $item->itemID,
                             'cartID' => $cartItem->cartID,

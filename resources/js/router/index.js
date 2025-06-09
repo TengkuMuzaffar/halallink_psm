@@ -332,12 +332,12 @@ const routes = [
   },
   
   // Add catch-all route for unknown URLs
-  {
-    path: '/:pathMatch(.*)*',
-    name: 'NotFound',
-    component: NotFound,
-    meta: { requiresAuth: false }
-  }
+  // {
+  //   path: '/:pathMatch(.*)*',
+  //   name: 'NotFound',
+  //   component: NotFound,
+  //   meta: { requiresAuth: false }
+  // }
 ];
 
 const router = createRouter({

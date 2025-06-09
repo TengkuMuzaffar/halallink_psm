@@ -6,17 +6,6 @@
           <i class="fas fa-chart-line" style="color: var(--primary-color);"></i>
           Marketplace Activity
         </h5>
-        <div class="btn-group">
-          <button 
-            v-for="option in periodOptions" 
-            :key="option.value"
-            class="btn btn-sm" 
-            :class="period === option.value ? 'btn-themed-primary' : 'btn-themed-outline-primary'"
-            @click="changePeriod(option.value)"
-          >
-            {{ option.label }}
-          </button>
-        </div>
       </div>
     </div>
     <div class="card-body d-flex align-items-center justify-content-center">
@@ -47,11 +36,11 @@
 <script>
 import { ref, computed, onMounted, watch } from 'vue';
 import { Line } from 'vue-chartjs';
-import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js';
+import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler } from 'chart.js';
 import DashboardService from '../../services/dashboardService';
 import LoadingSpinner from '../ui/LoadingSpinner.vue';
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
 
 export default {
   name: 'MarketLineChart',
@@ -59,17 +48,20 @@ export default {
     Line,
     LoadingSpinner
   },
-  setup() {
+  props: {
+    period: {
+      type: String,
+      required: true,
+      default: 'month',
+      validator: (value) => ['month', 'quarter', 'year'].includes(value)
+    }
+  },
+  setup(props) {
     const loading = ref(false);
     const error = ref(null);
     const activityData = ref([]);
-    const period = ref('month');
     
-    const periodOptions = [
-      { value: 'month', label: 'Month' },
-      { value: 'quarter', label: 'Quarter' },
-      { value: 'year', label: 'Year' }
-    ];
+    // Remove local period state and periodOptions
     
     const hasData = computed(() => activityData.value && activityData.value.length > 0);
     
@@ -142,7 +134,7 @@ export default {
       error.value = null;
       
       try {
-        const response = await DashboardService.getMarketplaceActivity(period.value);
+        const response = await DashboardService.getMarketplaceActivity(props.period);
         activityData.value = response.data || [];
       } catch (err) {
         console.error('Error fetching activity data:', err);
@@ -152,11 +144,10 @@ export default {
       }
     };
     
-    const changePeriod = (newPeriod) => {
-      period.value = newPeriod;
-    };
+    // Remove changePeriod function
     
-    watch(period, () => {
+    // Watch for changes to the period prop
+    watch(() => props.period, () => {
       fetchActivityData();
     });
     
@@ -168,12 +159,10 @@ export default {
       loading,
       error,
       activityData,
-      period,
-      periodOptions,
       hasData,
       chartData,
-      chartOptions,
-      changePeriod
+      chartOptions
+      // Remove period, periodOptions, and changePeriod from return
     };
   }
 };

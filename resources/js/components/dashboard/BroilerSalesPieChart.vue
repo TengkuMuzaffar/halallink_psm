@@ -6,17 +6,6 @@
           <i class="fas fa-chart-pie" style="color: var(--primary-color);"></i>
           Broiler Sales
         </h5>
-        <div class="btn-group">
-          <button 
-            v-for="option in periodOptions" 
-            :key="option.value"
-            class="btn btn-sm" 
-            :class="period === option.value ? 'btn-themed-primary' : 'btn-themed-outline-primary'"
-            @click="changePeriod(option.value)"
-          >
-            {{ option.label }}
-          </button>
-        </div>
       </div>
     </div>
     <div class="card-body d-flex align-items-center justify-content-center">
@@ -59,17 +48,20 @@ export default {
     Pie,
     LoadingSpinner
   },
-  setup() {
+  props: {
+    period: {
+      type: String,
+      required: true,
+      default: 'month',
+      validator: (value) => ['month', 'quarter', 'year'].includes(value)
+    }
+  },
+  setup(props) {
     const loading = ref(false);
     const error = ref(null);
     const salesData = ref([]);
-    const period = ref('month');
     
-    const periodOptions = [
-      { value: 'month', label: 'Month' },
-      { value: 'quarter', label: 'Quarter' },
-      { value: 'year', label: 'Year' }
-    ];
+    // Remove local period state and periodOptions
     
     const hasData = computed(() => salesData.value && salesData.value.length > 0);
     
@@ -127,7 +119,7 @@ export default {
       error.value = null;
       
       try {
-        const response = await DashboardService.getBroilerSalesData(period.value);
+        const response = await DashboardService.getBroilerSalesData(props.period);
         salesData.value = response.data || [];
       } catch (err) {
         console.error('Error fetching sales data:', err);
@@ -137,11 +129,10 @@ export default {
       }
     };
     
-    const changePeriod = (newPeriod) => {
-      period.value = newPeriod;
-    };
+    // Remove changePeriod function
     
-    watch(period, () => {
+    // Watch for changes to the period prop
+    watch(() => props.period, () => {
       fetchSalesData();
     });
     
@@ -153,12 +144,10 @@ export default {
       loading,
       error,
       salesData,
-      period,
-      periodOptions,
       hasData,
       chartData,
-      chartOptions,
-      changePeriod
+      chartOptions
+      // Remove period, periodOptions, and changePeriod from return
     };
   }
 };

@@ -2,10 +2,24 @@
   <div class="dashboard">
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4">
       <h1 class="mb-2 mb-md-0 fs-2 fs-md-1">Performance Dashboard</h1>
-      <button class="btn download-btn" @click="downloadReport">
-        <i class="fas fa-download me-1"></i>
-        Download Performance Report
-      </button>
+      <div class="d-flex align-items-center">
+        <div class="dropdown me-3">
+          <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="periodDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+            {{ periodOptions.find(option => option.value === selectedPeriod).label }}
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="periodDropdown">
+            <li v-for="option in periodOptions" :key="option.value">
+              <a class="dropdown-item" href="#" @click.prevent="changePeriod(option.value)" :class="{ 'active': selectedPeriod === option.value }">
+                {{ option.label }}
+              </a>
+            </li>
+          </ul>
+        </div>
+        <button class="btn download-btn" @click="downloadReport">
+          <i class="fas fa-download me-1"></i>
+          Download Performance Report
+        </button>
+      </div>
     </div>
     
     <!-- Stats Cards Row -->
@@ -14,10 +28,10 @@
     <!-- Charts Row -->
     <div class="row mb-4">
       <div class="col-lg-6 mb-4 mb-lg-0">
-        <BroilerSalesPieChart />
+        <BroilerSalesPieChart id="broiler-sales-chart" :period="selectedPeriod" />
       </div>
       <div class="col-lg-6">
-        <MarketLineChart />
+        <MarketLineChart id="market-line-chart" :period="selectedPeriod" />
       </div>
     </div>
   </div>
@@ -42,12 +56,26 @@ export default {
   setup() {
     const loading = ref(true);
     const error = ref(null);
+    const isDownloading = ref(false);
     const stats = ref({
       broiler: 0,
       slaughterhouse: 0,
       sme: 0,
       logistic: 0
     });
+    
+    // Add period state and options
+    const selectedPeriod = ref('month');
+    const periodOptions = [
+      { value: 'month', label: 'Month' },
+      { value: 'quarter', label: 'Quarter' },
+      { value: 'year', label: 'Year' }
+    ];
+    
+    // Add period change function
+    const changePeriod = (period) => {
+      selectedPeriod.value = period;
+    };
     
     // Transform stats for StatsCards component
     const companyStats = computed(() => {
@@ -64,19 +92,19 @@ export default {
           bgColor: 'bg-primary'
         },
         {
-          title: 'Slaughterhouse',
+          title: 'Slaughterhouse Companies',
           count: stats.value.slaughterhouse || 0,
           icon: 'fas fa-warehouse',
           bgColor: 'bg-danger'
         },
         {
-          title: 'SME',
+          title: 'SME Companies',
           count: stats.value.sme || 0,
           icon: 'fas fa-store',
           bgColor: 'bg-success'
         },
         {
-          title: 'Logistics',
+          title: 'Logistics Companies',
           count: stats.value.logistic || 0,
           icon: 'fas fa-truck',
           bgColor: 'bg-warning'
@@ -103,26 +131,141 @@ export default {
     };
     
     // Download performance report
-    const downloadReport = () => {
+    const downloadReport = async () => {
+      isDownloading.value = true;
+      
       try {
-        // Show loading indicator
-        loading.value = true;
-        modal.info('Downloading', 'Preparing performance report for download...');
+        // Create a new jsPDF instance
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({
+          orientation: 'portrait',
+          unit: 'mm',
+          format: 'a4'
+        });
         
-        // In a real implementation, you would call an API endpoint to generate the report
-        // For now, we'll simulate a download after a short delay
-        setTimeout(() => {
-          // This would be replaced with actual API call in production
-          window.location.href = '/api/dashboard/download-report';
+        // Set document properties
+        doc.setProperties({
+          title: 'HalalLink Performance Report',
+          subject: 'Dashboard Statistics',
+          author: 'HalalLink',
+          creator: 'HalalLink Dashboard'
+        });
+        
+        // Add title
+        doc.setFontSize(18);
+        doc.setTextColor(18, 53, 36); // Primary color
+        doc.text('HalalLink Performance Report', 105, 15, { align: 'center' });
+        
+        // Add date
+        doc.setFontSize(10);
+        doc.setTextColor(102, 102, 102); // Light text color
+        const today = new Date().toLocaleDateString();
+        doc.text(`Generated on: ${today}`, 105, 22, { align: 'center' });
+        
+        // Add company stats
+        doc.setFontSize(14);
+        doc.setTextColor(18, 53, 36);
+        doc.text('Company Statistics', 20, 35);
+        
+        doc.setFontSize(10);
+        doc.setTextColor(0, 0, 0);
+        let yPos = 45;
+        
+        if (companyStats.value) {
+          // Properly format each stat for the PDF
+          companyStats.value.forEach(stat => {
+            doc.text(`${stat.title}: ${stat.count}`, 20, yPos);
+            yPos += 7;
+          });
+        }
+        
+        // Capture and add the Market Line Chart (without header)
+        const marketChartElement = document.querySelector('#market-line-chart .chart-container');
+        if (marketChartElement) {
+          // Add a new page for the first chart
+          doc.addPage();
           
-          // Hide loading indicator
-          loading.value = false;
-          modal.success('Success', 'Performance report download initiated.');
-        }, 1000);
-      } catch (err) {
-        console.error('Error downloading report:', err);
-        loading.value = false;
-        modal.danger('Error', 'Failed to download performance report. Please try again.');
+          // Add descriptive text at the top of the page
+          doc.setFontSize(14);
+          doc.setTextColor(18, 53, 36);
+          doc.text('Marketplace Activity', 105, 20, { align: 'center' });
+          
+          // Add some descriptive text below the title
+          doc.setFontSize(10);
+          doc.setTextColor(0, 0, 0);
+          doc.text('This chart shows the order activity over time in the marketplace.', 105, 30, { align: 'center' });
+          doc.text('Higher values indicate increased trading activity.', 105, 37, { align: 'center' });
+          
+          // Position for the chart (leaving space for text above)
+          let chartYPos = 50;
+          
+          const marketCanvas = await html2canvas(marketChartElement, {
+            scale: 2, // Higher scale for better quality
+            useCORS: true,
+            logging: false,
+            willReadFrequently: true // Add this line
+          });
+          
+          const marketImgData = marketCanvas.toDataURL('image/png');
+          const imgWidth = 170; // mm
+          const imgHeight = (marketCanvas.height * imgWidth) / marketCanvas.width;
+          
+          doc.addImage(marketImgData, 'PNG', 20, chartYPos, imgWidth, imgHeight);
+        }
+        
+        // Capture and add the Broiler Sales Pie Chart (without header)
+        const salesChartElement = document.querySelector('#broiler-sales-chart .chart-container');
+        if (salesChartElement) {
+          // Add a new page for the second chart
+          doc.addPage();
+          
+          // Add descriptive text at the top of the page
+          doc.setFontSize(14);
+          doc.setTextColor(18, 53, 36);
+          doc.text('Broiler Sales Distribution', 105, 20, { align: 'center' });
+          
+          // Add some descriptive text below the title
+          doc.setFontSize(10);
+          doc.setTextColor(0, 0, 0);
+          doc.text('This chart shows the distribution of sales across broiler companies.', 105, 30, { align: 'center' });
+          doc.text('Larger segments represent companies with higher sales volumes.', 105, 37, { align: 'center' });
+          
+          // Position for the chart (leaving space for text above)
+          let chartYPos = 50;
+          
+          const salesCanvas = await html2canvas(salesChartElement, {
+            scale: 2,
+            useCORS: true,
+            logging: false,
+            willReadFrequently: true // Add this line
+          });
+          
+          const salesImgData = salesCanvas.toDataURL('image/png');
+          const imgWidth = 170; // mm
+          const imgHeight = (salesCanvas.height * imgWidth) / salesCanvas.width;
+          
+          doc.addImage(salesImgData, 'PNG', 20, chartYPos, imgWidth, imgHeight);
+        }
+        
+        // Add footer
+        const pageCount = doc.getNumberOfPages();
+        for (let i = 1; i <= pageCount; i++) {
+          doc.setPage(i);
+          doc.setFontSize(8);
+          doc.setTextColor(128, 128, 128);
+          doc.text('HalalLink Dashboard Report', 105, 290, { align: 'center' });
+          doc.text(`Page ${i} of ${pageCount}`, 195, 290, { align: 'right' });
+        }
+        
+        // Save the PDF
+        doc.save('halallink-performance-report.pdf');
+        
+      } catch (error) {
+        console.error('Error generating PDF:', error);
+        // Fallback to the original download method if PDF generation fails
+        window.location.href = '/api/dashboard/download-report';
+      } finally {
+        isDownloading.value = false;
       }
     };
     
@@ -141,7 +284,11 @@ export default {
       stats,
       companyStats,
       refreshData,
-      downloadReport
+      downloadReport,
+      isDownloading,
+      selectedPeriod,
+      periodOptions,
+      changePeriod
     };
   }
 };
@@ -179,5 +326,25 @@ export default {
   background-color: var(--light-bg);
   border-bottom: 1px solid var(--border-color);
   color: var(--text-color);
+}
+
+.dropdown-toggle {
+  font-size: 0.8rem;
+  padding: 6px 10px;
+  background-color: var(--lighter-bg);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+}
+
+.dropdown-item.active {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+@media (min-width: 768px) {
+  .dropdown-toggle {
+    font-size: 0.9rem;
+    padding: 8px 12px;
+  }
 }
 </style>
