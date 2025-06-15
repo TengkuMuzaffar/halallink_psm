@@ -319,6 +319,7 @@ import OrderDetailModal from '../components/order/OrderDetailModal.vue';
 import Pagination from '../components/ui/Pagination.vue';
 import { orderService } from '../services/orderService';
 import formatter from '../utils/formatter';
+import api from '../utils/api'; // Add this import
 import * as bootstrap from 'bootstrap';
 import { useStore } from 'vuex';
 
@@ -475,10 +476,14 @@ export default {
       }
     };
     
-    // Add the missing generateOrderQR function
-    const generateOrderQR = (cartId) => {
-      window.open(`/awb/${cartId}`, '_blank');
-    };
+    const generateOrderQR = async (cartId) => {
+    try {
+      const response = await api.get(`/api/generate-signed-url/awb/${cartId}`);
+      window.open(response.url, '_blank');
+    } catch (error) {
+      console.error('Error generating signed URL:', error);
+    }
+  };
     
     // Helper function to find an order by ID across all locations
     const findOrderById = (orderID) => {
@@ -799,9 +804,13 @@ export default {
     };
     
     // Add invoice generation functionality
-    const generateInvoice = (orderId) => {
-      // Open the invoice in a new window/tab
-      window.open(`/invoice/${orderId}`, '_blank');
+    const generateInvoice = async (orderId) => {
+      try {
+        const response = await api.get(`/api/generate-signed-url/invoice/${orderId}`);
+        window.open(response.url, '_blank');
+      } catch (error) {
+        console.error('Error generating signed URL:', error);
+      }
     };
     
     return {

@@ -211,10 +211,28 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::apiResource('employees', EmployeeController::class);
         Route::patch('/employees/{id}/status', [EmployeeController::class, 'updateStatus']);
     });
+    // Inside your auth:sanctum middleware group
+    Route::get('/generate-signed-url/{type}/{id}', function (Request $request, $type, $id) {
+        $url = null;
+        $expiration = now()->addMinutes(30); // URL expires after 30 minutes
+        
+        switch ($type) {
+            case 'awb':
+                $url = URL::temporarySignedRoute('awb.generate', $expiration, ['cart' => $id]);
+                break;
+            case 'invoice':
+                $url = URL::temporarySignedRoute('invoice.generate', $expiration, ['order' => $id]);
+                break;
+            default:
+                return response()->json(['error' => 'Invalid document type'], 400);
+        }
+        
+        return response()->json(['url' => $url]);
+    });
+
 }); // Ensure this is the closing bracket for Route::middleware('auth:sanctum')->group
 
 
-// Add these routes inside the auth:sanctum middleware group
 
 
 

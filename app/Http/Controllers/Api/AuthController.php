@@ -103,6 +103,20 @@ class AuthController extends Controller
             ], 403);
         }
         
+        // If user is an employee, check if the company admin is active
+        if ($user->role === 'employee' && $user->companyID) {
+            // Find the admin of this company
+            $companyAdmin = User::where('companyID', $user->companyID)
+                ->where('role', 'admin')
+                ->first();
+                
+            if (!$companyAdmin || $companyAdmin->status !== 'active') {
+                return response()->json([
+                    'message' => 'Company is not active. Please contact administrator.'
+                ], 403);
+            }
+        }
+        
         // Now attempt authentication since we know the user is active
         if (!Auth::attempt($request->only('email', 'password'))) {
             return response()->json([

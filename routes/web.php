@@ -23,9 +23,11 @@ Route::prefix('test')->group(function () {
     Route::put('/orders/{order}', [OrderController::class, 'update']);
 });
 
-// Public routes without middleware
-Route::get('/awb/{cart}', [AWBController::class, 'generate'])->name('awb.generate');
-Route::get('/invoice/{order}', [InvoiceController::class, 'generate'])->name('invoice.generate');
+// Protected routes with signed URLs
+Route::middleware('signed')->group(function () {
+    Route::get('/awb/{cart}', [AWBController::class, 'generate'])->name('awb.generate');
+    Route::get('/invoice/{order}', [InvoiceController::class, 'generate'])->name('invoice.generate');
+});
 Route::get('/report-pdf/{reportValidity}', [ReportPDFController::class, 'generate'])->name('report.pdf.generate');
 
 // Catch-all route for Vue
