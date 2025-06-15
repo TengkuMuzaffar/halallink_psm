@@ -49,7 +49,6 @@ class DashboardController extends Controller
     public function getBroilerSalesData(Request $request)
     {
         $period = $request->input('period', 'month'); // Default to month
-        
         // Define date ranges based on period
         switch ($period) {
             case 'quarter':
@@ -63,7 +62,6 @@ class DashboardController extends Controller
                 $startDate = Carbon::now()->subMonth();
                 break;
         }
-        
         // Get broiler companies
         $broilerCompanies = Company::where('company_type', 'broiler')->get();
         
@@ -90,7 +88,6 @@ class DashboardController extends Controller
                 ];
             }
         }
-        
         // Sort by sales count in descending order
         usort($salesData, function($a, $b) {
             return $b['sales'] - $a['sales'];

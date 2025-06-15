@@ -25,14 +25,11 @@ class ToyyibPayController extends Controller
     public function createBill(Request $request)
     {
         try {
-            \Log::info('Starting payment process');
             
             // Get authenticated user
             $user = Auth::user();
-            \Log::info('User authentication check', ['authenticated' => (bool)$user]);
             
             if (!$user) {
-                \Log::warning('Payment failed: User not authenticated');
                 return response()->json([
                     'success' => false,
                     'message' => 'User not authenticated'
@@ -41,10 +38,8 @@ class ToyyibPayController extends Controller
             
             // Validate delivery location
             $locationID = $request->input('locationID');
-            \Log::info('Checking delivery location', ['locationID' => $locationID]);
             
             if (!$locationID) {
-                \Log::warning('Payment failed: No delivery location selected');
                 return response()->json([
                     'success' => false,
                     'message' => 'Please select a delivery location'
@@ -52,14 +47,11 @@ class ToyyibPayController extends Controller
             }
             
             // Get draft order
-            \Log::info('Fetching draft order for user', ['userID' => $user->userID]);
             $order = Order::where('userID', $user->userID)
                           ->where('order_status', 'draft')
                           ->first();
-            \Log::info('Draft order check', ['orderFound' => (bool)$order]);
                           
             if (!$order) {
-                \Log::warning('Payment failed: No draft order found');
                 return response()->json([
                     'success' => false,
                     'message' => 'No items in cart'
@@ -69,17 +61,13 @@ class ToyyibPayController extends Controller
             // Update order with delivery location
             $order->locationID = $locationID;
             $order->save();
-            \Log::info('Updated order with delivery location', ['orderID' => $order->orderID, 'locationID' => $locationID]);
             
             // Get cart items
-            \Log::info('Fetching cart items for order', ['orderID' => $order->orderID]);
             $cartItems = Cart::where('orderID', $order->orderID)
                              ->with(['item.poultry', 'item.user.company', 'item.location'])
                              ->get();
-            \Log::info('Cart items check', ['itemCount' => $cartItems->count()]);
                              
             if ($cartItems->isEmpty()) {
-                \Log::warning('Payment failed: No cart items found');
                 return response()->json([
                     'success' => false,
                     'message' => 'No items in cart'
@@ -100,7 +88,6 @@ class ToyyibPayController extends Controller
             }
             
             if (!empty($unavailableItems)) {
-                \Log::warning('Payment failed: Cart contains unavailable items', ['unavailableItems' => $unavailableItems]);
                 return response()->json([
                     'success' => false,
                     'message' => 'Some items in your cart are no longer available',
@@ -110,7 +97,6 @@ class ToyyibPayController extends Controller
             }
             
             // Calculate total amount
-            \Log::info('Calculating total amount');
             $totalAmount = 0;
             foreach ($cartItems as $item) {
                 $totalAmount += $item->price_at_purchase * $item->quantity;
@@ -121,15 +107,9 @@ class ToyyibPayController extends Controller
                     'subtotal' => $item->price_at_purchase * $item->quantity
                 ]);
             }
-            \Log::info('Total amount calculated', ['totalAmount' => $totalAmount]);
             
             // Format amount for ToyyibPay (in cents)
             $amountInCents = $totalAmount * 100;
-            \Log::info('Amount in cents', ['amountInCents' => $amountInCents]);
-            
-            // Check if order already has a payment
-            \Log::info('Checking if order already has a payment ID', ['currentPaymentID' => $order->paymentID]);
-            
             // Flag to determine if we need to create a new bill
             $createNewBill = true;
             $billCode = null;
@@ -138,24 +118,20 @@ class ToyyibPayController extends Controller
             if ($order->paymentID) {
                 // Use existing payment
                 $payment = Payment::find($order->paymentID);
-                \Log::info('Using existing payment', ['paymentID' => $payment->paymentID]);
                 
                 // Check if payment has a valid bill_code and status is pending
                 if ($payment->bill_code && $payment->payment_status === 'pending') {
                     $billCode = $payment->bill_code;
                     $createNewBill = false;
-                    \Log::info('Reusing existing bill code', ['billCode' => $billCode]);
                     
                     // Update payment amount if needed
                     if ($payment->payment_amount != $totalAmount) {
                         $payment->payment_amount = $totalAmount;
                         $payment->save();
-                        \Log::info('Updated payment amount', ['from' => $payment->payment_amount, 'to' => $totalAmount]);
                     }
                 } else {
                     // Generate a new reference number
                     $referenceNo = 'HL-' . strtoupper(Str::random(8));
-                    \Log::info('Generated reference number', ['referenceNo' => $referenceNo]);
                     
                     // Update payment details
                     $payment->payment_amount = $totalAmount;
@@ -163,7 +139,6 @@ class ToyyibPayController extends Controller
                     $payment->payment_timestamp = now();
                     $payment->payment_reference = $referenceNo;
                     $payment->save();
-                    \Log::info('Updated existing payment record', ['paymentID' => $payment->paymentID]);
                 }
             } else {
                 // Generate a new reference number
@@ -178,18 +153,14 @@ class ToyyibPayController extends Controller
                     'payment_timestamp' => now(),
                     'payment_reference' => $referenceNo,
                 ]);
-                \Log::info('Payment record created', ['paymentID' => $payment->paymentID]);
                 
                 // Update order with payment ID
-                \Log::info('Updating order with payment ID');
                 $order->paymentID = $payment->paymentID;
                 $order->save();
             }
-            \Log::info('Order payment ID confirmed', ['orderID' => $order->orderID, 'paymentID' => $payment->paymentID]);
             
             // If we have a valid bill code, return it without creating a new one
             if (!$createNewBill && $billCode) {
-                \Log::info('Returning existing bill code', ['billCode' => $billCode]);
                 return response()->json([
                     'success' => true,
                     'message' => 'Payment initialized (reusing existing bill)',
@@ -198,57 +169,39 @@ class ToyyibPayController extends Controller
             }
             
             // If we need to create a new bill, proceed with the normal flow
-            // Make sure we have a valid name for billTo parameter
-            \Log::info('Determining billTo name based on user role', ['role' => $user->role]);
             if ($user->role === 'admin') {
                 // For admin users, use company name
                 $company = $user->company;
                 \Log::info('Admin user company check', ['hasCompany' => (bool)$company]);
                 $billToName = $company ? trim($company->company_name) : '';
-                \Log::info('Using company name for admin', ['companyName' => $billToName]);
                 
                 // If company name is empty, fallback to user's fullname
                 if (empty($billToName)) {
                     $billToName = trim($user->fullname);
-                    \Log::info('Company name empty, falling back to user fullname', ['fullname' => $billToName]);
                 }
             } else {
                 // For employees, use fullname
                 $billToName = trim($user->fullname);
-                \Log::info('Using fullname for non-admin user', ['fullname' => $billToName]);
             }
             
             // If still empty, use a default name
             if (empty($billToName)) {
                 $billToName = 'HalalLink Customer';
-                \Log::info('Name still empty, using default name', ['defaultName' => $billToName]);
             }
             
             // Ensure we have a valid email
             $billEmail = $user->email;
             if (empty($billEmail)) {
                 $billEmail = 'customer@example.com';
-                \Log::info('Email empty, using default email', ['defaultEmail' => $billEmail]);
             }
             
             // Ensure we have a valid phone number
             $billPhone = $user->tel_number;
             if (empty($billPhone)) {
                 $billPhone = '0123456789';
-                \Log::info('Phone empty, using default phone', ['defaultPhone' => $billPhone]);
-            }
-            
-            // Log the user data for debugging
-            \Log::info('User data for payment', [
-                'userID' => $user->userID,
-                'role' => $user->role,
-                'name' => $billToName,
-                'email' => $billEmail,
-                'phone' => $billPhone
-            ]);
+            }           
             
             // Prepare bill data for ToyyibPay
-            \Log::info('Preparing ToyyibPay bill data');
             $billData = [
                 'userSecretKey' => config('toyyibpay.key'),
                 'categoryCode' => config('toyyibpay.category'),
@@ -270,27 +223,11 @@ class ToyyibPayController extends Controller
                 'billContentEmail' => 'Thank you for your order with HalalLink!',
                 'billChargeToCustomer' => 2
             ];
-            
-            // Log the request data for debugging
-            \Log::info('ToyyibPay API Request', $billData);
-            
             // Call ToyyibPay API
-            \Log::info('Calling ToyyibPay API');
             $url = 'https://dev.toyyibpay.com/index.php/api/createBill';
             $response = Http::asForm()->post($url, $billData);
             
-            // Log the response for debugging
-            \Log::info('ToyyibPay API Response', [
-                'status' => $response->status(),
-                'body' => $response->body(),
-                'json' => $response->json()
-            ]);
-            
             if (!$response->successful()) {
-                \Log::error('ToyyibPay API request failed', [
-                    'status' => $response->status(),
-                    'reason' => $response->reason()
-                ]);
                 return response()->json([
                     'success' => false,
                     'message' => 'Failed to connect to payment gateway: ' . $response->status()
@@ -301,7 +238,6 @@ class ToyyibPayController extends Controller
             
             // Check if response is valid
             if (empty($responseData)) {
-                \Log::error('Empty response from payment gateway');
                 return response()->json([
                     'success' => false,
                     'message' => 'Empty response from payment gateway'
@@ -310,7 +246,6 @@ class ToyyibPayController extends Controller
             
             // Check if response has the expected format
             if (!isset($responseData[0]) || !is_array($responseData[0])) {
-                \Log::error('Unexpected response format from payment gateway', ['response' => $responseData]);
                 return response()->json([
                     'success' => false,
                     'message' => 'Unexpected response format from payment gateway'
@@ -319,7 +254,6 @@ class ToyyibPayController extends Controller
             
             // Check if BillCode exists in the response
             if (!isset($responseData[0]['BillCode'])) {
-                \Log::error('Missing BillCode in payment gateway response', ['response' => $responseData]);
                 return response()->json([
                     'success' => false,
                     'message' => 'Missing BillCode in payment gateway response',
@@ -328,19 +262,12 @@ class ToyyibPayController extends Controller
             }
             
             $billCode = $responseData[0]['BillCode'];
-            \Log::info('Successfully received BillCode', ['billCode' => $billCode]);
             
             // Save bill code to payment record
-            \Log::info('Saving bill code to payment record');
             $payment->bill_code = $billCode;
             $payment->save();
-            \Log::info('Bill code saved to payment record');
             
             // Return success with redirect URL
-            \Log::info('Payment process completed successfully', [
-                'billCode' => $billCode,
-                'redirectUrl' => "https://dev.toyyibpay.com/{$billCode}"
-            ]);
             return response()->json([
                 'success' => true,
                 'message' => 'Payment initialized',
@@ -348,12 +275,6 @@ class ToyyibPayController extends Controller
             ]);
             
         } catch (\Exception $e) {
-            \Log::error('Payment creation error: ' . $e->getMessage(), [
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
-                'trace' => $e->getTraceAsString()
-            ]);
-            
             return response()->json([
                 'success' => false,
                 'message' => 'An error occurred: ' . $e->getMessage()

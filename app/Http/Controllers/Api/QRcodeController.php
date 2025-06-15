@@ -29,13 +29,6 @@ class QRcodeController extends Controller
     public function processQRCode(Request $request, $locationID, $companyID)
     {
         try {
-            // Log the request data
-            Log::info('QR code scan request received', [
-                'request_data' => $request->all(),
-                'locationID' => $locationID,
-                'companyID' => $companyID
-            ]);
-            
             // Check for timestamp and expiration parameters
             $timestamp = $request->query('timestamp');
             $expirationTime = $request->query('expires');

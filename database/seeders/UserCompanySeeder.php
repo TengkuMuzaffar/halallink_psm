@@ -119,34 +119,148 @@ class UserCompanySeeder extends Seeder
             ]);
 
             // Admin user with no fullname
-            User::create([
-                'email' => "broiler.admin$i@halallink.com",
-                'password' => Hash::make('password123'),
-                'companyID' => $broilerCompany->companyID,
-                'role' => 'admin',
-                'status' => 'active',
-                'tel_number' => "601234567" . (70 + $i),
-                'email_verified_at' => $registrationDate,
-                'created_at' => $registrationDate,
-                'updated_at' => $registrationDate,
-                'image' => 'users/default.png',
-            ]);
-
-            // Create 10 employees for each broiler company
-            for ($j = 1; $j <= 10; $j++) {
+            if ($i == 1) {
+                // Use specific email for Broiler Company 1 admin
                 User::create([
-                    'fullname' => "Broiler $i Employee $j",
-                    'email' => "broiler$i.employee$j@halallink.com",
+                    'email' => "randomsolutionprog@gmail.com",
                     'password' => Hash::make('password123'),
                     'companyID' => $broilerCompany->companyID,
-                    'role' => 'employee',
+                    'role' => 'admin',
                     'status' => 'active',
-                    'tel_number' => "6012345" . $i . str_pad($j, 2, '0', STR_PAD_LEFT),
+                    'tel_number' => "601234567" . (70 + $i),
                     'email_verified_at' => $registrationDate,
                     'created_at' => $registrationDate,
                     'updated_at' => $registrationDate,
                     'image' => 'users/default.png',
                 ]);
+            } else if ($i == 2) {
+                // Use specific email for Broiler Company 2 admin
+                User::create([
+                    'email' => "haiqalm302@gmail.com",
+                    'password' => Hash::make('password123'),
+                    'companyID' => $broilerCompany->companyID,
+                    'role' => 'admin',
+                    'status' => 'active',
+                    'tel_number' => "601234567" . (70 + $i),
+                    'email_verified_at' => $registrationDate,
+                    'created_at' => $registrationDate,
+                    'updated_at' => $registrationDate,
+                    'image' => 'users/default.png',
+                ]);
+            } else {
+                // Default email pattern for other broiler companies
+                User::create([
+                    'email' => "broiler.admin$i@halallink.com",
+                    'password' => Hash::make('password123'),
+                    'companyID' => $broilerCompany->companyID,
+                    'role' => 'admin',
+                    'status' => 'active',
+                    'tel_number' => "601234567" . (70 + $i),
+                    'email_verified_at' => $registrationDate,
+                    'created_at' => $registrationDate,
+                    'updated_at' => $registrationDate,
+                    'image' => 'users/default.png',
+                ]);
+            }
+
+            // Create employees for each broiler company
+            if ($i == 1) {
+                // Specific employees for Broiler Company 1
+                // First specific employee
+                User::create([
+                    'fullname' => "Broiler 1 Employee 1",
+                    'email' => "yasinibrahim304@gmail.com",
+                    'password' => Hash::make('password123'),
+                    'companyID' => $broilerCompany->companyID,
+                    'role' => 'employee',
+                    'status' => 'active',
+                    'tel_number' => "60123451" . str_pad(1, 2, '0', STR_PAD_LEFT),
+                    'email_verified_at' => $registrationDate,
+                    'created_at' => $registrationDate,
+                    'updated_at' => $registrationDate,
+                    'image' => 'users/default.png',
+                ]);
+                
+                // Second specific employee
+                User::create([
+                    'fullname' => "Broiler 1 Employee 2",
+                    'email' => "arifdaniell321@gmail.com",
+                    'password' => Hash::make('password123'),
+                    'companyID' => $broilerCompany->companyID,
+                    'role' => 'employee',
+                    'status' => 'active',
+                    'tel_number' => "60123451" . str_pad(2, 2, '0', STR_PAD_LEFT),
+                    'email_verified_at' => $registrationDate,
+                    'created_at' => $registrationDate,
+                    'updated_at' => $registrationDate,
+                    'image' => 'users/default.png',
+                ]);
+                
+                // Create remaining employees with default email pattern
+                for ($j = 3; $j <= 10; $j++) {
+                    User::create([
+                        'fullname' => "Broiler 1 Employee $j",
+                        'email' => "broiler1.employee$j@halallink.com",
+                        'password' => Hash::make('password123'),
+                        'companyID' => $broilerCompany->companyID,
+                        'role' => 'employee',
+                        'status' => 'active',
+                        'tel_number' => "60123451" . str_pad($j, 2, '0', STR_PAD_LEFT),
+                        'email_verified_at' => $registrationDate,
+                        'created_at' => $registrationDate,
+                        'updated_at' => $registrationDate,
+                        'image' => 'users/default.png',
+                    ]);
+                }
+            } else if ($i == 2) {
+                // Specific employee for Broiler Company 2
+                User::create([
+                    'fullname' => "Broiler 2 Employee 1",
+                    'email' => "qallso4588@gmail.com",
+                    'password' => Hash::make('password123'),
+                    'companyID' => $broilerCompany->companyID,
+                    'role' => 'employee',
+                    'status' => 'active',
+                    'tel_number' => "60123452" . str_pad(1, 2, '0', STR_PAD_LEFT),
+                    'email_verified_at' => $registrationDate,
+                    'created_at' => $registrationDate,
+                    'updated_at' => $registrationDate,
+                    'image' => 'users/default.png',
+                ]);
+                
+                // Create remaining employees with default email pattern
+                for ($j = 2; $j <= 10; $j++) {
+                    User::create([
+                        'fullname' => "Broiler 2 Employee $j",
+                        'email' => "broiler2.employee$j@halallink.com",
+                        'password' => Hash::make('password123'),
+                        'companyID' => $broilerCompany->companyID,
+                        'role' => 'employee',
+                        'status' => 'active',
+                        'tel_number' => "60123452" . str_pad($j, 2, '0', STR_PAD_LEFT),
+                        'email_verified_at' => $registrationDate,
+                        'created_at' => $registrationDate,
+                        'updated_at' => $registrationDate,
+                        'image' => 'users/default.png',
+                    ]);
+                }
+            } else {
+                // Default email pattern for other broiler companies' employees
+                for ($j = 1; $j <= 10; $j++) {
+                    User::create([
+                        'fullname' => "Broiler $i Employee $j",
+                        'email' => "broiler$i.employee$j@halallink.com",
+                        'password' => Hash::make('password123'),
+                        'companyID' => $broilerCompany->companyID,
+                        'role' => 'employee',
+                        'status' => 'active',
+                        'tel_number' => "6012345" . $i . str_pad($j, 2, '0', STR_PAD_LEFT),
+                        'email_verified_at' => $registrationDate,
+                        'created_at' => $registrationDate,
+                        'updated_at' => $registrationDate,
+                        'image' => 'users/default.png',
+                    ]);
+                }
             }
         }
 

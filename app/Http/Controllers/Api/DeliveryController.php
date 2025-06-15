@@ -305,10 +305,6 @@ class DeliveryController extends Controller
     public function assignSingleTrip(Request $request)
     {
         try {
-            Log::info('Single trip assignment request received', [
-                'request_data' => $request->all()
-            ]);
-
             $validator = Validator::make($request->all(), [
                 'deliveryID' => 'required|exists:deliveries,deliveryID',
                 'tripID' => 'required|exists:trips,tripID'
@@ -330,11 +326,6 @@ class DeliveryController extends Controller
             $trip = Trip::findOrFail($validated['tripID']);
             $trip->deliveryID = $validated['deliveryID'];
             $trip->save();
-            
-            Log::info('Trip updated with deliveryID', [
-                'tripID' => $trip->tripID,
-                'deliveryID' => $validated['deliveryID']
-            ]);
             
             DB::commit();
             
@@ -533,11 +524,6 @@ class DeliveryController extends Controller
     public function createDelivery(Request $request)
     {
         try {
-            // Log the request data
-            Log::info('Create delivery request received', [
-                'request_data' => $request->all()
-            ]);
-            
             // Validate request
             $validated = $request->validate([
                 'userID' => 'required|exists:users,userID',

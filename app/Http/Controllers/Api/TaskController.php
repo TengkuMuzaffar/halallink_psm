@@ -204,14 +204,6 @@ class TaskController extends Controller
         // Find the task
         $task = Task::findOrFail($id);
         
-        // // Check if trying to start task without user assigned
-        // if ($request->has('start_timestamp') && !$task->userID) {
-        //     return response()->json([
-        //         'message' => 'Please assign a person to do this task before starting.',
-        //         'error' => 'NO_USER_ASSIGNED'
-        //     ], 400);
-        // }
-        
         // Check if the task's checkID exists in verifies table with complete status
         $verifyExists = Verify::where('checkID', $task->checkID)
                              ->where('verify_status', 'complete')
