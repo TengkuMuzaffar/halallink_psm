@@ -49,8 +49,7 @@
     <div class="table-responsive position-relative">
       <!-- Custom LoadingSpinner component -->
       <LoadingSpinner 
-        v-if="loading" 
-        overlay 
+        v-if="loading"  
         size="md" 
         message="Loading data..." 
       />
