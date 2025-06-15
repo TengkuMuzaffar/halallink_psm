@@ -12,6 +12,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+        // Add this line to register TrustProxies middleware
+        $middleware->prependToGlobalMiddleware(\App\Http\Middleware\TrustProxies::class);
+        
         // Register route middleware
         $middleware->alias([
             'role.company' => \App\Http\Middleware\CheckRoleAndCompanyType::class,
