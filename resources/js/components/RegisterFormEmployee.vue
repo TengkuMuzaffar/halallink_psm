@@ -120,9 +120,21 @@ export default {
     
     // Watch for changes in phoneNumber and update formData.tel_number
     watch(phoneNumber, (newValue) => {
-      formData.tel_number = `+60${newValue}`;
+      // Format the phone number to ensure it matches the required pattern
+      // Remove any spaces first
+      const cleaned = newValue.replace(/\s+/g, '');
+      
+      // Check if we have at least 9 digits
+      if (cleaned.length >= 9) {
+        // Format as xxxxx xxxx
+        const firstPart = cleaned.substring(0, 5);
+        const secondPart = cleaned.substring(5, 9);
+        formData.tel_number = `+60 ${firstPart} ${secondPart}`;
+      } else {
+        // Not enough digits yet, just store with the prefix
+        formData.tel_number = `+60 ${cleaned}`;
+      }
     });
-    
     const imageFile = ref(null);
     const imageFileName = ref('');
     const imagePreview = ref('');
