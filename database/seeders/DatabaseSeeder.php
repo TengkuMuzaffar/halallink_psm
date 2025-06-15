@@ -12,14 +12,14 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call([
-            UserCompanySeeder::class,
-            LocationSeeder::class,
-            PoultrySeeder::class,
-            ItemSeeder::class,
-            VehicleSeeder::class,
-            SmeOrderSeeder::class,        // Add the new SmeOrderSeeder
-            CheckpointCreatorSeeder::class, // Add the new CheckpointCreatorSeeder
-            // OrderCheckpointSeeder::class, // Comment out the old seeder
+            VideoDemoSeeder::class,  // Use the video demo seeder instead of UserCompanySeeder
+            // LocationSeeder::class,
+            // PoultrySeeder::class,
+            // ItemSeeder::class,
+            // VehicleSeeder::class,
+            // SmeOrderSeeder::class,
+            // CheckpointCreatorSeeder::class,
+            // OrderCheckpointSeeder::class,
         ]);
     }
 }
