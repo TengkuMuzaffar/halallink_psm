@@ -19,12 +19,21 @@
     </div>
     
     <div class="form-group">
-      <input 
-        type="tel" 
-        v-model="formData.tel_number" 
-        placeholder="Phone Number"
-        required
-      >
+      <div class="form-group">
+        <label for="tel_number">Phone Number</label>
+        <div class="phone-input-container">
+          <div class="phone-prefix">+60</div>
+          <input 
+            type="tel" 
+            id="tel_number"
+            v-model="phoneNumber"
+            placeholder="xxxxx xxxx"
+            required
+            class="phone-input"
+          >
+        </div>
+        <small class="form-text text-muted">Malaysian format: +60 xxxxx xxxx (enter only the digits after +60)</small>
+      </div>
     </div>
     
     <div class="form-group">
@@ -78,7 +87,7 @@
 </template>
 
 <script>
-import { ref, reactive } from 'vue';
+import { ref, reactive, computed, watch } from 'vue';
 
 export default {
   name: 'RegisterFormEmployee',
@@ -101,9 +110,17 @@ export default {
     const formData = reactive({
       fullname: '',
       email: '',
-      tel_number: '',
+      tel_number: '+60 ', // Initialize with prefix
       password: '',
       password_confirmation: ''
+    });
+    
+    // Separate variable for phone number without prefix
+    const phoneNumber = ref('');
+    
+    // Watch for changes in phoneNumber and update formData.tel_number
+    watch(phoneNumber, (newValue) => {
+      formData.tel_number = `+60${newValue}`;
     });
     
     const imageFile = ref(null);
@@ -145,6 +162,7 @@ export default {
     
     return {
       formData,
+      phoneNumber,
       imageFile,
       imageFileName,
       imagePreview,
@@ -316,5 +334,33 @@ a {
 a:hover {
   color: #123524;
   text-decoration: underline;
+}
+.phone-input-container {
+  display: flex;
+  width: 100%;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.phone-prefix {
+  background-color: #f0f0f0;
+  padding: 12px 15px;
+  border-right: 1px solid #ddd;
+  color: #333;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+}
+
+.phone-input {
+  flex: 1;
+  border: none;
+  padding: 12px 15px;
+  outline: none;
+}
+
+.phone-input-container:focus-within {
+  border-color: #4a6cf7;
 }
 </style>

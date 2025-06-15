@@ -23,8 +23,9 @@
         
         <!-- Error message display -->
         <div v-if="error" class="alert alert-danger w-100 mb-4">
-          <i class="fas fa-exclamation-circle me-2"></i>
-          <span v-if="typeof error === 'string'">{{ error }}</span>
+          <div class="text-center">
+            <i class="fas fa-exclamation-circle me-2"></i>
+          </div>          <span v-if="typeof error === 'string'">{{ error }}</span>
           <ul v-else-if="typeof error === 'object'" class="mb-0 ps-3">
             <li v-for="(messages, field) in error" :key="field">
               <strong>{{ field }}:</strong> {{ Array.isArray(messages) ? messages.join(', ') : messages }}

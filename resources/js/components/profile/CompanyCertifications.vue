@@ -23,9 +23,7 @@
     </div>
     <div class="card-body theme-body">
       <div v-if="loading" class="text-center py-4">
-        <div class="spinner-border text-primary" role="status">
-          <span class="visually-hidden">Loading...</span>
-        </div>
+        <LoadingSpinner message="Loading certifications..." />
       </div>
       <div v-else>
         <!-- View Mode -->
@@ -118,9 +116,13 @@ import { ref, computed, watch } from 'vue';
 import api from '../../utils/api';
 import modal from '../../utils/modal';
 import certificationService from '../../services/certificationService';
+import LoadingSpinner from '../ui/LoadingSpinner.vue';
 
 export default {
   name: 'CompanyCertifications',
+  components: {
+    LoadingSpinner
+  },
   props: {
     certifications: {
       type: Array,

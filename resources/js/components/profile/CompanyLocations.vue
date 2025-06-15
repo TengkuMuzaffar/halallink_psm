@@ -23,9 +23,7 @@
     </div>
     <div class="card-body theme-body">
       <div v-if="loading" class="text-center py-4">
-        <div class="spinner-border text-primary" role="status">
-          <span class="visually-hidden">Loading...</span>
-        </div>
+        <LoadingSpinner message="Loading locations..." />
       </div>
       <div v-else>
         <!-- View Mode -->
@@ -113,10 +111,14 @@ import { ref, watch, computed } from 'vue';
 import api from '../../utils/api';
 import modal from '../../utils/modal';
 import { useStore } from 'vuex';
+import LoadingSpinner from '../ui/LoadingSpinner.vue';
 // import marketplaceService from '../../services/marketplaceService';
 
 export default {
   name: 'CompanyLocations',
+  components: {
+    LoadingSpinner
+  },
   props: {
     locations: {
       type: Array,

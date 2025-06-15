@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Models\User;
+use App\Models\Item;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
@@ -365,41 +366,87 @@ class CompanyController extends Controller
      * @param  int  $id
      * @return \Illuminate\Http\Response
      */
-    public function destroy($id)
+     public function destroy($id)
     {
         try {
+            Log::info('Starting company deletion process for company ID: ' . $id);
             $company = Company::find($id);
             
             if (!$company) {
+                Log::warning('Company not found with ID: ' . $id);
                 return response()->json(['message' => 'Company not found'], 404);
             }
             
+            Log::info('Found company: ' . $company->company_name . ' (ID: ' . $id . ')');
+            
             // Delete company image if exists
             if ($company->company_image) {
-                Storage::disk('public')->delete($company->company_image);
+                // Check if file exists before attempting to delete
+                if (Storage::disk('public')->exists($company->company_image)) {
+                    Log::info('Deleting company image: ' . $company->company_image);
+                    Storage::disk('public')->delete($company->company_image);
+                } else {
+                    Log::warning('Company image file not found in storage: ' . $company->company_image);
+                }
             }
             
             // Delete associated users
             $users = User::where('companyID', $id)->get();
+            Log::info('Found ' . count($users) . ' users associated with company ID: ' . $id);
+            
             foreach ($users as $user) {
+                Log::info('Processing user: ' . $user->fullname . ' (ID: ' . $user->userID . ')');
+                
+                // First, handle items associated with this user
+                $items = Item::where('userID', $user->userID)->get();
+                Log::info('Found ' . count($items) . ' items associated with user ID: ' . $user->userID);
+                
+                foreach ($items as $item) {
+                    // First check if there are any carts/orders associated with this item
+                    $carts = Cart::where('itemID', $item->itemID)->get();
+                    Log::info('Found ' . count($carts) . ' carts associated with item ID: ' . $item->itemID);
+                    
+                    // Delete all carts associated with this item first
+                    foreach ($carts as $cart) {
+                        Log::info('Deleting cart ID: ' . $cart->cartID);
+                        $cart->delete();
+                    }
+                    
+                    Log::info('Deleting item ID: ' . $item->itemID);
+                    // Use forceDelete if you want to bypass soft delete
+                    $item->delete(); // Or use forceDelete() if needed
+                }
+                
                 // Delete user image if exists
                 if ($user->image) {
-                    Storage::disk('public')->delete($user->image);
+                    // Check if file exists before attempting to delete
+                    if (Storage::disk('public')->exists($user->image)) {
+                        Log::info('Deleting user image: ' . $user->image);
+                        Storage::disk('public')->delete($user->image);
+                    } else {
+                        Log::warning('User image file not found in storage: ' . $user->image);
+                    }
                 }
                 
                 // Delete user tokens
+                $tokenCount = $user->tokens()->count();
+                Log::info('Deleting ' . $tokenCount . ' tokens for user ID: ' . $user->userID);
                 $user->tokens()->delete();
                 
                 // Delete user
+                Log::info('Deleting user ID: ' . $user->userID);
                 $user->delete();
             }
             
             // Delete company
+            Log::info('Deleting company ID: ' . $id);
             $company->delete();
             
+            Log::info('Company deletion completed successfully for ID: ' . $id);
             return response()->json(['message' => 'Company and associated users deleted successfully']);
         } catch (\Exception $e) {
-            Log::error('Error deleting company: ' . $e->getMessage());
+            Log::error('Error deleting company ID ' . $id . ': ' . $e->getMessage());
+            Log::error('Exception trace: ' . $e->getTraceAsString());
             return response()->json(['message' => 'Failed to delete company', 'error' => $e->getMessage()], 500);
         }
     }

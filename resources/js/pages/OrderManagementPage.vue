@@ -144,7 +144,7 @@
                 <div class="table-responsive position-relative">
                   <!-- Overlay Loading Spinner -->
                   <div v-if="locationLoading[location.locationID]" class="table-overlay">
-                    <LoadingSpinner overlay message="Loading orders..." />
+                    <LoadingSpinner  message="Loading orders..." />
                   </div>
                   
                   <table class="table table-hover mb-0 theme-table">

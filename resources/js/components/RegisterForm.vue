@@ -62,12 +62,19 @@
       </div>
       
       <div class="form-group">
-        <input 
-          type="tel" 
-          v-model="formData.tel_number" 
-          placeholder="Phone Number"
-          required
-        >
+        <div class="form-group">
+          <div class="phone-input-container">
+            <div class="phone-prefix">+60</div>
+            <input 
+              type="tel" 
+              v-model="phoneNumber"
+              placeholder="xxxxx xxxx"
+              required
+              class="phone-input"
+            >
+          </div>
+          <small class="form-text text-muted">Malaysian format: +60 xxxxx xxxx</small>
+        </div>
       </div>
       
       <div class="form-group">
@@ -106,7 +113,7 @@
 </template>
 
 <script>
-import { ref } from 'vue';
+import { ref, reactive, watch } from 'vue';
 
 export default {
   name: 'RegisterForm',
@@ -121,19 +128,39 @@ export default {
     const currentStep = ref(1);
     const logoPreview = ref(null);
     const logoFileName = ref('');
+    const phoneNumber = ref(''); // New ref for phone number without prefix
+    
     const formData = ref({
       // Company information
       company_name: '',
       company_type: '',
-      company_logo: null, // Changed from company_image to company_logo
+      company_logo: null,
       
       // Admin user information
       email: '',
       password: '',
       password_confirmation: '',
-      tel_number: ''
+      tel_number: '+60' // Initialize with prefix
     });
-
+    
+    // Watch for changes in phoneNumber and update formData.tel_number
+    watch(phoneNumber, (newValue) => {
+      // Format the phone number to ensure it matches the required pattern
+      // Remove any spaces first
+      const cleaned = newValue.replace(/\s+/g, '');
+      
+      // Check if we have at least 9 digits
+      if (cleaned.length >= 9) {
+        // Format as xxxxx xxxx
+        const firstPart = cleaned.substring(0, 5);
+        const secondPart = cleaned.substring(5, 9);
+        formData.value.tel_number = `+60 ${firstPart} ${secondPart}`;
+      } else {
+        // Not enough digits yet, just store with the prefix
+        formData.value.tel_number = `+60 ${cleaned}`;
+      }
+    });
+    
     const handleFileUpload = (event) => {
       const file = event.target.files[0];
       if (!file) return;
@@ -188,6 +215,7 @@ export default {
     return {
       currentStep,
       formData,
+      phoneNumber,
       logoPreview,
       logoFileName,
       nextStep,
@@ -326,5 +354,33 @@ export default {
   max-height: 100px;
   border-radius: 5px;
   border: 1px solid #ddd;
+}
+.phone-input-container {
+  display: flex;
+  width: 100%;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.phone-prefix {
+  background-color: #f0f0f0;
+  padding: 12px 15px;
+  border-right: 1px solid #ddd;
+  color: #333;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+}
+
+.phone-input {
+  flex: 1;
+  border: none;
+  padding: 12px 15px;
+  outline: none;
+}
+
+.phone-input-container:focus-within {
+  border-color: #4a6cf7;
 }
 </style>

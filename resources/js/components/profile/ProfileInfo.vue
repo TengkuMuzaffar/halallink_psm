@@ -23,11 +23,10 @@
     </div>
     <div class="card-body theme-body">
       <div v-if="loading" class="text-center py-4">
-        <div class="spinner-border text-primary" role="status">
-          <span class="visually-hidden">Loading...</span>
-        </div>
+        <LoadingSpinner message="Loading profile..." />
       </div>
       <div v-else>
+        <!-- View Mode -->
         <form @submit.prevent="$emit('save')">
           <div class="row mb-4">
             <div class="col-md-3 text-center">
@@ -127,9 +126,13 @@
 
 <script>
 import { computed } from 'vue';
+import LoadingSpinner from '../ui/LoadingSpinner.vue';
 
 export default {
   name: 'ProfileInfo',
+  components: {
+    LoadingSpinner
+  },
   props: {
     profileData: {
       type: Object,

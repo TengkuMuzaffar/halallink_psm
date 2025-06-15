@@ -16,7 +16,7 @@
           :disabled="sendingVerification"
         >
           <span v-if="sendingVerification">
-            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+            <LoadingSpinner size="sm" />
             Sending...
           </span>
           <span v-else>Send Verification Email</span>
@@ -145,7 +145,7 @@
                 class="btn btn-primary w-100"
                 :disabled="passwordLoading || passwordMismatch"
               >
-                <span v-if="passwordLoading" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                <LoadingSpinner v-if="passwordLoading" size="sm" />
                 Update Password
               </button>
             </form>
@@ -161,18 +161,20 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useStore } from 'vuex';
 import api from '../utils/api';
-import modal from '../utils/modal';  // This is correct - importing the modal utility
+import modal from '../utils/modal';
 import ProfileInfo from '../components/profile/ProfileInfo.vue';
 import CompanyCertifications from '../components/profile/CompanyCertifications.vue';
-
 import CompanyLocations from '../components/profile/CompanyLocations.vue';
-import marketplaceService from '../services/marketplaceService';  // Add this import
+import LoadingSpinner from '../components/ui/LoadingSpinner.vue';
+import marketplaceService from '../services/marketplaceService';
+
 export default {
   name: 'ProfilePage',
   components: {
     ProfileInfo,
     CompanyLocations,
-    CompanyCertifications
+    CompanyCertifications,
+    LoadingSpinner
   },
   setup() {
     const route = useRoute();

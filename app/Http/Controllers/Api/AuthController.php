@@ -25,7 +25,7 @@ class AuthController extends Controller
             // Admin user details
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:6|confirmed',
-            'tel_number' => 'required|string|max:20',
+            'tel_number' => 'required|string|regex:/^\+60\s[0-9]{5}\s[0-9]{4}$/|max:20',
         ]);
     
         if ($validator->fails()) {
@@ -186,7 +186,7 @@ class AuthController extends Controller
             'fullname' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:6|confirmed',
-            'tel_number' => 'required|string|max:20',
+            'tel_number' => 'required|string|regex:/^\+60\s[0-9]{5}\s[0-9]{4}$/|max:20',
             'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
     

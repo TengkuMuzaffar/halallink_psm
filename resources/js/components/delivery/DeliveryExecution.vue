@@ -1,5 +1,13 @@
 <template>
   <div class="delivery-execution">
+    <!-- Add the loading overlay component at the top level -->
+    <LoadingSpinner 
+      v-if="modalLoading" 
+      :overlay="true" 
+      size="lg" 
+      message="Please wait while the delivery is loading..."
+    />
+    
     <div class="card theme-card">
       <div class="card-header d-flex justify-content-between align-items-center theme-header">
         <h5 class="mb-0">Execute Deliveries</h5>
@@ -184,10 +192,10 @@ export default {
       // Transform the delivery object to match the expected format in the modal
       this.modalLoading = true;
       // console.log("selected deliveries: "+ JSON.stringify(delivery, null, 3));
-
+    
       // Create a copy of the delivery to avoid modifying the original
       const transformedDelivery = { ...delivery };
-
+    
       // Transform routes from object to array if it's an object
       if (transformedDelivery.routes && typeof transformedDelivery.routes === 'object' && !Array.isArray(transformedDelivery.routes)) {
         transformedDelivery.routes = Object.values(transformedDelivery.routes).map(route => {
@@ -195,11 +203,11 @@ export default {
           if (!route.routeID && route.start_location && route.end_location) {
             route.routeID = `${route.start_location.locationID}-${route.end_location.locationID}`;
           }
-
+    
           // Transform start_location
           if (route.start_location) {
             route.start_location.address = route.start_location.company_address;
-
+    
             // Transform checkpoints to items if needed
             if (route.start_location.checkpoints && Array.isArray(route.start_location.checkpoints)) {
               route.start_location.items = {};
@@ -210,11 +218,11 @@ export default {
               });
             }
           }
-
+    
           // Transform end_location
           if (route.end_location) {
             route.end_location.address = route.end_location.company_address;
-
+    
             // Transform checkpoints to items if needed
             if (route.end_location.checkpoints && Array.isArray(route.end_location.checkpoints)) {
               route.end_location.items = {};
@@ -225,11 +233,11 @@ export default {
               });
             }
           }
-
+    
           return route;
         });
       }
-
+    
       // Set the transformed delivery
       this.selectedDelivery = transformedDelivery;
       // Show the modal
@@ -285,6 +293,14 @@ export default {
     startDelivery(deliveryID) {
       // console.log('Starting delivery:', deliveryID);
       
+      // Show loading overlay
+      this.modalLoading = true;
+      
+      // Hide the modal if it's open
+      if (this.$refs.executeModal) {
+        this.$refs.executeModal.hideModal();
+      }
+      
       deliveryService.startDelivery(deliveryID)
         .then(response => {
           this.$emit('refresh');
@@ -293,6 +309,10 @@ export default {
           console.error('Error starting delivery:', error);
         })
         .finally(() => {
+          // Hide loading overlay after a short delay to ensure data is refreshed
+          setTimeout(() => {
+            this.modalLoading = false;
+          }, 1000);
         });
     },
     
