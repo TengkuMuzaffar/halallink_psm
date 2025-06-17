@@ -206,7 +206,7 @@
 <script>
 import { ref, reactive, computed, onMounted } from 'vue';
 import { fetchData } from '../utils/api';
-import { showModal, showToast } from '../utils/modal';
+import { showModal, showSuccess, showDanger } from '../utils/modal';
 import StatsCard from '../components/ui/StatsCard.vue';
 import ResponsiveTable from '../components/ui/ResponsiveTable.vue';
 import LoadingSpinner from '../components/ui/LoadingSpinner.vue';
@@ -378,14 +378,14 @@ export default {
             data: vehicleForm
           });
           
-          showToast('Vehicle updated successfully', 'success');
+          showSuccess('Success', 'Vehicle updated successfully');
         } else {
           response = await fetchData('/api/vehicles', {
             method: 'post',
             data: vehicleForm
           });
           
-          showToast('Vehicle added successfully', 'success');
+          showSuccess('Success', 'Vehicle added successfully');
         }
         
         vehicleModal.hide();
@@ -394,7 +394,7 @@ export default {
         if (err.response && err.response.status === 422) {
           formErrors.value = err.response.data.errors;
         } else {
-          showToast('An error occurred. Please try again.', 'danger');
+          showDanger('Error', 'An error occurred. Please try again.');
         }
         console.error('Form submission error:', err);
       } finally {
@@ -413,10 +413,10 @@ export default {
         });
         
         deleteModal.hide();
-        showToast('Vehicle deleted successfully', 'success');
+        showSuccess('Success', 'Vehicle deleted successfully');
         fetchVehicles();
       } catch (err) {
-        showToast('Failed to delete vehicle', 'danger');
+        showDanger('Error', 'Failed to delete vehicle');
         console.error('Delete error:', err);
       } finally {
         formSubmitting.value = false;
