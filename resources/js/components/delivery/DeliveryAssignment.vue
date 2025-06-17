@@ -9,9 +9,15 @@
           </button>
         </div>
       </div>
-      
+      <!-- Add this right after the card-header div -->
+      <div class="help-banner" v-if="!selectedDeliveryID">
+        <div class="help-icon"><i class="fas fa-lightbulb"></i></div>
+        <div class="help-text">
+          <strong>Quick Tip:</strong> First create a delivery, then assign trips to it.
+        </div>
+      </div>
       <!-- Add Phase Tabs -->
-      <div class="phase-tabs">
+      <!-- <div class="phase-tabs">
         <div class="nav nav-tabs" role="tablist">
           <button 
             class="nav-link" 
@@ -38,8 +44,34 @@
             <i class="fas fa-truck me-2"></i>Phase 2 (Slaughterhouse to Customer)
           </button>
         </div>
+      </div> -->
+      <!-- Replace the current phase tabs with this more intuitive version -->
+      <div class="phase-selector mb-2">
+        <div class="btn-group w-100 phase-btn-group">
+          <button 
+            class="btn phase-btn" 
+            :class="activePhase === 1 ? 'btn-active' : 'btn-inactive'" 
+            @click="changePhase(1)"
+          >
+            <div class="phase-icon"><i class="fas fa-truck-loading"></i></div>
+            <div class="phase-text">
+              <span class="phase-title">Pickup</span>
+              <span class="phase-subtitle">Supplier → Slaughterhouse</span>
+            </div>
+          </button>
+          <button 
+            class="btn phase-btn" 
+            :class="activePhase === 2 ? 'btn-active' : 'btn-inactive'" 
+            @click="changePhase(2)"
+          >
+            <div class="phase-icon"><i class="fas fa-truck"></i></div>
+            <div class="phase-text">
+              <span class="phase-title">Delivery</span>
+              <span class="phase-subtitle">Slaughterhouse → Customer</span>
+            </div>
+          </button>
+        </div>
       </div>
-      
       <div class="card-body p-0">
         <div v-if="error" class="p-4">
           <div class="alert alert-danger mb-0">
@@ -48,15 +80,14 @@
         </div>
         
         <div v-else>
-          <div class="table-responsive">
+          <div class="table-responsive d-none d-md-block">
             <table class="table table-hover theme-table">
               <thead class="theme-table-header">
                 <tr>
-                  <th style="width: 5vw;">Trip ID</th>
-                  <th style="width: 5vw;">Order ID</th>
+                  <th style="width: 8vw;">Reference</th>
                   <th>Start Location</th>
                   <th>End Location</th>
-                  <th>Action</th>
+                  <th style="width: 10vw;">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -82,34 +113,52 @@
                 
                 <!-- Data Rows -->
                 <tr v-else v-for="trip in trips" :key="trip.tripID">
-                  <td class="text-nowrap">{{ trip.tripID }}</td>
-                  <td class="text-nowrap">{{ trip.orderID }}</td>
-                  <td class="location-cell">
-                    <div class="location-type">{{ trip.start_location.type }}</div>
-                    <div class="location-address">{{ trip.start_location.address }}</div>
+                  <td class="reference-cell">
+                    <div class="id-container">
+                      <div class="trip-id" data-bs-toggle="tooltip" :title="`Trip ID: ${trip.tripID}`">Trip #{{ trip.tripID }}</div>
+                      <div class="order-id" data-bs-toggle="tooltip" :title="`Order ID: ${trip.orderID}`">Order #{{ trip.orderID }}</div>
+                    </div>
                   </td>
                   <td class="location-cell">
-                    <div class="location-type">{{ trip.end_location.type }}</div>
-                    <div class="location-address">{{ trip.end_location.address }}</div>
+                    <div class="location-display">
+                      <div class="location-icon pickup-icon">
+                        <i class="fas fa-map-marker-alt"></i>
+                      </div>
+                      <div class="location-details">
+                        <div class="location-type">{{ trip.start_location.type }}</div>
+                        <div class="location-address">{{ trip.start_location.address }}</div>
+                      </div>
+                    </div>
                   </td>
-                  <td>
-                    <div class="d-flex gap-2 flex-wrap justify-content-start">
+                  <td class="location-cell">
+                    <div class="location-display">
+                      <div class="location-icon dropoff-icon">
+                        <i class="fas fa-flag-checkered"></i>
+                      </div>
+                      <div class="location-details">
+                        <div class="location-type">{{ trip.end_location.type }}</div>
+                        <div class="location-address">{{ trip.end_location.address }}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="action-cell">
+                    <div class="btn-group">
                       <button 
-                        class="btn btn-sm btn-outline-secondary"
+                        class="btn btn-sm btn-icon" 
                         data-bs-toggle="modal"
                         :data-bs-target="`#itemModal-${trip.tripID}`"
+                        title="View Items"
                       >
-                        <i class="fas fa-box me-1"></i>
-                        <span class="ms-1 d-none d-sm-inline">Items</span>
+                        <i class="fas fa-box"></i>
                       </button>
                       <button 
-                        class="btn btn-sm btn-primary"
-                        @click="$emit('assign-trip', trip)"
-                        :disabled="!selectedDeliveryID"
-                      >
-                        <i class="fas fa-plus-circle me-1"></i>
-                        <span class="ms-1 d-none d-sm-inline">Assign</span>
-                      </button>
+                      class="btn btn-sm btn-icon-primary" 
+                      @click="showAssignmentConfirmation(trip)"
+                      :disabled="!selectedDeliveryID"
+                      title="Assign to Delivery"
+                    >
+                      <i class="fas fa-plus-circle"></i>
+                    </button>
                     </div>
                   </td>
                 </tr>
@@ -117,6 +166,75 @@
             </table>
           </div>
           
+          <div class="trip-cards d-md-none"> <!-- Show only on mobile -->
+            <!-- Loading State -->
+            <div v-if="loading" class="text-center py-4">
+              <LoadingSpinner size="md" message="Loading delivery data..." />
+            </div>
+            <!-- No Data State -->
+            <div v-else-if="!trips || trips.length === 0" class="empty-state p-4 text-center">
+                <i class="fas fa-info-circle me-2 text-muted"></i>
+                No trips found for the selected criteria.
+              </div>
+              
+              <!-- Trip Cards for Mobile -->
+              <div v-else class="trip-card-container">
+                <div v-for="trip in trips" :key="trip.tripID" class="trip-card">
+                  <div class="trip-card-header">
+                    <div class="trip-ids">
+                      <span class="trip-id">Trip #{{ trip.tripID }}</span>
+                      <span class="order-id">Order #{{ trip.orderID }}</span>
+                    </div>
+                    <div class="trip-actions">
+                      <button 
+                        class="btn btn-sm btn-icon"
+                        data-bs-toggle="modal"
+                        :data-bs-target="`#itemModal-${trip.tripID}`"
+                        title="View Items"
+                      >
+                        <i class="fas fa-box"></i>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="trip-card-body">
+                    <div class="location-section">
+                      <div class="location-icon pickup-icon">
+                        <i class="fas fa-map-marker-alt"></i>
+                      </div>
+                      <div class="location-details">
+                        <div class="location-label">Pickup</div>
+                        <div class="location-type">{{ trip.start_location.type }}</div>
+                        <div class="location-address">{{ trip.start_location.address }}</div>
+                      </div>
+                    </div>
+                    <div class="location-connector"></div>
+        
+                  <div class="location-section">
+                    <div class="location-icon dropoff-icon">
+                      <i class="fas fa-flag-checkered"></i>
+                    </div>
+                    <div class="location-details">
+                      <div class="location-label">Dropoff</div>
+                      <div class="location-type">{{ trip.end_location.type }}</div>
+                      <div class="location-address">{{ trip.end_location.address }}</div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="trip-card-footer">
+                  <button 
+                    class="btn btn-assign w-100"
+                    @click="showAssignmentConfirmation(trip)"
+                    :disabled="!selectedDeliveryID"
+                  >
+                    <i class="fas fa-plus-circle me-2"></i>
+                    Assign to Delivery
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Add modals for each trip -->
           <ItemModal
             v-for="trip in trips"
@@ -131,6 +249,28 @@
               :pagination="pagination" 
               @page-changed="$emit('change-page', $event)" 
             />
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Add confirmation modal at the end of the template -->
+    <div class="modal fade" id="confirmAssignmentModal" tabindex="-1" aria-labelledby="confirmAssignmentModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="confirmAssignmentModalLabel">Confirm Assignment</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <div class="alert alert-warning">
+              <i class="fas fa-exclamation-triangle me-2"></i>
+              <strong>Important:</strong> Once a trip is assigned to a delivery, it cannot be edited, only deleted.
+            </div>
+            <p>Are you sure you want to assign this trip to the selected delivery?</p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" class="btn btn-primary" @click="confirmAssignment">Confirm Assignment</button>
           </div>
         </div>
       </div>
@@ -165,19 +305,47 @@ export default {
     }
   },
   data() {
-    return {}; // Remove expandedTrip since we're using modal now
+    return {
+      tripToAssign: null, // Store the trip that will be assigned after confirmation
+      confirmModal: null  // Store the modal instance
+    }; // Remove expandedTrip since we're using modal now
   },
   emits: ['refresh', 'assign-trip', 'change-phase', 'change-page'],
   methods: {
     changePhase(phase) {
       this.$emit('change-phase', phase);
+    },
+    // Add method to show confirmation modal
+    showAssignmentConfirmation(trip) {
+      this.tripToAssign = trip;
+      this.confirmModal.show();
+    },
+    // Add method to confirm assignment
+    confirmAssignment() {
+      if (this.tripToAssign) {
+        this.$emit('assign-trip', this.tripToAssign);
+        this.confirmModal.hide();
+        this.tripToAssign = null;
+      }
     }
+  },
     // Remove toggleItems method since we're using modal now
+    mounted() {
+    // Initialize tooltips
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    tooltipTriggerList.map(function (tooltipTriggerEl) {
+      return new bootstrap.Tooltip(tooltipTriggerEl)
+    });
+    
+    // Initialize the confirmation modal
+    this.confirmModal = new bootstrap.Modal(document.getElementById('confirmAssignmentModal'));
   }
 };
 </script>
 
 <style scoped>
+
+
 /* Updated theme colors from CreatedDeliveriesList.vue */
 .delivery-assignment .card {
   --primary-color: #123524;
@@ -288,7 +456,50 @@ export default {
   transform: translateY(-2px);
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
+.location-display {
+  display: flex;
+  align-items: flex-start;
+}
 
+.location-cell .location-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  font-size: 0.8rem;
+  margin-right: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+/* Adjust the existing location-cell style */
+.location-cell {
+  min-width: 180px;
+  max-width: 250px;
+}
+.action-cell {
+  width: 6vw;
+  text-align: center;
+}
+
+.btn-icon-primary {
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background-color: var(--accent-color);
+  color: white;
+  border: none;
+  margin-left: 0.25rem;
+}
+
+.btn-icon-primary:hover {
+  background-color: #2e5c1d;
+}
+
+.btn-icon-primary:disabled {
+  background-color: #6c757d;
+  opacity: 0.65;
+}
 /* Responsive styles for mobile */
 @media (max-width: 768px) {
   .table > :not(caption) > * > * {
@@ -333,17 +544,344 @@ export default {
     font-size: 0.875rem;
   }
 }
-::v-deep .pagination .page-link {
+:deep(.pagination .page-link) {
   color: var(--primary-color);
 }
 
-::v-deep .pagination .page-item.active .page-link {
+:deep(.pagination .page-item.active .page-link) {
   background-color: var(--primary-color);
   border-color: var(--primary-color);
   color: var(--secondary-color);
 }
 
-::v-deep .pagination .page-item.disabled .page-link {
+:deep(.pagination .page-item.disabled .page-link) {
   color: var(--light-text);
+}
+/* Add these styles to your existing <style> section */
+
+/* Phase Selector Styling */
+.phase-selector {
+  background-color: var(--lighter-bg);
+  border-radius: 0.5rem;
+  margin: 0.5rem 1rem;
+  overflow: hidden;
+}
+
+.phase-btn-group {
+  display: flex;
+  width: 100%;
+}
+
+.phase-btn {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border: none;
+  background: transparent;
+  transition: all 0.2s ease;
+  flex: 1;
+}
+
+.btn-active {
+  background-color: var(--accent-color);
+  color: white;
+}
+
+.btn-inactive {
+  background-color: transparent;
+  color: var(--text-color);
+}
+
+.phase-icon {
+  font-size: 1.25rem;
+  margin-right: 0.75rem;
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.phase-text {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.phase-title {
+  font-weight: bold;
+  font-size: 0.9rem;
+}
+
+.phase-subtitle {
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+
+/* Help Banner */
+.help-banner {
+  display: flex;
+  align-items: center;
+  background-color: var(--light-bg);
+  padding: 0.75rem 1rem;
+  margin: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  border-left: 4px solid var(--accent-color);
+}
+
+.help-icon {
+  color: var(--accent-color);
+  font-size: 1.25rem;
+  margin-right: 0.75rem;
+}
+
+.help-text {
+  font-size: 0.9rem;
+  color: var(--text-color);
+}
+
+/* Mobile Card View */
+.trip-card-container {
+  padding: 0.5rem;
+}
+
+.trip-card {
+  background-color: white;
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  margin-bottom: 1rem;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+}
+
+.trip-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background-color: var(--lighter-bg);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.reference-cell {
+  padding: 0.75rem 0.5rem;
+}
+
+.id-container {
+  display: flex;
+  flex-direction: column;
+}
+
+.trip-id {
+  font-weight: bold;
+  font-size: 0.9rem;
+  color: var(--primary-color);
+}
+
+.order-id {
+  font-size: 0.8rem;
+  color: var(--light-text);
+}
+
+.btn-icon {
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background-color: var(--lighter-bg);
+  color: var(--accent-color);
+  border: 1px solid var(--border-color);
+}
+
+.trip-card-body {
+  padding: 1rem;
+}
+
+.location-section {
+  display: flex;
+  margin-bottom: 0.5rem;
+}
+
+.location-icon {
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  margin-right: 0.75rem;
+  flex-shrink: 0;
+}
+
+.pickup-icon {
+  background-color: rgba(62, 123, 39, 0.1);
+  color: var(--accent-color);
+}
+
+.dropoff-icon {
+  background-color: rgba(18, 53, 36, 0.1);
+  color: var(--primary-color);
+}
+
+.location-connector {
+  width: 2px;
+  height: 1.5rem;
+  background-color: var(--border-color);
+  margin-left: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.location-details {
+  flex-grow: 1;
+}
+
+.location-label {
+  font-size: 0.75rem;
+  color: var(--light-text);
+  text-transform: uppercase;
+}
+
+.location-type {
+  font-weight: bold;
+  color: var(--text-color);
+  font-size: 0.9rem;
+}
+
+.location-address {
+  font-size: 0.85rem;
+  color: var(--light-text);
+  word-break: break-word;
+}
+
+.trip-card-footer {
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.btn-assign {
+  background-color: var(--accent-color);
+  color: white;
+  border: none;
+  padding: 0.5rem;
+  border-radius: 0.25rem;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.btn-assign:hover {
+  background-color: #2e5c1d;
+}
+
+.btn-assign:disabled {
+  background-color: #6c757d;
+  opacity: 0.65;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 576px) {
+  .phase-icon {
+    margin-right: 0.5rem;
+    width: 1.5rem;
+    height: 1.5rem;
+    font-size: 0.9rem;
+  }
+  
+  .phase-title {
+    font-size: 0.8rem;
+  }
+  
+  .phase-subtitle {
+    font-size: 0.7rem;
+  }
+  
+  .trip-card-header {
+    padding: 0.5rem 0.75rem;
+  }
+  
+  .trip-card-body {
+    padding: 0.75rem;
+  }
+  
+  .location-icon {
+    width: 1.5rem;
+    height: 1.5rem;
+    margin-right: 0.5rem;
+  }
+}
+
+/* Fix the pagination styling with modern :deep() syntax */
+:deep(.pagination .page-link) {
+  color: var(--primary-color);
+}
+
+:deep(.pagination .page-item.active .page-link) {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+  color: var(--secondary-color);
+}
+
+:deep(.pagination .page-item.disabled .page-link) {
+  color: var(--light-text);
+}
+
+/* Modal Theme Styling */
+.modal-content {
+  border-color: var(--border-color);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.modal-header {
+  background-color: var(--primary-color);
+  color: var(--secondary-color);
+  border-bottom: none;
+}
+
+.modal-header .btn-close {
+  color: var(--secondary-color);
+  opacity: 0.8;
+  filter: invert(1) brightness(1.8);
+}
+
+.modal-header .btn-close:hover {
+  opacity: 1;
+}
+
+.modal-body {
+  color: var(--text-color);
+}
+
+.modal-body .alert-warning {
+  background-color: var(--light-bg);
+  border-color: var(--accent-color);
+  color: var(--text-color);
+}
+
+.modal-footer {
+  border-top-color: var(--border-color);
+}
+
+.modal-footer .btn-outline-secondary {
+  color: var(--text-color);
+  border-color: var(--border-color);
+}
+
+.modal-footer .btn-outline-secondary:hover {
+  background-color: var(--lighter-bg);
+  color: var(--primary-color);
+}
+
+.modal-footer .btn-primary {
+  background-color: var(--accent-color);
+  border-color: var(--accent-color);
+  color: var(--secondary-color);
+}
+
+.modal-footer .btn-primary:hover {
+  background-color: #2e5c1d;
+  border-color: #2e5c1d;
 }
 </style>

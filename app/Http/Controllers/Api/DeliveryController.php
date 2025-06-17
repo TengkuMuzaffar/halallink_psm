@@ -913,9 +913,7 @@ class DeliveryController extends Controller
                     ->whereDate('end_timestamp', now()->toDateString())
                     ->count(),
                     
-                'issues' => $verifyQuery
-                    ->where('verify_status', 'rejected')
-                    ->count()
+                'unassignedTrips' => \App\Models\Trip::whereNull('deliveryID')->count()
             ];
             
             return response()->json([

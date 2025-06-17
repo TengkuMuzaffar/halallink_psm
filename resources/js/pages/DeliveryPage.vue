@@ -166,7 +166,7 @@ export default {
         pending: 0,
         inProgress: 0,
         completedToday: 0,
-        issues: 0
+        unassignedTrips: 0
       },
       selectedLocationID: '',
       locations: [],

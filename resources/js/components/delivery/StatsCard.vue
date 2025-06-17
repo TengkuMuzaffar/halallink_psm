@@ -26,10 +26,10 @@
     </div>
     <div class="col-md-3 col-sm-6 mb-3">
       <StatsCard
-        title="Issues"
-        :count="stats.issues"
-        icon="fas fa-exclamation-triangle"
-        bgColor="bg-danger"
+        title="Unassigned Trips"
+        :count="stats.unassignedTrips"
+        icon="fas fa-route"
+        bgColor="bg-secondary"
       />
     </div>
   </div>
@@ -51,7 +51,7 @@ export default {
         pending: 0,
         inProgress: 0,
         completedToday: 0,
-        issues: 0
+        unassignedTrips: 0
       })
     }
   }
