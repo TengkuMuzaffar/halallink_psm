@@ -122,41 +122,59 @@
                 <p class="mb-0">No deliveries found</p>
               </div>
             </div>
-            <div v-else class="delivery-cards">
-              <div v-for="item in filteredDeliveries" :key="item.deliveryID" class="delivery-card-container">
-                <div class="delivery-card">
-                  <div class="delivery-card-header">
-                    <div class="id-container">
-                      <div class="delivery-id">Delivery #{{ item.deliveryID }}</div>
-                      <div class="driver-id">Driver: {{ item.driver ? item.driver.name : 'Unassigned' }}</div>
+            <div v-else>
+              <div class="delivery-cards">
+                <div v-for="item in paginatedDeliveries" :key="item.deliveryID" class="delivery-card-container">
+                  <div class="delivery-card">
+                    <div class="delivery-card-header">
+                      <div class="id-container">
+                        <div class="delivery-id">Delivery #{{ item.deliveryID }}</div>
+                        <div class="driver-id">Driver: {{ item.driver ? item.driver.name : 'Unassigned' }}</div>
+                      </div>
+                      <span class="badge" :class="getThemeStatusClass(item.status)">
+                        {{ item.status.replace('_', ' ') }}
+                      </span>
                     </div>
-                    <span class="badge" :class="getThemeStatusClass(item.status)">
-                      {{ item.status.replace('_', ' ') }}
-                    </span>
-                  </div>
-                  <div class="delivery-card-body">
-                    <div class="info-row">
-                      <div class="info-label"><i class="fas fa-calendar me-2"></i>Date:</div>
-                      <div class="info-value">{{ formatDateTime(item.scheduled_date) }}</div>
+                    <div class="delivery-card-body">
+                      <div class="info-row">
+                        <div class="info-label"><i class="fas fa-calendar me-2"></i>Date:</div>
+                        <div class="info-value">{{ formatDateTime(item.scheduled_date) }}</div>
+                      </div>
+                      <div class="info-row">
+                        <div class="info-label"><i class="fas fa-truck me-2"></i>Vehicle:</div>
+                        <div class="info-value">{{ item.vehicle ? item.vehicle.vehicle_plate : 'Unassigned' }}</div>
+                      </div>
+                      <div class="info-row">
+                        <div class="info-label"><i class="fas fa-user-tie me-2"></i>Driver:</div>
+                        <div class="info-value">{{ item.driver ? item.driver.fullname : "N/A" }}</div>
+                      </div>
                     </div>
-                    <div class="info-row">
-                      <div class="info-label"><i class="fas fa-truck me-2"></i>Vehicle:</div>
-                      <div class="info-value">{{ item.vehicle ? item.vehicle.vehicle_plate : 'Unassigned' }}</div>
+                    <div class="delivery-card-footer">
+                      <button class="btn btn-view" @click="viewDelivery(item)">
+                        <i class="fas fa-eye me-2"></i>View Details
+                      </button>
+                      <button class="btn btn-delete" @click="confirmDeleteDelivery(item)">
+                        <i class="fas fa-trash me-2"></i>Delete
+                      </button>
                     </div>
-                    <div class="info-row">
-                      <div class="info-label"><i class="fas fa-user-tie me-2"></i>Driver:</div>
-                      <div class="info-value">{{ item.driver ? item.driver.fullname : "N/A" }}</div>
-                    </div>
-                  </div>
-                  <div class="delivery-card-footer">
-                    <button class="btn btn-view" @click="viewDelivery(item)">
-                      <i class="fas fa-eye me-2"></i>View Details
-                    </button>
-                    <button class="btn btn-delete" @click="confirmDeleteDelivery(item)">
-                      <i class="fas fa-trash me-2"></i>Delete
-                    </button>
                   </div>
                 </div>
+              </div>
+              
+              <!-- Add pagination component if there are multiple pages -->
+              <div v-if="pagination.last_page > 1" class="pagination-container mt-3">
+                <Pagination 
+                  :pagination="pagination" 
+                  @page-changed="handlePageChange" 
+                  :maxVisiblePages="3"
+                />
+              </div>
+              
+              <!-- Add pagination info -->
+              <div v-if="filteredDeliveries.length > 0" class="pagination-info text-center mt-2">
+                <small class="text-muted">
+                  Showing {{ pagination.from }} to {{ pagination.to }} of {{ pagination.total }} deliveries
+                </small>
               </div>
             </div>
           </div>
@@ -184,6 +202,7 @@ import { formatDateTime } from '../../utils/formatter';
 import ResponsiveTable from '../ui/ResponsiveTable.vue';
 import ExecuteModalDelivery from './ExecuteModalDelivery.vue';
 import LoadingSpinner from '../ui/LoadingSpinner.vue';
+import Pagination from '../ui/Pagination.vue';
 import deliveryService from '../../services/deliveryService';
 
 export default {
@@ -191,7 +210,8 @@ export default {
   components: {
     ResponsiveTable,
     ExecuteModalDelivery,
-    LoadingSpinner
+    LoadingSpinner,
+    Pagination
   },
   props: {
     deliveries: {
@@ -220,7 +240,15 @@ export default {
         { key: 'driver_vehicle', label: 'Driver & Vehicle', sortable: false },
         { key: 'scheduled_date', label: 'Date', sortable: true },
         { key: 'status', label: 'Status', sortable: true },
-      ]
+      ],
+      pagination: {
+        current_page: 1,
+        last_page: 1,
+        per_page: 1,
+        total: 0,
+        from: 1,
+        to: 0
+      }
     };
   },
   computed: {
@@ -258,7 +286,20 @@ export default {
       // Fallback for any other case
       // console.log('Deliveries is in an unexpected format');
       return [];
-    }
+    },
+    paginatedDeliveries() {
+    const deliveries = this.filteredDeliveries;
+    const startIndex = (this.pagination.current_page - 1) * this.pagination.per_page;
+    const endIndex = startIndex + this.pagination.per_page;
+    
+    // Update pagination object
+    this.pagination.total = deliveries.length;
+    this.pagination.last_page = Math.ceil(deliveries.length / this.pagination.per_page);
+    this.pagination.from = deliveries.length ? startIndex + 1 : 0;
+    this.pagination.to = Math.min(endIndex, deliveries.length);
+    
+    return deliveries.slice(startIndex, endIndex);
+  }
   },
   methods: {
     formatDateTime(dateString) {
@@ -366,6 +407,16 @@ export default {
          return true;
        });
      },
+     handlePageChange(page) {
+        this.pagination.current_page = page;
+        // Scroll to top of mobile card view
+        if (window.innerWidth < 768) {
+          const mobileView = this.$el.querySelector('.delivery-cards');
+          if (mobileView) {
+            mobileView.scrollIntoView({ behavior: 'smooth' });
+          }
+        }
+      },
     startDelivery(deliveryID) {
       // console.log('Starting delivery:', deliveryID);
       
@@ -915,5 +966,30 @@ export default {
   top: 0;
   z-index: 1;
   background-color: var(--primary-color);
+}
+
+/* Pagination styles */
+.pagination-container {
+  display: flex;
+  justify-content: center;
+}
+
+.pagination-info {
+  font-size: 0.85rem;
+  color: var(--light-text);
+}
+
+@media (max-width: 768px) {
+  /* Existing mobile styles... */
+  
+  /* Mobile pagination adjustments */
+  .pagination .page-link {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.85rem;
+  }
+  
+  .pagination-container {
+    margin-bottom: 1rem;
+  }
 }
 </style>

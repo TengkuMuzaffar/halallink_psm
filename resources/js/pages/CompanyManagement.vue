@@ -18,9 +18,10 @@
     <div class="card">
       <div class="card-header theme-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0">Companies</h5>
-        <!-- <button class="btn btn-primary" @click="openAddModal">
-          <i class="fas fa-plus"></i> <span class="d-none d-md-inline">Add Company</span>
-        </button> -->
+        <button class="btn btn-sm theme-btn-outline" @click="refresh" :disabled="loading">
+          <i class="fas" :class="loading ? 'fa-spinner fa-spin' : 'fa-sync-alt'"></i>
+          <span class="d-none d-md-inline ms-2">{{ loading ? 'Refreshing...' : 'Refresh' }}</span>
+        </button>
       </div>
       <div class="card-body">
         <!-- Error State -->
@@ -288,7 +289,10 @@ export default {
         loading.value = false;
       }
     };
-    
+    const refresh = () => {
+      fetchCompanies();
+
+    };
     // Apply filters - simplified to use fetchCompanies
     const applyFilters = () => {
       // Reset to first page when applying filters
@@ -489,7 +493,8 @@ export default {
       applyFilters,
       handleSearch,
       changePage,
-      fetchCompanyStats
+      fetchCompanyStats,
+      refresh
     };
   }
 };
@@ -503,6 +508,18 @@ export default {
   background-color: var(--primary-color);
   color: var(--secondary-color);
   border-bottom: none;
+}
+/* Button styles */
+.theme-btn-outline {
+  color: var(--secondary-color);
+  border-color: var(--secondary-color);
+  background-color: transparent;
+}
+
+.theme-btn-outline:hover {
+  color: var(--primary-color);
+  background-color: var(--secondary-color);
+  border-color: var(--secondary-color);
 }
 /* Pagination styling to match MarketplacePage */
 .pagination {
