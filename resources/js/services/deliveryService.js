@@ -250,6 +250,28 @@ const deliveryService = {
       }
     });
   },
+
+  /**
+   * Cancel a delivery (unassign all associated trips)
+   * @param {Number} deliveryID - Delivery ID
+   * @returns {Promise} - API response
+   */
+  async cancelDelivery(deliveryID) {
+    return fetchData(`/api/deliveries/${deliveryID}/cancel`, {
+      method: 'post'
+    });
+  },
+
+  /**
+   * Delete a delivery (permanently remove the delivery record)
+   * @param {Number} deliveryID - Delivery ID
+   * @returns {Promise} - API response
+   */
+  async deleteDelivery(deliveryID) {
+    return fetchData(`/api/deliveries/${deliveryID}/delete`, {
+      method: 'delete'
+    });
+  },
 };
 
 export default deliveryService;

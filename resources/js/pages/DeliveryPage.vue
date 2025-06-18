@@ -258,7 +258,7 @@ export default {
         
         if (response.success) {
           this.trips = response.data;
-          
+          // console.log('Fetched Trips:', this.trips);
           // Update pagination but preserve current_page
           const currentPage = this.tripsPagination.current_page;
           this.tripsPagination = {

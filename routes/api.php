@@ -181,6 +181,12 @@ Route::middleware('auth:sanctum')->group(function () {
         // Add the new route for execution deliveries
         Route::get('/deliveries/get/execution', [App\Http\Controllers\Api\ExecuteDeliveriesController::class, 'index']);
         
+        // Add new route for deleting a delivery (without updating trips)
+        Route::delete('/deliveries/{deliveryID}/delete', [App\Http\Controllers\Api\DeliveryController::class, 'deleteDelivery']);
+        
+        // Add new route for canceling a delivery (updates trips to null)
+        Route::post('/deliveries/{deliveryID}/cancel', [App\Http\Controllers\Api\ExecuteDeliveriesController::class, 'cancelDelivery']);
+        
         // Add new route for starting a delivery
         Route::post('/deliveries/{deliveryID}/start', [App\Http\Controllers\Api\ExecuteDeliveriesController::class, 'startDelivery']);
         

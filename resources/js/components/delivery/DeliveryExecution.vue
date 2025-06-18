@@ -63,7 +63,7 @@
             </div>
            
           </div>
-          
+          <div class="d-none d-md-block">
           <ResponsiveTable
             :columns="columns"
             :items="filteredDeliveries"
@@ -73,6 +73,19 @@
             item-key="deliveryID"
             class="delivery-table"
           >
+            <!-- Driver & Vehicle column slot -->
+            <template #driver_vehicle="{ item }">
+              <div>
+                <div><i class="fas fa-user-tie me-1"></i> {{ item.driver ? item.driver.fullname : 'Unassigned' }}</div>
+                <div><i class="fas fa-truck me-1"></i> {{ item.vehicle ? item.vehicle.vehicle_plate : 'Unassigned' }}</div>
+              </div>
+            </template>
+            
+            <!-- Date column slot -->
+            <template #scheduled_date="{ item }">
+              {{ formatDateTime(item.scheduled_date) }}
+            </template>
+            
             <!-- Status column slot -->
             <template #status="{ item }">
               <span class="badge" :class="getThemeStatusClass(item.status)">
@@ -86,11 +99,68 @@
                 <button class="btn btn-sm btn-primary" @click="viewDelivery(item)">
                   <i class="fas fa-edit"></i>                
                 </button>
-               
-               
+                <button 
+                  v-if="!item.start_timestamp" 
+                  class="btn btn-sm btn-danger" 
+                  @click="confirmDeleteDelivery(item)">
+                  <i class="fas fa-trash"></i>
+                </button>
               </div>
             </template>
           </ResponsiveTable>
+        </div>
+          <!-- Mobile Card View (visible on smaller screens) -->
+          <div class="d-md-none">
+            <div v-if="loading" class="text-center p-4">
+              <div class="spinner-border theme-spinner" role="status">
+                <span class="visually-hidden">Loading...</span>
+              </div>
+            </div>
+            <div v-else-if="filteredDeliveries.length === 0" class="text-center p-4">
+              <div class="empty-state">
+                <i class="fas fa-inbox fa-3x mb-3 text-muted"></i>
+                <p class="mb-0">No deliveries found</p>
+              </div>
+            </div>
+            <div v-else class="delivery-cards">
+              <div v-for="item in filteredDeliveries" :key="item.deliveryID" class="delivery-card-container">
+                <div class="delivery-card">
+                  <div class="delivery-card-header">
+                    <div class="id-container">
+                      <div class="delivery-id">Delivery #{{ item.deliveryID }}</div>
+                      <div class="driver-id">Driver: {{ item.driver ? item.driver.name : 'Unassigned' }}</div>
+                    </div>
+                    <span class="badge" :class="getThemeStatusClass(item.status)">
+                      {{ item.status.replace('_', ' ') }}
+                    </span>
+                  </div>
+                  <div class="delivery-card-body">
+                    <div class="info-row">
+                      <div class="info-label"><i class="fas fa-calendar me-2"></i>Date:</div>
+                      <div class="info-value">{{ formatDateTime(item.scheduled_date) }}</div>
+                    </div>
+                    <div class="info-row">
+                      <div class="info-label"><i class="fas fa-truck me-2"></i>Vehicle:</div>
+                      <div class="info-value">{{ item.vehicle ? item.vehicle.vehicle_plate : 'Unassigned' }}</div>
+                    </div>
+                    <div class="info-row">
+                      <div class="info-label"><i class="fas fa-user-tie me-2"></i>Driver:</div>
+                      <div class="info-value">{{ item.driver ? item.driver.fullname : "N/A" }}</div>
+                    </div>
+                  </div>
+                  <div class="delivery-card-footer">
+                    <button class="btn btn-view" @click="viewDelivery(item)">
+                      <i class="fas fa-eye me-2"></i>View Details
+                    </button>
+                    <button class="btn btn-delete" @click="confirmDeleteDelivery(item)">
+                      <i class="fas fa-trash me-2"></i>Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
     </div>
@@ -110,6 +180,7 @@
 <script>
 import { fetchData } from '../../utils/api';
 import * as modalUtil from '../../utils/modal';
+import { formatDateTime } from '../../utils/formatter';
 import ResponsiveTable from '../ui/ResponsiveTable.vue';
 import ExecuteModalDelivery from './ExecuteModalDelivery.vue';
 import LoadingSpinner from '../ui/LoadingSpinner.vue';
@@ -146,8 +217,8 @@ export default {
       searchTerm: '',
       columns: [
         { key: 'deliveryID', label: 'ID', sortable: true },
-        { key: 'driver.fullname', label: 'Driver', sortable: true },
-        { key: 'vehicle.vehicle_plate', label: 'Vehicle', sortable: true },
+        { key: 'driver_vehicle', label: 'Driver & Vehicle', sortable: false },
+        { key: 'scheduled_date', label: 'Date', sortable: true },
         { key: 'status', label: 'Status', sortable: true },
       ]
     };
@@ -173,12 +244,14 @@ export default {
         
         // Convert object to array
         const deliveriesArray = Object.values(this.deliveries);
-        // console.log('Converted object to array:', deliveriesArray);
+        console.log('Converted object to array:', deliveriesArray);
         return this.applyFilters(deliveriesArray);
       }
       
       // Handle array case
       if (Array.isArray(this.deliveries)) {
+        //print
+        console.log('Deliveries is an array:', this.deliveries);
         return this.applyFilters(this.deliveries);
       }
       
@@ -188,6 +261,9 @@ export default {
     }
   },
   methods: {
+    formatDateTime(dateString) {
+        return formatDateTime(dateString);
+    },
     viewDelivery(delivery) {
       // Transform the delivery object to match the expected format in the modal
       this.modalLoading = true;
@@ -349,6 +425,65 @@ export default {
           this.viewDelivery(updatedDelivery);
         }
       }, 1000); // Wait for 1 second to ensure data is refreshed
+    },
+    
+    confirmDeleteDelivery(delivery) {
+      // Double-check that the delivery hasn't started
+      if (delivery.start_timestamp) {
+        alert('Cannot delete a delivery that has already started');
+        return;
+      }
+      
+      if (confirm(`Are you sure you want to delete Delivery #${delivery.deliveryID}? This will unassign all associated trips and cannot be undone.`)) {
+        this.deleteDelivery(delivery.deliveryID);
+      }
+    },
+    
+    deleteDelivery(deliveryID) {
+      this.modalLoading = true;
+      
+      deliveryService.deleteDelivery(deliveryID)
+        .then(response => {
+          if (response.success) {
+            alert(response.message);
+            this.$emit('refresh');
+          } else {
+            alert('Error: ' + response.message);
+          }
+        })
+        .catch(error => {
+          console.error('Error deleting delivery:', error);
+          alert('Failed to delete delivery. Please try again.');
+        })
+        .finally(() => {
+          this.modalLoading = false;
+        });
+    },
+    confirmDeleteDelivery(delivery) {
+      if (confirm(`Are you sure you want to delete Delivery #${delivery.deliveryID}? This will unassign all associated trips and cannot be undone.`)) {
+        this.deleteDelivery(delivery.deliveryID);
+      }
+    },
+    
+    deleteDelivery(deliveryID) {
+      this.modalLoading = true;
+      
+      deliveryService.deleteDelivery(deliveryID)
+        .then(response => {
+          if (response.success) {
+            alert(response.message);
+            this.$emit('refresh');
+          } else {
+            alert('Error: ' + response.message);
+          }
+        })
+        .catch(error => {
+          console.error('Error deleting delivery:', error);
+          alert('Failed to delete delivery. Please try again.');
+        })
+        .finally(() => {
+          this.modalLoading = false;
+        });
     },
   },
   mounted() {
@@ -553,6 +688,140 @@ export default {
   -webkit-overflow-scrolling: touch;
 }
 
+/* Mobile Card View Styles */
+.delivery-cards {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.delivery-card-container {
+  width: 100%;
+}
+
+.delivery-card {
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  transition: transform 0.2s, box-shadow 0.2s;
+  border: 1px solid var(--border-color);
+}
+
+.delivery-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.delivery-card-header {
+  background-color: var(--light-bg);
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.id-container {
+  display: flex;
+  flex-direction: column;
+}
+
+.delivery-id {
+  font-weight: 600;
+  color: var(--primary-color);
+  font-size: 1rem;
+  margin-bottom: 4px;
+}
+
+.driver-id {
+  font-size: 0.875rem;
+  color: var(--light-text);
+}
+
+.delivery-card-body {
+  padding: 16px;
+}
+
+.info-row {
+  display: flex;
+  margin-bottom: 12px;
+  align-items: center;
+}
+
+.info-row:last-child {
+  margin-bottom: 0;
+}
+
+.info-label {
+  width: 40%;
+  font-weight: 500;
+  color: var(--light-text);
+  display: flex;
+  align-items: center;
+}
+
+.info-value {
+  width: 60%;
+  color: var(--text-color);
+  font-weight: 500;
+}
+
+.delivery-card-footer {
+  display: flex;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-color);
+  background-color: var(--lighter-bg);
+  gap: 8px;
+}
+
+.btn-view {
+  flex: 1;
+  background-color: var(--primary-color);
+  color: var(--secondary-color);
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+  font-weight: 500;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-view:hover {
+  background-color: #0a1f16;
+}
+
+.btn-delete {
+  flex: 1;
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+  font-weight: 500;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-delete:hover {
+  background-color: #bd2130;
+}
+
+/* Empty state styling */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+  color: var(--light-text);
+}
+
 @media (max-width: 768px) {
   .delivery-table :deep(table) {
     min-width: 600px; /* Ensure minimum width for content */
@@ -598,6 +867,40 @@ export default {
   .btn-sm {
     min-height: 32px;
     min-width: 32px;
+  }
+  
+  /* Mobile card specific adjustments */
+  .delivery-card {
+    border-radius: 6px;
+  }
+  
+  .delivery-card-header {
+    padding: 10px 12px;
+  }
+  
+  .delivery-id {
+    font-size: 0.9rem;
+  }
+  
+  .driver-id {
+    font-size: 0.8rem;
+  }
+  
+  .delivery-card-body {
+    padding: 12px;
+  }
+  
+  .info-label, .info-value {
+    font-size: 0.85rem;
+  }
+  
+  .delivery-card-footer {
+    padding: 10px 12px;
+  }
+  
+  .btn-view, .btn-delete {
+    padding: 6px 12px;
+    font-size: 0.85rem;
   }
 }
 

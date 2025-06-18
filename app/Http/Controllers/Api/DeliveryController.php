@@ -1056,4 +1056,58 @@ class DeliveryController extends Controller
             ], 500);
         }
     }
+    
+    /**
+     * Delete a delivery by setting deliveryID to null for all associated trips
+     *
+     * @param  int  $deliveryID
+     * @return \Illuminate\Http\Response
+     */
+     public function deleteDelivery($deliveryID)
+    {
+        try {
+            // Find the delivery to ensure it exists
+            $delivery = Delivery::findOrFail($deliveryID);
+            
+            // Check if the delivery has already started
+            if ($delivery->start_timestamp !== null) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cannot delete a delivery that has already started'
+                ], 400);
+            }
+            
+            // Get all trips associated with this delivery
+            $trips = Trip::where('deliveryID', $deliveryID)->get();
+            
+            // Count how many trips were updated
+            $tripCount = $trips->count();
+            
+            if ($tripCount === 0) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No trips found for this delivery'
+                ], 404);
+            }
+            
+            // Update all trips to set deliveryID to null
+            Trip::where('deliveryID', $deliveryID)
+                ->update(['deliveryID' => null]);
+            
+            // Delete the delivery record
+            $delivery->delete();
+            
+            return response()->json([
+                'success' => true,
+                'message' => "Delivery deleted successfully. {$tripCount} trips have been unassigned."
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error deleting delivery: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to delete delivery: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
 }
