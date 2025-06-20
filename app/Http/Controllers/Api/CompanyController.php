@@ -624,6 +624,55 @@ class CompanyController extends Controller
                     }
                 }
                 
+                // Fetch item and poultry information for each item in item_record
+                if (!empty($result['item_record']) && is_array($result['item_record'])) {
+                    $itemDetails = [];
+                    foreach ($result['item_record'] as $itemId) {
+                        $item = \App\Models\Item::with('poultry')->find($itemId);
+                        if ($item) {
+                            $itemData = [
+                                'itemID' => $item->itemID,
+                                'measurement_type' => $item->measurement_type,
+                                'measurement_value' => $item->measurement_value,
+                                'price' => $item->price,
+                            ];
+                            
+                            // Add item image with full URL
+                            if ($item->item_image) {
+                                // Check if the path already contains http:// or https://
+                                if (strpos($item->item_image, 'http://') === 0 || strpos($item->item_image, 'https://') === 0) {
+                                    $itemData['item_image'] = $item->item_image;
+                                } else {
+                                    $itemData['item_image'] = asset('storage/' . $item->item_image);
+                                }
+                            }
+                            
+                            // Add poultry data if available
+                            if ($item->poultry) {
+                                $poultryData = [
+                                    'poultryID' => $item->poultry->poultryID,
+                                    'poultry_name' => $item->poultry->poultry_name,
+                                ];
+                                
+                                // Add poultry image with full URL
+                                if ($item->poultry->poultry_image) {
+                                    // Check if the path already contains http:// or https://
+                                    if (strpos($item->poultry->poultry_image, 'http://') === 0 || strpos($item->poultry->poultry_image, 'https://') === 0) {
+                                        $poultryData['poultry_image'] = $item->poultry->poultry_image;
+                                    } else {
+                                        $poultryData['poultry_image'] = asset('storage/' . $item->poultry->poultry_image);
+                                    }
+                                }
+                                
+                                $itemData['poultry'] = $poultryData;
+                            }
+                            
+                            $itemDetails[] = $itemData;
+                        }
+                    }
+                    $result['item_details'] = $itemDetails;
+                }
+                
                 return $result;
             });
             
@@ -909,25 +958,40 @@ class CompanyController extends Controller
                         'stock' => $cartItem->item->stock,
                     ];
                     
-                    // Add item image with full URL
-                    if ($cartItem->item->item_image) {
-                        $itemData['item_image'] = asset('storage/' . $cartItem->item->item_image);
+                    // Add item_name from poultry_name
+                    if ($cartItem->item->poultry) {
+                        $itemData['item_name'] = $cartItem->item->poultry->poultry_name;
                     }
                     
-                    // // Add poultry data if available
-                    // if ($cartItem->item->poultry) {
-                    //     $poultryData = [
-                    //         'poultryID' => $cartItem->item->poultry->poultryID,
-                    //         'poultry_name' => $cartItem->item->poultry->poultry_name,
-                    //     ];
+                    // Add item image with full URL
+                    if ($cartItem->item->item_image) {
+                        // Check if the path already contains http:// or https://
+                        if (strpos($cartItem->item->item_image, 'http://') === 0 || strpos($cartItem->item->item_image, 'https://') === 0) {
+                            $itemData['item_image'] = $cartItem->item->item_image;
+                        } else {
+                            $itemData['item_image'] = asset('storage/' . $cartItem->item->item_image);
+                        }
+                    }
+                    
+                    // Add poultry data if available
+                    if ($cartItem->item->poultry) {
+                        $poultryData = [
+                            'poultryID' => $cartItem->item->poultry->poultryID,
+                            'poultry_name' => $cartItem->item->poultry->poultry_name,
+                        ];
                         
-                    //     // Add poultry image with full URL
-                    //     if ($cartItem->item->poultry->poultry_image) {
-                    //         $poultryData['poultry_image'] = asset('storage/' . $cartItem->item->poultry->poultry_image);
-                    //     }
+                        // Add poultry image with full URL
+                        if ($cartItem->item->poultry->poultry_image) {
+                            // Check if the path already contains http:// or https://
+                            if (strpos($cartItem->item->poultry->poultry_image, 'http://') === 0 || strpos($cartItem->item->poultry->poultry_image, 'https://') === 0) {
+                                $poultryData['poultry_image'] = $cartItem->item->poultry->poultry_image;
+                            } else {
+                                $poultryData['poultry_image'] = asset('storage/' . $cartItem->item->poultry->poultry_image);
+                            }
+                        }
                         
-                    //     $itemData['poultry'] = $poultryData;
-                    // }
+                        $itemData['poultry'] = $poultryData;
+                    }
                     
                     $item['item'] = $itemData;
                 }
