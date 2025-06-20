@@ -75,7 +75,14 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/companies/{id}', [CompanyController::class, 'update']);
         Route::patch('/companies/{id}/status', [CompanyController::class, 'updateStatus']);
         Route::delete('/companies/{id}', [CompanyController::class, 'destroy']);
-        
+        // Add this route to your api.php file
+        Route::get('/companies/{id}/certifications', [CompanyController::class, 'getCompanyCertifications']);
+        Route::get('/companies/{id}/orders/{orderId}', [\App\Http\Controllers\Api\CompanyController::class, 'getOrderDetails']);
+        // Add the new route for company orders
+        Route::get('/companies/{id}/orders', [CompanyController::class, 'getCompanyOrders']);
+        // Location routes
+        Route::get('/locations/{locationId}/items', [CompanyController::class, 'getItemsByLocation']);
+        Route::get('/locations/{locationId}/tasks', [\App\Http\Controllers\Api\CompanyController::class, 'getTasksByLocation']);
         // Protected poultry routes - only admin company can create, update, delete
         Route::post('/poultries', [PoultryController::class, 'store']);
         Route::put('/poultries/{poultry}', [PoultryController::class, 'update']);
@@ -91,6 +98,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/reports/admin/{reportValidityID}', [App\Http\Controllers\Api\ReportController::class, 'update']);
         Route::delete('/reports/admin/{reportValidityID}', [App\Http\Controllers\Api\ReportController::class, 'destroy']);
 
+        Route::get('/companies/{id}/deliveries', [App\Http\Controllers\Api\DeliveryController::class, 'getCompanyDeliveries']);
 
         // Dashboard routes
         Route::prefix('dashboard')->group(function () {
