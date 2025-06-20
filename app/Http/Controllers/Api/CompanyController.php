@@ -257,6 +257,16 @@ class CompanyController extends Controller
                 return response()->json(['message' => 'Company not found'], 404);
             }
             
+            // Format company image URL
+            if ($company->company_image) {
+                // Check if the path already contains http:// or https://
+                if (strpos($company->company_image, 'http://') === 0 || strpos($company->company_image, 'https://') === 0) {
+                    $company->company_image = $company->company_image;
+                } else {
+                    $company->company_image = asset('storage/' . $company->company_image);
+                }
+            }
+            
             // Load locations with conditional filtering
             $locations = $company->locations();
             
