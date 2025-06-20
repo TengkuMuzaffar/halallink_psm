@@ -60,8 +60,15 @@
           </template>
           
           <!-- Custom column slots -->
+          <template #company_name="{ item }">
+            <div class="d-flex flex-column">
+              <span class="fw-bold">{{ item.company_name }}</span>
+              <span class="company-type-mobile d-md-none" :class="getTypeBadgeClass(item.company_type)">{{ item.company_type }}</span>
+            </div>
+          </template>
+          
           <template #company_type="{ item }">
-            <span :class="getTypeBadgeClass(item.company_type)">{{ item.company_type }}</span>
+            <span class="d-none d-md-inline-block" :class="getTypeBadgeClass(item.company_type)">{{ item.company_type }}</span>
           </template>
           
           <template #status="{ item }">
@@ -91,6 +98,13 @@
           <!-- Actions slot -->
           <template #actions="{ item }">
             <div class="d-flex justify-content-end">
+              <button 
+                class="btn btn-sm btn-outline-primary me-1"
+                @click="viewCompany(item)"
+                title="View Company Profile"
+              >
+                <i class="fas fa-eye"></i>
+              </button>
               <button 
                 v-if="item.admin"
                 class="btn btn-sm me-1" 
@@ -149,6 +163,7 @@
 
 <script>
 import { ref, computed, onMounted } from 'vue';
+import { useRouter } from 'vue-router'; // Add this import
 import StatsCard from '../components/ui/StatsCard.vue';
 import ResponsiveTable from '../components/ui/ResponsiveTable.vue';
 import api from '../utils/api';
@@ -161,6 +176,7 @@ export default {
     ResponsiveTable
   },
   setup() {
+    const router = useRouter(); // Add this line
     const loading = ref(true);
     const error = ref(null);
     const companies = ref([]);
@@ -244,13 +260,13 @@ export default {
       }
     ]);
     
-    // In the columns definition, change the key for the phone column
+    // In the columns definition, modify to handle responsive behavior
     const columns = [
       { key: 'company_name', label: 'Company Name', sortable: true },
-      { key: 'company_type', label: 'Type', sortable: false },
-      { key: 'email', label: 'Email', sortable: false },
-      { key: 'Phone', label: 'Phone', sortable: false }, // Changed from tel_number to Phone to match the template slot name
-      { key: 'status', label: 'Status', sortable: false, class: 'text-center' },
+      { key: 'company_type', label: 'Type', sortable: false, class: 'd-none d-md-table-cell' },
+      { key: 'email', label: 'Email', sortable: false, class: 'd-none d-md-table-cell' },
+      { key: 'Phone', label: 'Phone', sortable: false, class: 'd-none d-md-table-cell' }, // Changed from tel_number to Phone to match the template slot name
+      { key: 'status', label: 'Status', sortable: false, class: 'text-center d-none d-md-table-cell' },
     ];
     
     // Fetch companies and stats
@@ -458,9 +474,6 @@ export default {
         }
       );
     };
-    
-    // Add the changePage function before the return statement
-    // Update the changePage function
     const changePage = (page) => {
       if (page < 1 || page > pagination.value.last_page || loading.value) return;
       
@@ -470,8 +483,12 @@ export default {
       // Then fetch the data for the new page
       fetchCompanies();
     };
+    // Add this function before the return statement
+    const viewCompany = (company) => {
+      router.push({ name: 'CompanyProfile', params: { id: company.companyID } });
+    };
     
-    // Add toggleCompanyStatus to the return statement
+    // Add viewCompany to the return statement
     return {
       loading,
       error,
@@ -482,11 +499,10 @@ export default {
       statusFilter,
       pagination,
       paginationRange,
-      currentPage, // Add this line to expose currentPage to the template
+      currentPage,
       formatDate,
       getTypeBadgeClass,
       getStatusBadgeClass,
-      // openAddModal,
       editCompany,
       deleteCompany,
       toggleCompanyStatus,
@@ -494,7 +510,8 @@ export default {
       handleSearch,
       changePage,
       fetchCompanyStats,
-      refresh
+      refresh,
+      viewCompany // Add this line
     };
   }
 };
@@ -561,6 +578,37 @@ export default {
 @media (max-width: 768px) {
   .company-management h1 {
     font-size: 1.75rem;
+  }
+}
+
+/* Responsive adjustments for company type badge in mobile view */
+.company-type-mobile {
+  display: inline-block;
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  width: auto;
+  max-width: fit-content;
+}
+
+/* Make the status badge also fit content on mobile */
+:deep(.badge) {
+  width: auto !important;
+  display: inline-block !important;
+  text-align: center;
+}
+
+/* Make sure actions column stays visible on mobile */
+:deep(.actions-column) {
+  width: 120px;
+  text-align: right;
+  display: table-cell !important;
+}
+
+/* Ensure company name column takes more space on mobile */
+@media (max-width: 767.98px) {
+  :deep(th:first-child),
+  :deep(td:first-child) {
+    min-width: 60%;
   }
 }
 </style>

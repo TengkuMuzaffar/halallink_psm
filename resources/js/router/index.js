@@ -29,6 +29,9 @@ const ReportPage = () => import('../pages/ReportPage.vue'); // Import the Report
 // Import the verification page
 const VerifyDeliveryPage = () => import('../pages/VerifyDeliveryPage.vue');
 
+// Add this import near the top with other page imports
+const CompanyProfile = () => import('../pages/CompanyProfilePage.vue');
+
 const routes = [
   {
     path: '/test/after-payment/:id',
@@ -161,6 +164,16 @@ const routes = [
         meta: {
           requiresAuth: true,
           requiresCompanyType: 'admin'
+        }
+      },
+      {
+        path: 'companies/:id',
+        name: 'CompanyProfile',
+        component: CompanyProfile,
+        meta: {
+          requiresAuth: true,
+          requiresCompanyType: 'admin',
+          title: 'Company Profile'
         }
       },
       {
