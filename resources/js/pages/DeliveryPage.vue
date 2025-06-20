@@ -454,6 +454,8 @@ export default {
         
         if (response.success) {
           this.createdDeliveries = response.data;
+          //print 
+          console.log('Created Deliveries:', this.createdDeliveries);
           this.hasMoreCreatedDeliveries = response.pagination.current_page < response.pagination.last_page;
           this.createdDeliveriesPagination = response.pagination;
         } else {

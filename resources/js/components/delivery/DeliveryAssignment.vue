@@ -392,9 +392,9 @@ export default {
   border-bottom-color: var(--accent-color);
 }
 
-.theme-spinner {
+/* .theme-spinner {
   color: var(--accent-color);
-}
+} */
 
 .theme-alert-info {
   background-color: var(--light-bg);
