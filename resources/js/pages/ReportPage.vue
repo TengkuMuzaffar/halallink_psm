@@ -26,6 +26,7 @@ export default {
     // Determine if user is admin based on company type
     const isAdmin = computed(() => {
       const user = store.state.user; // Changed from store.state.auth.user
+      console.log(user);
       return user && user.company && user.company.company_type === 'admin';
     });
     

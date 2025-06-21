@@ -220,7 +220,7 @@ export default {
           search: searchQuery.value
         };
         
-        const response = await reportService.getReportValidities(params);
+        const response = await reportService.getAdminReportValidities(params);
         reportValidities.value = response.data;
         totalItems.value = response.pagination.total;
       } catch (err) {

@@ -11,7 +11,7 @@ const getReportEndpoint = () => {
 };
 
 /**
- * Get all report validities with pagination and filtering
+ * Get all report validities with pagination and filtering (generic)
  */
 export const getReportValidities = async (params = {}) => {
   try {
@@ -19,6 +19,30 @@ export const getReportValidities = async (params = {}) => {
     return await api.get(endpoint, { params });
   } catch (error) {
     console.error('Error fetching report validities:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get all report validities for admin with pagination and filtering
+ */
+export const getAdminReportValidities = async (params = {}) => {
+  try {
+    return await api.get('/api/reports/admin', { params });
+  } catch (error) {
+    console.error('Error fetching admin report validities:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get all report validities for SME with pagination and filtering
+ */
+export const getSmeReportValidities = async (params = {}) => {
+  try {
+    return await api.get('/api/reports/sme', { params });
+  } catch (error) {
+    console.error('Error fetching SME report validities:', error);
     throw error;
   }
 };
@@ -165,11 +189,13 @@ export const downloadReportQrCode = async (reportValidityID) => {
 
 export default {
   getReportValidities,
+  getAdminReportValidities,
+  getSmeReportValidities,
   getReportValidity,
   createReportValidity,
   updateReportValidity,
   deleteReportValidity,
   getSmeCompanies,
   downloadReportPdf,
-  downloadReportQrCode // Add the new method to the export
+  downloadReportQrCode
 };
