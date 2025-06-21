@@ -3,21 +3,21 @@
     <div class="card-header d-flex justify-content-between align-items-center theme-header">
       <h5 class="mb-0">Certifications</h5>
       <button 
-        class="btn btn-primary theme-btn-primary" 
+        class="btn btn-primary theme-btn-primary btn-responsive" 
         @click="$emit('toggle-edit')"
         v-if="!editMode"
       >
         <i class="bi bi-pencil-fill me-1"></i> 
-        <span class="d-none d-md-inline">Manage Certifications</span>
+        <span class="d-none d-sm-inline">Manage Certifications</span>
       </button>
-      <div v-else>
+      <div v-else class="btn-group-responsive">
         <button class="btn btn-success theme-btn-primary me-2" @click="saveCertifications">
           <i class="bi bi-check-lg me-1"></i> 
-          <span class="d-none d-md-inline">Save</span>
+          <span class="d-none d-sm-inline">Save</span>
         </button>
         <button class="btn btn-secondary theme-btn-secondary" @click="cancelEdit">
           <i class="bi bi-x-lg me-1"></i> 
-          <span class="d-none d-md-inline">Cancel</span>
+          <span class="d-none d-sm-inline">Cancel</span>
         </button>
       </div>
     </div>
@@ -434,5 +434,29 @@ export default {
 
 .text-primary:hover {
   color: var(--accent-color) !important;
+}
+
+/* Add these new responsive button styles */
+.btn-responsive {
+  padding: 0.375rem 0.75rem;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+}
+
+@media (max-width: 576px) {
+  .btn-responsive {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+  }
+  
+  .btn-group-responsive {
+    display: flex;
+    flex-direction: row;
+  }
+  
+  .btn-group-responsive .btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+  }
 }
 </style>

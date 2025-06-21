@@ -4,62 +4,126 @@
       <div class="card-header theme-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0">Available Reports</h5>
         <button class="btn btn-sm theme-btn-outline" @click="refreshData">
-          <i class="fas fa-sync-alt me-2"></i> <span class="d-none d-md-inline">Refresh</span>
+          <i class="fas fa-sync-alt"></i><span class="ms-2 d-none d-md-inline">Refresh</span>
         </button>
       </div>
       
       <div class="card-body">
-        <ResponsiveTable
-          :columns="columns"
-          :items="reportValidities"
-          :loading="loading"
-          :total-items="totalItems"
-          :current-page="currentPage"
-          :per-page="perPage"
-          :server-side="true"
-          @page-changed="handlePageChange"
-          @search="handleSearch"
-        >
-          <!-- Custom column slots -->
-          <template #start_timestamp="{ item }">
-            {{ formatDate(item.start_timestamp, true) }}
-          </template>
-          
-          <template #end_timestamp="{ item }">
-            {{ formatDate(item.end_timestamp, true) }}
-          </template>
-          
-          <template #approval="{ item }">
-            <span 
-              class="badge" 
-              :class="item.approval ? 'bg-success' : 'bg-warning'"
-            >
-              {{ item.approval ? 'Approved' : 'Pending' }}
-            </span>
-          </template>
-          
-          <!-- Actions slot -->
-          <template #actions="{ item }">
-            <div class="d-flex justify-content-end">
-              <button 
-                class="btn btn-sm btn-outline-primary me-2" 
-                @click="downloadReport(item)"
-                :disabled="!item.approval"
-                :title="item.approval ? 'Download Report' : 'Report not approved yet'"
+        <!-- Table view for larger screens -->
+        <div class="d-none d-md-block">
+          <ResponsiveTable
+            :columns="columns"
+            :items="reportValidities"
+            :loading="loading"
+            :total-items="totalItems"
+            :current-page="currentPage"
+            :per-page="perPage"
+            :server-side="true"
+            @page-change="handlePageChange"
+            @search="handleSearch"
+          >
+            <!-- Custom column slots -->
+            <template #start_timestamp="{ item }">
+              {{ formatDate(item.start_timestamp, true) }}
+            </template>
+            
+            <template #end_timestamp="{ item }">
+              {{ formatDate(item.end_timestamp, true) }}
+            </template>
+            
+            <template #approval="{ item }">
+              <span 
+                class="badge" 
+                :class="item.approval ? 'bg-success' : 'bg-warning'"
               >
-                <i class="fas fa-download"></i>
-              </button>
-              <button 
-                class="btn btn-sm btn-outline-success" 
-                @click="downloadQrCode(item)"
-                :disabled="!item.approval"
-                :title="item.approval ? 'Download QR Code' : 'Report not approved yet'"
-              >
-                <i class="fas fa-qrcode"></i>
-              </button>
+                {{ item.approval ? 'Approved' : 'Pending' }}
+              </span>
+            </template>
+            
+            <!-- Actions slot -->
+            <template #actions="{ item }">
+              <div class="d-flex justify-content-end">
+                <button 
+                  class="btn btn-sm btn-outline-primary me-2" 
+                  @click="downloadReport(item)"
+                  :disabled="!item.approval"
+                  :title="item.approval ? 'Download Report' : 'Report not approved yet'"
+                >
+                  <i class="fas fa-download"></i>
+                </button>
+                <button 
+                  class="btn btn-sm btn-outline-success" 
+                  @click="downloadQrCode(item)"
+                  :disabled="!item.approval"
+                  :title="item.approval ? 'Download QR Code' : 'Report not approved yet'"
+                >
+                  <i class="fas fa-qrcode"></i>
+                </button>
+              </div>
+            </template>
+          </ResponsiveTable>
+        </div>
+        
+        <!-- Card view for mobile screens -->
+        <div class="d-md-none">
+          <div v-if="loading" class="text-center py-4">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden">Loading...</span>
             </div>
-          </template>
-        </ResponsiveTable>
+          </div>
+          <div v-else-if="reportValidities.length === 0" class="text-center py-4">
+            <div class="text-muted">No data available</div>
+          </div>
+          <div v-else class="report-cards">
+            <div v-for="item in reportValidities" :key="item.reportValidityID" class="card mb-3 report-card">
+              <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                  <span 
+                    class="badge" 
+                    :class="item.approval ? 'bg-success' : 'bg-warning'"
+                  >
+                    {{ item.approval ? 'Approved' : 'Pending' }}
+                  </span>
+                </div>
+                <div class="mb-2">
+                  <small class="text-muted">Start Date:</small>
+                  <div>{{ formatDate(item.start_timestamp, true) }}</div>
+                </div>
+                <div class="mb-3">
+                  <small class="text-muted">End Date:</small>
+                  <div>{{ formatDate(item.end_timestamp, true) }}</div>
+                </div>
+                <div class="d-flex justify-content-between">
+                  <button 
+                    class="btn btn-sm btn-outline-primary" 
+                    @click="downloadReport(item)"
+                    :disabled="!item.approval"
+                  >
+                    <i class="fas fa-download"></i> Download
+                  </button>
+                  <button 
+                    class="btn btn-sm btn-outline-success" 
+                    @click="downloadQrCode(item)"
+                    :disabled="!item.approval"
+                  >
+                    <i class="fas fa-qrcode"></i> QR Code
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Pagination for mobile view -->
+          <Pagination 
+            :pagination="{
+              current_page: currentPage,
+              last_page: Math.ceil(totalItems / perPage),
+              per_page: perPage,
+              total: totalItems
+            }" 
+            @page-changed="handlePageChange"
+          />
+        </div>
       </div>
     </div>
   </div>
@@ -68,6 +132,7 @@
 <script>
 import { ref, onMounted, computed } from 'vue';
 import ResponsiveTable from '../../ui/ResponsiveTable.vue';
+import Pagination from '../../ui/Pagination.vue';
 import reportService from '../../../services/reportService';
 import modal from '../../../utils/modal';
 import { formatDate } from '../../../utils/dateUtils';
@@ -75,7 +140,8 @@ import { formatDate } from '../../../utils/dateUtils';
 export default {
   name: 'SmeReportTable',
   components: {
-    ResponsiveTable
+    ResponsiveTable,
+    Pagination
   },
   setup() {
     // Table data
@@ -223,14 +289,6 @@ export default {
   border: none;
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
 }
-.theme-btn-outline {
-  background-color: transparent;
-  border: 1px solid var(--secondary-color);
-  color: var(--secondary-color);
-  border-radius: 5px;
-  padding: 4px 10px;
-  transition: all 0.2s ease;
-}
 
 /* Refresh button styling */
 .theme-btn-outline {
@@ -245,6 +303,19 @@ export default {
   border-color: var(--secondary-color);
 }
 
+/* Card view styling */
+.report-card {
+  transition: transform 0.2s, box-shadow 0.2s;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+.report-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
 .report-details ul {
   max-height: 200px;
   overflow-y: auto;
@@ -254,5 +325,18 @@ export default {
 /* Modal close button styling */
 .btn-close-white {
   filter: invert(1) grayscale(100%) brightness(200%);
+}
+
+/* Responsive adjustments */
+@media (max-width: 576px) {
+  .card-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .card-header button {
+    margin-top: 0.5rem;
+    width: 100%;
+  }
 }
 </style>

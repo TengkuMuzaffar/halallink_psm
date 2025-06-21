@@ -4,79 +4,152 @@
       <div class="card-header theme-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0">Report Validities</h5>
         <div>
-          <button class="btn btn-sm theme-btn-outline me-2" @click="refreshData">
-            <i class="fas fa-sync-alt me-2"></i><span class="d-none d-md-inline">Refresh</span>
+          <button class="btn btn-sm theme-btn-outline me-md-2" @click="refreshData">
+            <i class="fas fa-sync-alt"></i><span class="ms-2 d-none d-md-inline">Refresh</span>
           </button>
           <button class="btn btn-primary" @click="openAddReportModal">
-            <i class="fas fa-plus"></i><span class="d-none d-md-inline">Add Report</span>
+            <i class="fas fa-plus"></i><span class="ms-2 d-none d-md-inline">Add Report</span>
           </button>
         </div>
       </div>
       
       <div class="card-body">
-        <ResponsiveTable
-          :columns="columns"
-          :items="reportValidities"
-          :loading="loading"
-          :total-items="totalItems"
-          :current-page="currentPage"
-          :per-page="perPage"
-          :server-side="true"
-          @page-changed="handlePageChange"
-          @search="handleSearch"
-        >
-          <!-- Custom column slots -->
-          <template #start_timestamp="{ item }">
-            {{ formatDate(item.start_timestamp, true) }}
-          </template>
-          
-          <template #end_timestamp="{ item }">
-            {{ formatDate(item.end_timestamp, true) }}
-          </template>
-          
-          <template #approval="{ item }">
-            <span 
-              class="badge" 
-              :class="item.approval ? 'bg-success' : 'bg-warning'"
-            >
-              {{ item.approval ? 'Approved' : 'Pending' }}
-            </span>
-          </template>
-          
-          <template #companies="{ item }">
-            <span class="badge bg-info">
-              {{ item.reports ? item.reports.length : 0 }} Companies
-            </span>
-          </template>
-          
-          <!-- Actions slot -->
-          <template #actions="{ item }">
-            <div class="d-flex justify-content-end">
-              <button 
-                class="btn btn-sm btn-outline-primary me-1" 
-                @click="viewReportDetails(item)"
-                title="View Details"
+        <!-- Table view for larger screens -->
+        <div class="d-none d-md-block">
+          <ResponsiveTable
+            :columns="columns"
+            :items="reportValidities"
+            :loading="loading"
+            :total-items="totalItems"
+            :current-page="currentPage"
+            :per-page="perPage"
+            :server-side="true"
+            @page-change="handlePageChange"
+            @search="handleSearch"
+          >
+            <!-- Custom column slots -->
+            <template #start_timestamp="{ item }">
+              {{ formatDate(item.start_timestamp, true) }}
+            </template>
+            
+            <template #end_timestamp="{ item }">
+              {{ formatDate(item.end_timestamp, true) }}
+            </template>
+            
+            <template #approval="{ item }">
+              <span 
+                class="badge" 
+                :class="item.approval ? 'bg-success' : 'bg-warning'"
               >
-                <i class="fas fa-eye"></i>
-              </button>
-              <button 
-                class="btn btn-sm me-1" 
-                :class="item.approval ? 'btn-outline-warning' : 'btn-outline-success'"
-                @click="toggleApproval(item)"
-                :title="item.approval ? 'Mark as Pending' : 'Approve'"
-              >
-                <i :class="item.approval ? 'fas fa-times' : 'fas fa-check'"></i>
-              </button>
-              <button 
-                class="btn btn-sm btn-outline-danger" 
-                @click="confirmDelete(item)"
-                title="Delete"
-              >
-                <i class="fas fa-trash"></i>
-              </button>
+                {{ item.approval ? 'Approved' : 'Pending' }}
+              </span>
+            </template>
+            
+            <template #companies="{ item }">
+              <span class="badge bg-info">
+                {{ item.reports ? item.reports.length : 0 }} Companies
+              </span>
+            </template>
+            
+            <!-- Actions slot -->
+            <template #actions="{ item }">
+              <div class="d-flex justify-content-end">
+                <button 
+                  class="btn btn-sm btn-outline-primary me-1" 
+                  @click="viewReportDetails(item)"
+                  title="View Details"
+                >
+                  <i class="fas fa-eye"></i>
+                </button>
+                <button 
+                  class="btn btn-sm me-1" 
+                  :class="item.approval ? 'btn-outline-warning' : 'btn-outline-success'"
+                  @click="toggleApproval(item)"
+                  :title="item.approval ? 'Mark as Pending' : 'Approve'"
+                >
+                  <i :class="item.approval ? 'fas fa-times' : 'fas fa-check'"></i>
+                </button>
+                <button 
+                  class="btn btn-sm btn-outline-danger" 
+                  @click="confirmDelete(item)"
+                  title="Delete"
+                >
+                  <i class="fas fa-trash"></i>
+                </button>
+              </div>
+            </template>
+          </ResponsiveTable>
+        </div>
+        
+        <!-- Card view for mobile screens -->
+        <div class="d-md-none">
+          <div v-if="loading" class="text-center py-4">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden">Loading...</span>
             </div>
-          </template>
-        </ResponsiveTable>
+          </div>
+          <div v-else-if="reportValidities.length === 0" class="text-center py-4">
+            <div class="text-muted">No data available</div>
+          </div>
+          <div v-else class="report-cards">
+            <div v-for="item in reportValidities" :key="item.reportValidityID" class="card mb-3 report-card">
+              <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                  <span 
+                    class="badge" 
+                    :class="item.approval ? 'bg-success' : 'bg-warning'"
+                  >
+                    {{ item.approval ? 'Approved' : 'Pending' }}
+                  </span>
+                  <span class="badge bg-info">
+                    {{ item.reports ? item.reports.length : 0 }} Companies
+                  </span>
+                </div>
+                <div class="mb-2">
+                  <small class="text-muted">Start Date:</small>
+                  <div>{{ formatDate(item.start_timestamp, true) }}</div>
+                </div>
+                <div class="mb-3">
+                  <small class="text-muted">End Date:</small>
+                  <div>{{ formatDate(item.end_timestamp, true) }}</div>
+                </div>
+                <div class="d-flex justify-content-between">
+                  <button 
+                    class="btn btn-sm btn-outline-primary" 
+                    @click="viewReportDetails(item)"
+                  >
+                    <i class="fas fa-eye"></i> View
+                  </button>
+                  <button 
+                    class="btn btn-sm" 
+                    :class="item.approval ? 'btn-outline-warning' : 'btn-outline-success'"
+                    @click="toggleApproval(item)"
+                  >
+                    <i :class="item.approval ? 'fas fa-times' : 'fas fa-check'"></i>
+                    {{ item.approval ? 'Unapprove' : 'Approve' }}
+                  </button>
+                  <button 
+                    class="btn btn-sm btn-outline-danger" 
+                    @click="confirmDelete(item)"
+                  >
+                    <i class="fas fa-trash"></i> Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Pagination for mobile view -->
+          <Pagination 
+            :pagination="{
+              current_page: currentPage,
+              last_page: Math.ceil(totalItems / perPage),
+              per_page: perPage,
+              total: totalItems
+            }" 
+            @page-changed="handlePageChange"
+          />
+        </div>
       </div>
     </div>
 
@@ -157,6 +230,7 @@
 <script>
 import { ref, onMounted, computed, nextTick } from 'vue';
 import ResponsiveTable from '../../ui/ResponsiveTable.vue';
+import Pagination from '../../ui/Pagination.vue';
 import CompanySearchAndSelection from './CompanySearchAndSelection.vue';
 import ConfirmationModal from './ConfirmationModal.vue';
 import reportService from '../../../services/reportService';
@@ -171,7 +245,8 @@ export default {
     CompanySearchAndSelection,
     ReportDetailsView,
     ResponsiveTable,
-    ConfirmationModal
+    ConfirmationModal,
+    Pagination
   },
   setup() {
     // Table data
@@ -502,6 +577,7 @@ export default {
   border: none;
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
 }
+
 /* Refresh button styling */
 .theme-btn-outline {
   color: var(--secondary-color);
@@ -514,6 +590,20 @@ export default {
   background-color: var(--secondary-color);
   border-color: var(--secondary-color);
 }
+
+/* Card view styling */
+.report-card {
+  transition: transform 0.2s, box-shadow 0.2s;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+.report-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
 .report-details p {
   margin-bottom: 0.5rem;
 }
@@ -527,6 +617,30 @@ export default {
 /* Modal close button styling */
 .btn-close-white {
   filter: invert(1) grayscale(100%) brightness(200%);
+}
+
+/* Responsive adjustments */
+@media (max-width: 576px) {
+  .card-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .card-header div {
+    margin-top: 0.5rem;
+    display: flex;
+    width: 100%;
+    justify-content: space-between;
+  }
+  
+  .theme-btn-outline,
+  .btn-primary {
+    flex: 1;
+  }
+  
+  .theme-btn-outline {
+    margin-right: 0.5rem;
+  }
 }
 </style>
 
