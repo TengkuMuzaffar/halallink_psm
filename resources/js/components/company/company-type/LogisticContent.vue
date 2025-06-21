@@ -120,6 +120,11 @@ export default {
 </script>
 
 <style scoped>
+.theme-header {
+  background-color: #123524;
+  color: #EFE3C2;
+  border-bottom: none;
+}
 .logistic-delivery-card {
   transition: all 0.2s ease;
   box-shadow: 0 2px 5px rgba(0,0,0,0.05);

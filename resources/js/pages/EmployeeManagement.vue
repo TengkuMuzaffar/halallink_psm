@@ -42,8 +42,15 @@
           </template>
           
           <!-- Custom column slots -->
+          <template #fullname="{ item }">
+            <div class="d-flex flex-column">
+              <span class="fw-bold">{{ item.fullname }}</span>
+              <span class="employee-status-mobile d-md-none" :class="getStatusBadgeClass(item.status)">{{ item.status }}</span>
+            </div>
+          </template>
+          
           <template #status="{ item }">
-            <span :class="getStatusBadgeClass(item.status)">{{ item.status }}</span>
+            <span class="d-none d-md-inline-block" :class="getStatusBadgeClass(item.status)">{{ item.status }}</span>
           </template>
           
           <template #created_at="{ item }">
@@ -96,33 +103,16 @@
           </template>
         </ResponsiveTable>
         
-        <!-- Add custom pagination controls (always visible) -->
+        <!-- Replace custom pagination with Pagination component -->
         <div v-if="pagination.last_page > 0" class="d-flex justify-content-between align-items-center mt-3">
           <div>
             <span class="text-muted">Showing {{ pagination.from || 0 }} to {{ pagination.to || 0 }} of {{ pagination.total || 0 }} entries</span>
           </div>
-          <nav aria-label="Table pagination">
-            <ul class="pagination mb-0">
-              <li class="page-item" :class="{ disabled: currentPage === 1 || loading }">
-                <a class="page-link" href="#" @click.prevent="!loading && changePage(currentPage - 1)">
-                  <i class="fas fa-chevron-left"></i>
-                </a>
-              </li>
-              <li 
-                v-for="page in paginationRange" 
-                :key="page" 
-                class="page-item"
-                :class="{ active: page === currentPage, disabled: loading }"
-              >
-                <a class="page-link" href="#" @click.prevent="!loading && changePage(page)">{{ page }}</a>
-              </li>
-              <li class="page-item" :class="{ disabled: currentPage === pagination.last_page || loading }">
-                <a class="page-link" href="#" @click.prevent="!loading && changePage(currentPage + 1)">
-                  <i class="fas fa-chevron-right"></i>
-                </a>
-              </li>
-            </ul>
-          </nav>
+          <Pagination 
+            :pagination="pagination" 
+            @page-changed="changePage" 
+            :maxVisiblePages="5"
+          />
         </div>
       </div>
     </div>
@@ -143,6 +133,7 @@ import EmployeeStats from '../components/employee/EmployeeStats.vue';
 import EmployeeTable from '../components/employee/EmployeeTable.vue';
 import ResponsiveTable from '../components/ui/ResponsiveTable.vue';
 import EmployeeCard from '../components/employee/EmployeeCard.vue';
+import Pagination from '../components/ui/Pagination.vue';
 import api from '../utils/api';
 import modal from '../utils/modal';
 
@@ -152,7 +143,8 @@ export default {
     EmployeeStats,
     EmployeeTable,
     ResponsiveTable,
-    EmployeeCard
+    EmployeeCard,
+    Pagination
   },
   setup() {
       const store = useStore();
@@ -166,7 +158,7 @@ export default {
       
       // Add pagination state
       const currentPage = ref(1);
-      const perPage = ref(5); // Default to 5 items per page
+      const perPage = ref(10); // Default to 5 items per page
       const pagination = ref({
         current_page: 1,
         last_page: 1,
@@ -174,35 +166,6 @@ export default {
         total: 0,
         from: 0,
         to: 0
-      });
-      
-      // Computed property for pagination range
-      const paginationRange = computed(() => {
-        const range = [];
-        const maxVisiblePages = 5;
-        const totalPages = pagination.value.last_page;
-        
-        if (totalPages <= maxVisiblePages) {
-          // Show all pages if total is less than max visible
-          for (let i = 1; i <= totalPages; i++) {
-            range.push(i);
-          }
-        } else {
-          // Show limited pages with current page in the middle
-          let startPage = Math.max(1, pagination.value.current_page - Math.floor(maxVisiblePages / 2));
-          let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
-          
-          // Adjust if we're near the end
-          if (endPage === totalPages) {
-            startPage = Math.max(1, endPage - maxVisiblePages + 1);
-          }
-          
-          for (let i = startPage; i <= endPage; i++) {
-            range.push(i);
-          }
-        }
-        
-        return range;
       });
       
       // Employee stats
@@ -215,35 +178,16 @@ export default {
       // All available columns
       const allColumns = [
         { key: 'fullname', label: 'Name', sortable: true },
-        { key: 'email', label: 'Email', sortable: true },
-        { key: 'tel_number', label: 'Phone', sortable: false },
-        { key: 'status', label: 'Status', sortable: false },
-        { key: 'created_at', label: 'Joined', sortable: true }
+        { key: 'email', label: 'Email', sortable: true, class: 'd-none d-md-table-cell' },
+        { key: 'tel_number', label: 'Phone', sortable: false, class: 'd-none d-md-table-cell' },
+        { key: 'status', label: 'Status', sortable: false, class: 'd-none d-md-table-cell' },
+        { key: 'created_at', label: 'Joined', sortable: true, class: 'd-none d-md-table-cell' }
       ];
       
       // Responsive columns based on screen size
       const displayColumns = computed(() => {
-        // Check if window is defined (for SSR compatibility)
-        if (typeof window === 'undefined') return allColumns;
-        
-        // For small screens, only show Name, Status
-        if (window.innerWidth < 768) {
-          return [
-            { key: 'fullname', label: 'Name', sortable: true },
-            { key: 'status', label: 'Status', sortable: false }
-          ];
-        }
-        
-        // For medium screens, show more columns
-        if (window.innerWidth < 992) {
-          return [
-            { key: 'fullname', label: 'Name', sortable: true },
-            { key: 'status', label: 'Status', sortable: false },
-            { key: 'created_at', label: 'Joined', sortable: true }
-          ];
-        }
-        
-        // For large screens, show all columns
+        // For all screen sizes, return all columns
+        // The visibility will be controlled by the class attributes
         return allColumns;
       });
       
@@ -325,7 +269,7 @@ export default {
         fetchEmployeeStats(); // Also update stats when search changes
       };
       
-      // Change page
+      // Change page - updated to work with Pagination component
       const changePage = (page) => {
         if (page < 1 || page > pagination.value.last_page || loading.value) return;
         
@@ -515,7 +459,6 @@ export default {
         displayColumns,
         statusFilter,
         pagination,
-        paginationRange,
         currentPage,
         selectedEmployee,
         formatDate,
@@ -600,6 +543,27 @@ export default {
   /* Make the action column more compact on mobile */
   .actions-column {
     width: 60px !important;
+  }
+}
+/* Responsive adjustments for employee status badge in mobile view */
+.employee-status-mobile {
+  display: inline-block;
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  width: auto;
+  max-width: fit-content;
+}
+
+/* Ensure display classes work correctly */
+@media (min-width: 768px) {
+  .employee-status-mobile.d-md-none {
+    display: none !important;
+  }
+}
+
+@media (max-width: 767.98px) {
+  .d-none.d-md-inline-block {
+    display: none !important;
   }
 }
 </style>

@@ -58,10 +58,10 @@ export default {
     getTypeBadgeClass(type) {
       const classes = 'badge ';
       switch (type) {
-        case 'broiler': return classes + 'bg-primary';
-        case 'slaughterhouse': return classes + 'bg-danger';
-        case 'sme': return classes + 'bg-success';
-        case 'logistic': return classes + 'bg-warning';
+        case 'broiler': return classes + 'bg-taupe';
+        case 'slaughterhouse': return classes + 'bg-terracotta';
+        case 'sme': return classes + 'bg-slate-blue';
+        case 'logistic': return classes + 'bg-lavender';
         default: return classes + 'bg-secondary';
       }
     },
@@ -86,5 +86,31 @@ export default {
 .badge {
   font-size: 0.8rem;
   padding: 0.35em 0.65em;
+}
+.theme-header {
+  background-color: #123524;
+  color: #EFE3C2;
+  border-bottom: none;
+}
+
+/* Custom company type colors */
+.bg-taupe {
+  background-color: #B38B6D !important;
+  color: white;
+}
+
+.bg-terracotta {
+  background-color: #CB6D51 !important;
+  color: white;
+}
+
+.bg-slate-blue {
+  background-color: #6D8BB3 !important;
+  color: white;
+}
+
+.bg-lavender {
+  background-color: #8B6DB3 !important;
+  color: white;
 }
 </style>

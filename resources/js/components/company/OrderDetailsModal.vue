@@ -38,7 +38,7 @@
                     </p>
                   </div>
                   <div class="col-md-6">
-                    <p><strong>Payment ID:</strong> {{ orderDetails.payment?.paymentID || 'N/A' }}</p>
+                    <p><strong>Reference:</strong> {{ orderDetails.payment?.payment_reference || 'N/A' }}</p>
                     <p><strong>Payment Amount:</strong> {{ formatCurrency(orderDetails.payment?.payment_amount || 0) }}</p>
                     <p><strong>Payment Status:</strong> {{ orderDetails.payment?.payment_status || 'N/A' }}</p>
                   </div>

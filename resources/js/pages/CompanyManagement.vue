@@ -97,7 +97,8 @@
           
           <!-- Actions slot -->
           <template #actions="{ item }">
-            <div class="d-flex justify-content-end">
+            <!-- Desktop view: regular buttons -->
+            <div class="action-buttons d-none d-md-flex justify-content-end">
               <button 
                 class="btn btn-sm btn-outline-primary me-1"
                 @click="viewCompany(item)"
@@ -116,6 +117,31 @@
               <button class="btn btn-sm btn-outline-danger" @click="deleteCompany(item)">
                 <i class="fas fa-trash"></i>
               </button>
+            </div>
+            
+            <!-- Mobile view: dropdown menu -->
+            <div class="dropdown d-md-none">
+              <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="actionDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="fas fa-ellipsis-v"></i>
+              </button>
+              <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="actionDropdown">
+                <li>
+                  <a class="dropdown-item" href="#" @click.prevent="viewCompany(item)">
+                    <i class="fas fa-eye text-primary me-2"></i> View
+                  </a>
+                </li>
+                <li v-if="item.admin">
+                  <a class="dropdown-item" href="#" @click.prevent="toggleCompanyStatus(item)">
+                    <i :class="[item.admin.status === 'active' ? 'fas fa-ban text-warning' : 'fas fa-check text-success', 'me-2']"></i>
+                    {{ item.admin.status === 'active' ? 'Deactivate' : 'Activate' }}
+                  </a>
+                </li>
+                <li>
+                  <a class="dropdown-item" href="#" @click.prevent="deleteCompany(item)">
+                    <i class="fas fa-trash text-danger me-2"></i> Delete
+                  </a>
+                </li>
+              </ul>
             </div>
           </template>
           
@@ -238,25 +264,25 @@ export default {
         title: 'Broiler Companies',
         count: stats.value.broiler,
         icon: 'fas fa-industry',
-        bgColor: 'bg-primary'
+        bgColor: 'bg-taupe'
       },
       {
         title: 'Slaughterhouse',
         count: stats.value.slaughterhouse,
         icon: 'fas fa-warehouse',
-        bgColor: 'bg-danger'
+        bgColor: 'bg-terracotta'
       },
       {
         title: 'SME',
         count: stats.value.sme,
         icon: 'fas fa-store',
-        bgColor: 'bg-success'
+        bgColor: 'bg-slate-blue'
       },
       {
         title: 'Logistics',
         count: stats.value.logistic,
         icon: 'fas fa-truck',
-        bgColor: 'bg-warning'
+        bgColor: 'bg-lavender'
       }
     ]);
     
@@ -336,10 +362,10 @@ export default {
     const getTypeBadgeClass = (type) => {
       const classes = 'badge ';
       switch (type) {
-        case 'broiler': return classes + 'bg-primary';
-        case 'slaughterhouse': return classes + 'bg-danger';
-        case 'SME': return classes + 'bg-success';
-        case 'logistic': return classes + 'bg-warning';
+        case 'broiler': return classes + 'bg-taupe';
+        case 'slaughterhouse': return classes + 'bg-terracotta';
+        case 'sme': return classes + 'bg-slate-blue';
+        case 'logistic': return classes + 'bg-lavender';
         default: return classes + 'bg-secondary';
       }
     };
@@ -526,6 +552,27 @@ export default {
   color: var(--secondary-color);
   border-bottom: none;
 }
+/* Custom company type colors */
+:deep(.bg-taupe) {
+  background-color: #B38B6D !important;
+  color: white;
+}
+
+:deep(.bg-terracotta) {
+  background-color: #CB6D51 !important;
+  color: white;
+}
+
+:deep(.bg-slate-blue) {
+  background-color: #6D8BB3 !important;
+  color: white;
+}
+
+:deep(.bg-lavender) {
+  background-color: #8B6DB3 !important;
+  color: white;
+}
+
 /* Button styles */
 .theme-btn-outline {
   color: var(--secondary-color);
@@ -588,6 +635,19 @@ export default {
   font-size: 0.75rem;
   width: auto;
   max-width: fit-content;
+}
+
+/* Ensure display classes work correctly */
+@media (min-width: 768px) {
+  .company-type-mobile.d-md-none {
+    display: none !important;
+  }
+}
+
+@media (max-width: 767.98px) {
+  .d-none.d-md-inline-block {
+    display: none !important;
+  }
 }
 
 /* Make the status badge also fit content on mobile */

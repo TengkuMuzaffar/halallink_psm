@@ -115,9 +115,8 @@ export default {
     };
     
     const viewOrders = () => {
-      // You'll need to create an orders page and route
-      // For now, redirect to marketplace
-      router.push({ name: 'Marketplace' });
+      // Navigate to OrderManagement page
+      router.push({ name: 'OrderManagement' });
     };
     
     const tryAgain = () => {
