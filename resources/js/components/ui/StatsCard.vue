@@ -72,4 +72,25 @@ export default {
     font-size: 1.5rem;
   }
 }
+
+/* Custom company type colors */
+.bg-taupe {
+  background-color: #B38B6D !important;
+  color: white;
+}
+
+.bg-terracotta {
+  background-color: #CB6D51 !important;
+  color: white;
+}
+
+.bg-slate-blue {
+  background-color: #6D8BB3 !important;
+  color: white;
+}
+
+.bg-lavender {
+  background-color: #8B6DB3 !important;
+  color: white;
+}
 </style>
