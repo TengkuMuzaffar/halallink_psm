@@ -932,7 +932,7 @@ class DeliveryController extends Controller
                     ->whereDate('end_timestamp', now()->toDateString())
                     ->count(),
                     
-                'unassignedTrips' => \App\Models\Trip::whereNull('deliveryID')->count()
+                'unassignedTrips' => $this->countUnassignedTrips()
             ];
             
             return response()->json([
@@ -953,7 +953,40 @@ class DeliveryController extends Controller
             ], 500);
         }
     }
-    
+    private function countUnassignedTrips()
+    {
+        // Count unassigned trips with the same filtering as the index function
+        $count = 0;
+        
+        // Get incomplete orders
+        $incompleteOrders = Order::where('order_status', '!=', 'complete')->get();
+        $orderIDs = $incompleteOrders->pluck('orderID')->toArray();
+        
+        // Get unassigned trips for these orders
+        $trips = Trip::whereIn('orderID', $orderIDs)
+            ->whereNull('deliveryID')
+            ->with([
+                'startCheckpoint',
+                'endCheckpoint',
+                'startCheckpoint.task'
+            ])
+            ->get();
+        
+        // Count phase 1 trips
+        $phase1Count = $trips->filter(function ($trip) {
+            return $trip->endCheckpoint && $trip->endCheckpoint->arrange_number == 2;
+        })->count();
+        
+        // Count phase 2 trips
+        $phase2Count = $trips->filter(function ($trip) {
+            return $trip->startCheckpoint && 
+                $trip->startCheckpoint->arrange_number == 3 &&
+                $trip->startCheckpoint->task && 
+                $trip->startCheckpoint->task->task_status == 'completed';
+        })->count();
+        
+        return $phase1Count + $phase2Count;
+    }
     /**
      * Get delivery details
      *
@@ -1096,19 +1129,6 @@ class DeliveryController extends Controller
                 ], 400);
             }
             
-            // Get all trips associated with this delivery
-            $trips = Trip::where('deliveryID', $deliveryID)->get();
-            
-            // Count how many trips were updated
-            $tripCount = $trips->count();
-            
-            if ($tripCount === 0) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'No trips found for this delivery'
-                ], 404);
-            }
-            
             // Update all trips to set deliveryID to null
             Trip::where('deliveryID', $deliveryID)
                 ->update(['deliveryID' => null]);
@@ -1118,7 +1138,7 @@ class DeliveryController extends Controller
             
             return response()->json([
                 'success' => true,
-                'message' => "Delivery deleted successfully. {$tripCount} trips have been unassigned."
+                'message' => "Delivery deleted successfully."
             ]);
         } catch (\Exception $e) {
             Log::error('Error deleting delivery: ' . $e->getMessage());

@@ -93,17 +93,18 @@
               </span>
             </template>
 
-            <!-- Actions column slot -->
+            <!-- Actions column slot (desktop view) -->
             <template #actions="{ item }">
               <div class="btn-group">
                 <button class="btn btn-sm btn-primary" @click="viewDelivery(item)">
                   <i class="fas fa-edit"></i>                
                 </button>
+                <!-- Mobile view button -->
                 <button 
-                  v-if="!item.start_timestamp" 
-                  class="btn btn-sm btn-danger" 
-                  @click="confirmDeleteDelivery(item)">
-                  <i class="fas fa-trash"></i>
+                  v-if="!item.start_timestamp"
+                  class="btn btn-cancel" 
+                  @click="confirmCancelDelivery(item)">
+                  <i class="fas fa-ban me-2"></i>Cancel
                 </button>
               </div>
             </template>
@@ -153,8 +154,11 @@
                       <button class="btn btn-view" @click="viewDelivery(item)">
                         <i class="fas fa-eye me-2"></i>View Details
                       </button>
-                      <button class="btn btn-delete" @click="confirmDeleteDelivery(item)">
-                        <i class="fas fa-trash me-2"></i>Delete
+                      <button 
+                        v-if="!item.start_timestamp"
+                        class="btn btn-cancel" 
+                        @click="confirmCancelDelivery(item)">
+                        <i class="fas fa-ban me-2"></i>Cancel
                       </button>
                     </div>
                   </div>
@@ -510,6 +514,38 @@ export default {
           this.modalLoading = false;
         });
     },
+    confirmCancelDelivery(delivery) {
+      // Double-check that the delivery hasn't started
+      if (delivery.start_timestamp) {
+        alert('Cannot cancel a delivery that has already started');
+        return;
+      }
+      
+      if (confirm(`Are you sure you want to cancel Delivery #${delivery.deliveryID}? This will unassign all associated trips and cannot be undone.`)) {
+        this.cancelDelivery(delivery.deliveryID);
+      }
+    },
+    
+    cancelDelivery(deliveryID) {
+      this.modalLoading = true;
+      
+      deliveryService.cancelDelivery(deliveryID)
+        .then(response => {
+          if (response.success) {
+            alert(response.message);
+            this.$emit('refresh');
+          } else {
+            alert('Error: ' + response.message);
+          }
+        })
+        .catch(error => {
+          console.error('Error canceling delivery:', error);
+          alert('Failed to cancel delivery. Please try again.');
+        })
+        .finally(() => {
+          this.modalLoading = false;
+        });
+    },
     confirmDeleteDelivery(delivery) {
       if (confirm(`Are you sure you want to delete Delivery #${delivery.deliveryID}? This will unassign all associated trips and cannot be undone.`)) {
         this.deleteDelivery(delivery.deliveryID);
@@ -845,7 +881,25 @@ export default {
   background-color: #0a1f16;
 }
 
-.btn-delete {
+.btn-view {
+  flex: 1;
+  background-color: var(--primary-color);
+  color: var(--secondary-color);
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+  font-weight: 500;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-view:hover {
+  background-color: #0a1f16;
+}
+
+.btn-cancel {
   flex: 1;
   background-color: #dc3545;
   color: white;
@@ -859,7 +913,7 @@ export default {
   justify-content: center;
 }
 
-.btn-delete:hover {
+.btn-cancel:hover {
   background-color: #bd2130;
 }
 
@@ -949,7 +1003,7 @@ export default {
     padding: 10px 12px;
   }
   
-  .btn-view, .btn-delete {
+  .btn-view, .btn-cancel {
     padding: 6px 12px;
     font-size: 0.85rem;
   }

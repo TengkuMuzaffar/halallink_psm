@@ -247,6 +247,7 @@
           <div class="d-flex justify-content-center p-3" v-if="pagination && pagination.last_page > 1">
             <Pagination 
               :pagination="pagination" 
+              :maxVisiblePages="5"
               @page-changed="$emit('change-page', $event)" 
             />
           </div>
