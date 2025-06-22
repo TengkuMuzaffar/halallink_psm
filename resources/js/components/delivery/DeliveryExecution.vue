@@ -244,7 +244,7 @@ export default {
       pagination: {
         current_page: 1,
         last_page: 1,
-        per_page: 1,
+        per_page: 10,
         total: 0,
         from: 1,
         to: 0

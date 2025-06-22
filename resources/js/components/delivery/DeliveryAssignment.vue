@@ -182,8 +182,8 @@
                 <div v-for="trip in trips" :key="trip.tripID" class="trip-card">
                   <div class="trip-card-header">
                     <div class="trip-ids">
-                      <span class="trip-id">Trip #{{ trip.tripID }}</span>
-                      <span class="order-id">Order #{{ trip.orderID }}</span>
+                      <span class="trip-id">Trip #{{ trip.tripID }}</span> ||
+                      <span class="order-id"> Order #{{ trip.orderID }}</span>
                     </div>
                     <div class="trip-actions">
                       <button 

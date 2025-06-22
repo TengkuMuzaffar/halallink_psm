@@ -479,34 +479,6 @@ export default {
   font-size: 1rem;
 }
 
-.easy-touch-lg {
-  min-height: 54px;
-  min-width: 120px;
-  padding: 0.75rem 1.5rem;
-  font-size: 1.1rem;
-}
-
-.easy-touch-circle {
-  min-height: 48px;
-  min-width: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  cursor: pointer;
-  background-color: rgba(62, 123, 39, 0.1);
-  margin-left: 8px;
-}
-
-.theme-list-item-active .easy-touch-circle {
-  background-color: rgba(239, 227, 194, 0.2);
-}
-
-.large-checkbox {
-  width: 24px;
-  height: 24px;
-}
-
 /* Thumb zone optimization for mobile */
 @media (max-width: 767.98px) {
   .card-header {
@@ -517,31 +489,39 @@ export default {
     padding: 0.75rem;
   }
   
-  /* Position important actions in the bottom half of the screen for thumb access */
-  .theme-pagination-container {
-    position: sticky;
-    bottom: 0;
-    background-color: var(--light-bg);
-    padding: 1rem;
-    z-index: 10;
+  /* Add these new styles for better responsiveness on small screens */
+  .easy-touch {
+    min-height: 38px;
+    min-width: 38px;
+    padding: 0.4rem 0.6rem;
+    font-size: 0.9rem;
   }
   
-  /* Make the entire list item a touch target */
-  .list-group-item {
-    padding: 1rem;
+  /* Make icons slightly smaller on mobile */
+  .easy-touch i.fas {
+    font-size: 0.9rem;
   }
   
-  /* Increase spacing between items */
-  .list-group-item + .list-group-item {
-    margin-top: 0.5rem;
-  }
-  
-  /* Ensure text is readable on small screens */
-  .fs-5 {
+  /* Ensure the header doesn't get too crowded */
+  .card-header h5.fs-4 {
     font-size: 1.1rem !important;
   }
+}
+
+/* Add an extra breakpoint for very small screens */
+@media (max-width: 375px) {
+  .easy-touch {
+    min-height: 34px;
+    min-width: 34px;
+    padding: 0.3rem 0.5rem;
+    font-size: 0.85rem;
+  }
   
-  .fs-6 {
+  .card-header {
+    padding: 0.75rem;
+  }
+  
+  .card-header h5.fs-4 {
     font-size: 1rem !important;
   }
 }
