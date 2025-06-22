@@ -60,7 +60,7 @@
 
     <div class="emergency-contact">
         <strong>24-HOUR EMERGENCY CONTACT:</strong><br>
-        Phone: +{{ $supplier->company->admin->tel_number }}
+        Phone: {{ $supplier->company->admin->tel_number }}
     </div>
 
     <div class="declaration-box">
