@@ -234,7 +234,8 @@
                                         <th style="width: auto; white-space: nowrap;">Cart ID</th>
                                         <th>Item</th>
                                         <th style="width: auto; white-space: nowrap;">Quantity</th>
-                                        <th v-if="isBroilerCompany" style="width: auto; white-space: nowrap;" class="text-center">
+                                        <th v-if="isBroilerCompany || isSlaughterhouse" style="width: auto; white-space: nowrap;" class="text-center">
+
                                           <span class="d-none d-sm-inline">AWB Download</span>
                                           <span class="d-inline d-sm-none">AWB</span>
                                         </th>
@@ -252,7 +253,7 @@
                                           </div>
                                         </td>
                                         <td>{{ item.quantity }}</td>
-                                        <td v-if="isBroilerCompany" class="text-center">
+                                        <td v-if="isBroilerCompany || isSlaughterhouse" class="text-center">
                                           <button 
                                             class="btn btn-sm btn-outline-primary" 
                                             @click="generateOrderQR(order.orderID)"
@@ -478,7 +479,12 @@ export default {
     
     const generateOrderQR = async (cartId) => {
     try {
-      const response = await api.get(`/api/generate-signed-url/awb/${cartId}`);
+      // Get the company type from the store
+      const user = store.getters.user;
+      const companyType = user?.company?.company_type || '';
+      
+      // Pass company type as a query parameter
+      const response = await api.get(`/api/generate-signed-url/awb/${cartId}?company_type=${companyType}`);
       window.open(response.url, '_blank');
     } catch (error) {
       console.error('Error generating signed URL:', error);
@@ -644,6 +650,13 @@ export default {
       const user = store.getters.user;
       if (user && user.company) {
         return user.company.company_type === 'sme';
+      }
+      return false;
+    });
+    const isSlaughterhouse = computed(() => {
+      const user = store.getters.user;
+      if (user && user.company) {
+        return user.company.company_type === 'slaughterhouse';
       }
       return false;
     });
@@ -851,6 +864,7 @@ export default {
       orderDetailModalRef,
       isBroilerCompany,
       isSMECompany,
+      isSlaughterhouse,
       startAutoRefresh,
       stopAutoRefresh,
       loadLocationOrders

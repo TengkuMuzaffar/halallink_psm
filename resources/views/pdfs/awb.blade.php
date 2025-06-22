@@ -25,16 +25,16 @@
 
     <div class="shipper-box">
         <strong>Shipper:</strong><br>
-        {{ $supplier->company->company_name }}<br>
-        {{ $supplier->company_address }}<br>
-        Phone: {{ $supplier->company->admin->tel_number }}
+        {{ $source->company->company_name }}<br>
+        {{ $source->company_address }}<br>
+        Phone: {{ $source->company->admin->tel_number }}
     </div>
 
     <div class="consignee-box">
         <strong>Consignee:</strong><br>
-        {{ $slaughterhouse->company->company_name }}<br>
-        {{ $slaughterhouse->company_address }}<br>
-        Phone: {{ $slaughterhouse->company->admin->tel_number }}
+        {{ $destination->company->company_name }}<br>
+        {{ $destination->company_address }}<br>
+        Phone: {{ $destination->company->admin->tel_number }}
     </div>
 
     <table class="goods-table">
@@ -60,7 +60,7 @@
 
     <div class="emergency-contact">
         <strong>24-HOUR EMERGENCY CONTACT:</strong><br>
-        Phone: {{ $supplier->company->admin->tel_number }}
+        Phone: {{ $source->company->admin->tel_number }}
     </div>
 
     <div class="declaration-box">

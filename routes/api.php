@@ -232,7 +232,12 @@ Route::middleware('auth:sanctum')->group(function () {
         
         switch ($type) {
             case 'awb':
-                $url = URL::temporarySignedRoute('awb.generate', $expiration, ['cart' => $id]);
+                // Get company type from request
+                $companyType = $request->query('company_type');
+                $url = URL::temporarySignedRoute('awb.generate', $expiration, [
+                    'cart' => $id,
+                    'company_type' => $companyType
+                ]);
                 break;
             case 'invoice':
                 $url = URL::temporarySignedRoute('invoice.generate', $expiration, ['order' => $id]);
