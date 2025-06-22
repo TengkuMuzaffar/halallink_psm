@@ -94,7 +94,7 @@ export default {
         
         // Store values
         success.value = isSuccess;
-        orderReference.value = orderId || reference || 'N/A';
+        orderReference.value = reference || 'N/A';
         transactionId.value = txnId || 'N/A';
         amount.value = amountValue || 'N/A';
         

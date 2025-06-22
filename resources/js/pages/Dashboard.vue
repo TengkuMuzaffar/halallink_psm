@@ -363,26 +363,7 @@ export default {
   border: 1px solid var(--border-color);
   transition: all 0.3s ease;
 }
-/* Custom company type colors */
-.bg-taupe {
-  background-color: #B38B6D !important;
-  color: white;
-}
 
-.bg-terracotta {
-  background-color: #CB6D51 !important;
-  color: white;
-}
-
-.bg-slate-blue {
-  background-color: #6D8BB3 !important;
-  color: white;
-}
-
-.bg-lavender {
-  background-color: #8B6DB3 !important;
-  color: white;
-}
 .download-btn:hover {
   background-color: var(--accent-color);
   color: white;
@@ -427,5 +408,24 @@ export default {
   }
 }
 
+/* Custom company type colors */
+.bg-taupe {
+  background-color: #B38B6D !important;
+  color: white;
+}
 
+.bg-terracotta {
+  background-color: #CB6D51 !important;
+  color: white;
+}
+
+.bg-slate-blue {
+  background-color: #6D8BB3 !important;
+  color: white;
+}
+
+.bg-lavender {
+  background-color: #8B6DB3 !important;
+  color: white;
+}
 </style>
