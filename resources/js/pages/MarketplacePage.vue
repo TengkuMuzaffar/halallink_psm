@@ -22,11 +22,11 @@
     />
 
     <!-- Loading State -->
-    <div v-if="loading" class="text-center py-5">
-      <div class="spinner-border text-primary" role="status">
-        <span class="visually-hidden">Loading...</span>
-      </div>
-    </div>
+    <LoadingSpinner 
+      v-if="loading" 
+      size="lg" 
+      message="Loading products..."
+    />
 
     <!-- Error State -->
     <div v-if="error" class="alert alert-danger" role="alert">
@@ -65,6 +65,7 @@ import SearchFilterBar from '../components/marketplace/SearchFilterBar.vue';
 import ProductGrid from '../components/marketplace/ProductGrid.vue';
 import MarketplacePagination from '../components/marketplace/MarketplacePagination.vue';
 import CartModal from '../components/marketplace/CartModal.vue';
+import LoadingSpinner from '../components/ui/LoadingSpinner.vue';
 import marketplaceService from '../services/marketplaceService';
 
 export default {
@@ -73,7 +74,8 @@ export default {
     SearchFilterBar,
     ProductGrid,
     MarketplacePagination,
-    CartModal
+    CartModal,
+    LoadingSpinner
   },
   setup() {
     // State variables
