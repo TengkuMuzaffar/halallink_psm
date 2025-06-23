@@ -49,74 +49,170 @@ class DeliveryController extends Controller
             // Filter by phase if provided (default to showing all phases)
             $phaseFilter = $request->input('phase');
             
-            // Start with a query builder for incomplete orders
-            // Use query builder instead of getting all records at once
-            $incompleteOrdersQuery = Order::where('order_status', '!=', 'complete')
-                ->orderBy('created_at', 'asc'); // First in, first out
-            
-            // Initialize collection for trips to be displayed
-            $tripsToDisplay = collect([]);
-            
-            // Use chunk to process orders in batches to reduce memory usage
-            $incompleteOrdersQuery->chunk(50, function ($orders) use (&$tripsToDisplay, $phaseFilter, $locationIDFilter) {
-                // Get all order IDs in this chunk
-                $orderIDs = $orders->pluck('orderID')->toArray();
+            // Start with orders that are not complete
+            $incompleteOrders = Order::where('order_status', '!=', 'complete')
+                ->orderBy('created_at', 'asc') // First in, first out
+                ->get();
                 
-                // Eager load all related data in a single query for all trips in these orders
-                $trips = Trip::whereIn('orderID', $orderIDs)
+            // Initialize array for trips to be displayed
+            $tripsToDisplay = [];
+            
+            // Process each incomplete order
+            foreach ($incompleteOrders as $order) {
+                $orderID = $order->orderID;
+                
+                // Get trips for this order that don't have a deliveryID assigned yet
+                $trips = Trip::where('orderID', $orderID)
                     ->whereNull('deliveryID')
-                    ->with([
-                        'startCheckpoint.location',
-                        'endCheckpoint.location',
-                        'startCheckpoint.task' => function($query) {
-                            $query->where('task_status', 'completed')
-                                ->whereNotNull('start_timestamp')
-                                ->whereNotNull('finish_timestamp');
-                        }
-                    ])
+                    ->with(['startCheckpoint', 'endCheckpoint'])
                     ->get();
                 
-                // Group trips by order for easier processing
-                $tripsByOrder = $trips->groupBy('orderID');
-                
-                // Process each order's trips
-                foreach ($orders as $order) {
-                    $orderTrips = $tripsByOrder->get($order->orderID, collect([]));
+                foreach ($trips as $trip) {
+                    $startCheckpoint = $trip->startCheckpoint;
+                    $endCheckpoint = $trip->endCheckpoint;
                     
-                    // Process phase 1 trips
-                    if ($phaseFilter == 1 || !$phaseFilter) {
-                        $phase1Trips = $orderTrips->filter(function ($trip) {
-                            return $trip->endCheckpoint && $trip->endCheckpoint->arrange_number == 2;
-                        });
-                        
-                        $this->processTrips($phase1Trips, $tripsToDisplay, 1, $locationIDFilter);
+                    // Skip if checkpoints are missing
+                    if (!$startCheckpoint || !$endCheckpoint) {
+                        continue;
                     }
                     
-                    // Process phase 2 trips
+                    // Phase 1 - Trips with end checkpoint arrange_number = 2
+                    if ($phaseFilter == 1 || !$phaseFilter) {
+                        if ($endCheckpoint->arrange_number == 2) {
+                            $tripData = [
+                                'tripID' => $trip->tripID,
+                                'orderID' => $trip->orderID,
+                                'phase' => 1,
+                                'start_checkID' => $trip->start_checkID,
+                                'end_checkID' => $trip->end_checkID,
+                                'start_location' => [
+                                    'locationID' => $startCheckpoint->locationID,
+                                    'address' => $startCheckpoint->location ? $startCheckpoint->location->company_address : 'Unknown',
+                                    'type' => $startCheckpoint->location ? $startCheckpoint->location->location_type : 'Unknown'
+                                ],
+                                'end_location' => [
+                                    'locationID' => $endCheckpoint->locationID,
+                                    'address' => $endCheckpoint->location ? $endCheckpoint->location->company_address : 'Unknown',
+                                    'type' => $endCheckpoint->location ? $endCheckpoint->location->location_type : 'Unknown'
+                                ],
+                                'items' => []
+                            ];
+                            
+                            // Add items from checkpoint item_record
+                            if ($startCheckpoint->item_record && $endCheckpoint->item_record) {
+                                // Find common items between start and end checkpoints
+                                $commonItems = array_intersect($startCheckpoint->item_record, $endCheckpoint->item_record);
+                                
+                                if (!empty($commonItems)) {
+                                    $items = Item::whereIn('itemID', $commonItems)
+                                        ->with(['poultry', 'location', 'slaughterhouse'])
+                                        ->get();
+                                    
+                                    foreach ($items as $item) {
+                                        $tripData['items'][] = [
+                                            'itemID' => $item->itemID,
+                                            'name' => $item->poultry ? $item->poultry->poultry_name : 'Unknown',
+                                            'measurement_type' => $item->measurement_type,
+                                            'measurement_value' => $item->measurement_value,
+                                            'price' => $item->price
+                                        ];
+                                    }
+                                }
+                            }
+                            
+                            $tripsToDisplay[] = $tripData;
+                        }
+                    }
+                    
+                    // Phase 2 - Find trips with start_checkID arrange_number = 3
                     if ($phaseFilter == 2 || !$phaseFilter) {
-                        $phase2Trips = $orderTrips->filter(function ($trip) {
-                            return $trip->startCheckpoint && 
-                                   $trip->startCheckpoint->arrange_number == 3 &&
-                                   $trip->startCheckpoint->task && 
-                                   $trip->startCheckpoint->task->task_status == 'completed';
-                        });
-                        
-                        $this->processTrips($phase2Trips, $tripsToDisplay, 2, $locationIDFilter);
+                        if ($startCheckpoint->arrange_number == 3) {
+                            // First, check if there's a completed task for the previous checkpoint (arrange_number = 2)
+                            // Find checkpoints with arrange_number = 2 for this order
+                            $previousCheckpoints = Checkpoint::where('orderID', $orderID)
+                                ->where('arrange_number', 2)
+                                ->get();
+                            
+                            foreach ($previousCheckpoints as $prevCheckpoint) {
+                                // Check if there's a completed task for this checkpoint
+                                $task = Task::where('checkID', $prevCheckpoint->checkID)
+                                    ->where('task_status', 'completed')
+                                    ->whereNotNull('start_timestamp')
+                                    ->whereNotNull('finish_timestamp')
+                                    ->first();
+                                
+                                if ($task) {
+                                    // Get the target location from the previous checkpoint
+                                    $targetLocationID = $prevCheckpoint->locationID;
+                                    $targetArrayItem = $prevCheckpoint->item_record;
+
+                                    // Check if current trip's start location matches the target location
+                                    // AND if the item records are the same
+                                    if ($startCheckpoint->locationID == $targetLocationID && $startCheckpoint->item_record == $targetArrayItem) {
+                                        $tripData = [
+                                            'tripID' => $trip->tripID,
+                                            'orderID' => $trip->orderID,
+                                            'phase' => 2,
+                                            'start_checkID' => $trip->start_checkID,
+                                            'end_checkID' => $trip->end_checkID,
+                                            'start_location' => [
+                                                'locationID' => $startCheckpoint->locationID,
+                                                'address' => $startCheckpoint->location ? $startCheckpoint->location->company_address : 'Unknown',
+                                                'type' => $startCheckpoint->location ? $startCheckpoint->location->location_type : 'Unknown'
+                                            ],
+                                            'end_location' => [
+                                                'locationID' => $endCheckpoint->locationID,
+                                                'address' => $endCheckpoint->location ? $endCheckpoint->location->company_address : 'Unknown',
+                                                'type' => $endCheckpoint->location ? $endCheckpoint->location->location_type : 'Unknown'
+                                            ],
+                                            'items' => []
+                                        ];
+                                        
+                                        // Add items from checkpoint item_record
+                                        if ($startCheckpoint->item_record && $endCheckpoint->item_record) {
+                                            // Find common items between start and end checkpoints
+                                            $commonItems = array_intersect($startCheckpoint->item_record, $endCheckpoint->item_record);
+                                            
+                                            if (!empty($commonItems)) {
+                                                $items = Item::whereIn('itemID', $commonItems)
+                                                    ->with(['poultry', 'location', 'slaughterhouse'])
+                                                    ->get();
+                                                
+                                                foreach ($items as $item) {
+                                                    $tripData['items'][] = [
+                                                        'itemID' => $item->itemID,
+                                                        'name' => $item->poultry ? $item->poultry->poultry_name : 'Unknown',
+                                                        'measurement_type' => $item->measurement_type,
+                                                        'measurement_value' => $item->measurement_value,
+                                                        'price' => $item->price
+                                                    ];
+                                                }
+                                            }
+                                        }
+                                        
+                                        $tripsToDisplay[] = $tripData;
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
-            });
+            }
             
-            // Apply location filter if provided and not already filtered in processTrips
-            if ($locationIDFilter && count($tripsToDisplay) > 0) {
-                $tripsToDisplay = $tripsToDisplay->filter(function($trip) use ($locationIDFilter) {
+            // Apply location filter if provided
+            if ($locationIDFilter) {
+                $tripsToDisplay = array_filter($tripsToDisplay, function($trip) use ($locationIDFilter) {
                     return ($trip['start_location']['locationID'] == $locationIDFilter) || 
                            ($trip['end_location']['locationID'] == $locationIDFilter);
-                })->values();
+                });
+                
+                // Re-index array after filtering
+                $tripsToDisplay = array_values($tripsToDisplay);
             }
             
             // Manual pagination
-            $total = $tripsToDisplay->count();
-            $paginatedTrips = $tripsToDisplay->forPage($page, $perPage)->values();
+            $total = count($tripsToDisplay);
+            $paginatedTrips = array_slice($tripsToDisplay, ($page - 1) * $perPage, $perPage);
             
             $pagination = [
                 'total' => $total,
@@ -128,8 +224,13 @@ class DeliveryController extends Controller
             ];
             
             // Count trips by phase for stats
-            $phase1Count = $tripsToDisplay->where('phase', 1)->count();
-            $phase2Count = $tripsToDisplay->where('phase', 2)->count();
+            $phase1Count = count(array_filter($tripsToDisplay, function($trip) {
+                return $trip['phase'] == 1;
+            }));
+            
+            $phase2Count = count(array_filter($tripsToDisplay, function($trip) {
+                return $trip['phase'] == 2;
+            }));
             
             return response()->json([
                 'success' => true,
