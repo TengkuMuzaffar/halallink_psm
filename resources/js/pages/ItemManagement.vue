@@ -77,19 +77,34 @@
           
           <!-- Custom column slots -->
           <template #poultry="{ item }">
-            <div class="d-flex align-items-center">
-              <img 
-                v-if="item.item_image" 
-                :src="item.item_image" 
-                alt="Item Image" 
-                class="img-thumbnail me-2" 
-                style="width: 40px; height: 40px; object-fit: cover; cursor: pointer;"
-                @click="previewImage = item.item_image"
-              >
-              <div v-else class="bg-light d-flex align-items-center justify-content-center me-2" style="width: 40px; height: 40px;">
-                <i class="fas fa-feather text-muted"></i>
+            <div>
+              <div class="d-flex align-items-center">
+                <img 
+                  v-if="item.item_image" 
+                  :src="item.item_image" 
+                  alt="Item Image" 
+                  class="img-thumbnail me-2" 
+                  style="width: 40px; height: 40px; object-fit: cover; cursor: pointer;"
+                  @click="previewImage = item.item_image"
+                >
+                <div v-else class="bg-light d-flex align-items-center justify-content-center me-2" style="width: 40px; height: 40px;">
+                  <i class="fas fa-feather text-muted"></i>
+                </div>
+                <span>{{ item.poultry_name }}</span>
               </div>
-              <span>{{ item.poultry_name }}</span>
+              
+              <!-- Mobile-only information (shown on small screens) -->
+              <div class="d-md-none mt-2">
+                <div class="small text-muted mb-1">
+                  <strong>Price:</strong> {{ formatCurrency(item.price) }}
+                </div>
+                <div class="small text-muted mb-1">
+                  <strong>Weight:</strong> {{ item.measurement_value }} {{ item.measurement_type === 'kg' ? 'KG' : 'Units' }}
+                </div>
+                <div class="small text-muted">
+                  <strong>Stock:</strong> {{ item.stock }}
+                </div>
+              </div>
             </div>
           </template>
           
@@ -709,6 +724,21 @@ export default {
 @media (max-width: 768px) {
   .company-management h1 {
     font-size: 1.75rem;
+  }
+  
+  /* Ensure the table is readable on small screens */
+  .card-body {
+    padding: 0.75rem;
+  }
+  
+  /* Add some space between rows for better readability */
+  .responsive-table table tr {
+    margin-bottom: 0.5rem;
+  }
+  
+  /* Make sure the action buttons are properly sized */
+  .btn-group .btn-sm {
+    padding: 0.25rem 0.5rem;
   }
 }
 </style>

@@ -620,14 +620,14 @@ export default {
     padding: 0.75rem;
   }
   
-  /* Position important actions in the bottom half of the screen for thumb access */
+  /* Position important actions in the bottom half of the screen for thumb access
   .theme-pagination-container {
     position: sticky;
     bottom: 0;
     background-color: var(--light-bg);
     padding: 1rem;
     z-index: 10;
-  }
+  } */
   
   /* Make the entire list item a touch target */
   .list-group-item {

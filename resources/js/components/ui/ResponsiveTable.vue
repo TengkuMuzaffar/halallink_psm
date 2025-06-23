@@ -482,5 +482,22 @@ export default {
   .custom-filters {
     width: 100%;
   }
+  
+  /* Hide all columns except first and last on mobile */
+  .responsive-table table th:not(:first-child):not(:last-child),
+  .responsive-table table td:not(:first-child):not(:last-child) {
+    display: none;
+  }
+  
+  /* Add more space for the first column on mobile */
+  .responsive-table table th:first-child,
+  .responsive-table table td:first-child {
+    width: 70%;
+  }
+  
+  /* Make sure actions column stays visible and aligned */
+  .actions-column {
+    width: 30%;
+  }
 }
 </style>
