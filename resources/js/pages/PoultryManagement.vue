@@ -78,6 +78,20 @@
         
         <!-- Mobile Card View -->
         <div class="d-md-none">
+          <!-- Add search input for mobile -->
+          <div class="p-3">
+            <div class="input-group mb-3">
+              <span class="input-group-text"><i class="fas fa-search"></i></span>
+              <input 
+                type="text" 
+                class="form-control" 
+                placeholder="Search poultries..." 
+                v-model="searchQuery"
+                @input="handleSearch(searchQuery)"
+              >
+            </div>
+          </div>
+          
           <div v-if="!loading && poultries.length === 0" class="p-4 text-center">
             <p class="text-muted mb-0 fs-5">No poultries found</p>
           </div>
