@@ -12,11 +12,12 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call([
-            VideoDemoSeeder::class,  // Use the video demo seeder instead of UserCompanySeeder
-            // LocationSeeder::class,
-            // PoultrySeeder::class,
-            // ItemSeeder::class,
-            // VehicleSeeder::class,
+            // VideoDemoSeeder::class,  // Use the video demo seeder instead of UserCompanySeeder
+            UserCompanySeeder::class,  // Use the user company seeder
+            LocationSeeder::class,
+            PoultrySeeder::class,
+            ItemSeeder::class,
+            VehicleSeeder::class,
             // SmeOrderSeeder::class,
             // CheckpointCreatorSeeder::class,
             // OrderCheckpointSeeder::class,

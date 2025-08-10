@@ -78,7 +78,7 @@ class ItemSeeder extends Seeder
                             'locationID' => $companyLocation->locationID,  // Company's main location
                             'slaughterhouse_locationID' => $slaughterhouse->locationID,  // Slaughterhouse location
                             'measurement_type' => $measurementType,
-                            'item_image' => "items/{$poultry->poultry_name}-{$measurementType}.png",
+                            // 'item_image' => "items/{$poultry->poultry_name}-{$measurementType}.png",
                             'measurement_value' => $measurementValue,
                             'price' => $price,
                             'stock' => $stock

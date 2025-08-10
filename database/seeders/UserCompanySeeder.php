@@ -23,33 +23,30 @@ class UserCompanySeeder extends Seeder
         $adminCompany = Company::create([
             'company_name' => 'White Space Resources',
             'company_type' => 'admin',
-            'company_image' => 'companies/admin-logo.png',
         ]);
 
         // Admin user with no fullname (already correct)
         User::create([
             'email' => 'admin@halallink.com',
-            'password' => Hash::make('password123'),
+            'password' => Hash::make('123'),
             'companyID' => $adminCompany->companyID,
             'role' => 'admin',
             'status' => 'active',
             'tel_number' => '60123456789',
             'email_verified_at' => Carbon::now(),
-            'image' => 'users/default.png',
         ]);
 
-        // Create 10 employees for each company type
-        for ($i = 1; $i <= 10; $i++) {
+        // Create 2 employees for admin company
+        for ($i = 1; $i <= 2; $i++) {
             User::create([
                 'fullname' => "Admin Employee $i",
                 'email' => "admin.employee$i@halallink.com",
-                'password' => Hash::make('password123'),
+                'password' => Hash::make('123'),
                 'companyID' => $adminCompany->companyID,
                 'role' => 'employee',
                 'status' => 'active',
                 'tel_number' => "601234567" . str_pad($i, 2, '0', STR_PAD_LEFT),
                 'email_verified_at' => Carbon::now(),
-                'image' => 'users/default.png',
             ]);
         }
 
@@ -58,8 +55,8 @@ class UserCompanySeeder extends Seeder
         $endDate = Carbon::now();
         $dateRange = $endDate->diffInDays($startDate);
 
-        // Admin | logistics - 10 accounts
-        for ($i = 1; $i <= 10; $i++) {
+    // Admin | logistics - 5 accounts
+    for ($i = 1; $i <= 5; $i++) {
             // Calculate a random date within the past year
             $randomDaysAgo = rand(0, $dateRange);
             $registrationDate = Carbon::now()->subDays($randomDaysAgo);
@@ -67,7 +64,6 @@ class UserCompanySeeder extends Seeder
             $logisticsCompany = Company::create([
                 'company_name' => "Logistics Company $i",
                 'company_type' => 'logistic',
-                'company_image' => "companies/logistics-$i.png",
                 'created_at' => $registrationDate,
                 'updated_at' => $registrationDate,
             ]);
@@ -75,7 +71,7 @@ class UserCompanySeeder extends Seeder
             // Admin user with no fullname
             User::create([
                 'email' => "logistics.admin$i@halallink.com",
-                'password' => Hash::make('password123'),
+                'password' => Hash::make('123'),
                 'companyID' => $logisticsCompany->companyID,
                 'role' => 'admin',
                 'status' => 'active',
@@ -83,15 +79,14 @@ class UserCompanySeeder extends Seeder
                 'email_verified_at' => $registrationDate,
                 'created_at' => $registrationDate,
                 'updated_at' => $registrationDate,
-                'image' => 'users/default.png',
             ]);
 
-            // Create 10 employees for logistics company
-            for ($j = 1; $j <= 10; $j++) {
+            // Create 2 employees for logistics company
+            for ($j = 1; $j <= 2; $j++) {
                 User::create([
                     'fullname' => "Logistics $i Employee $j",
                     'email' => "logistics$i.employee$j@halallink.com",
-                    'password' => Hash::make('password123'),
+                    'password' => Hash::make('123'),
                     'companyID' => $logisticsCompany->companyID,
                     'role' => 'employee',
                     'status' => 'active',
@@ -99,13 +94,12 @@ class UserCompanySeeder extends Seeder
                     'email_verified_at' => $registrationDate,
                     'created_at' => $registrationDate,
                     'updated_at' => $registrationDate,
-                    'image' => 'users/default.png',
                 ]);
             }
         }
 
-        // Admin | broiler - 10 accounts
-        for ($i = 1; $i <= 10; $i++) {
+    // Admin | broiler - 5 accounts
+    for ($i = 1; $i <= 5; $i++) {
             // Calculate a random date within the past year
             $randomDaysAgo = rand(0, $dateRange);
             $registrationDate = Carbon::now()->subDays($randomDaysAgo);
@@ -113,159 +107,61 @@ class UserCompanySeeder extends Seeder
             $broilerCompany = Company::create([
                 'company_name' => "Broiler Company $i",
                 'company_type' => 'broiler',
-                'company_image' => "companies/broiler-$i.png",
                 'created_at' => $registrationDate,
                 'updated_at' => $registrationDate,
             ]);
 
             // Admin user with no fullname
-            if ($i == 1) {
-                // Use specific email for Broiler Company 1 admin
-                User::create([
-                    'email' => "randomsolutionprog@gmail.com",
-                    'password' => Hash::make('password123'),
-                    'companyID' => $broilerCompany->companyID,
-                    'role' => 'admin',
-                    'status' => 'active',
-                    'tel_number' => "601234567" . (70 + $i),
-                    'email_verified_at' => $registrationDate,
-                    'created_at' => $registrationDate,
-                    'updated_at' => $registrationDate,
-                    'image' => 'users/default.png',
-                ]);
-            } else if ($i == 2) {
-                // Use specific email for Broiler Company 2 admin
-                User::create([
-                    'email' => "haiqalm302@gmail.com",
-                    'password' => Hash::make('password123'),
-                    'companyID' => $broilerCompany->companyID,
-                    'role' => 'admin',
-                    'status' => 'active',
-                    'tel_number' => "601234567" . (70 + $i),
-                    'email_verified_at' => $registrationDate,
-                    'created_at' => $registrationDate,
-                    'updated_at' => $registrationDate,
-                    'image' => 'users/default.png',
-                ]);
-            } else {
-                // Default email pattern for other broiler companies
-                User::create([
-                    'email' => "broiler.admin$i@halallink.com",
-                    'password' => Hash::make('password123'),
-                    'companyID' => $broilerCompany->companyID,
-                    'role' => 'admin',
-                    'status' => 'active',
-                    'tel_number' => "601234567" . (70 + $i),
-                    'email_verified_at' => $registrationDate,
-                    'created_at' => $registrationDate,
-                    'updated_at' => $registrationDate,
-                    'image' => 'users/default.png',
-                ]);
-            }
+            $adminEmail = match($i) {
+                1 => "randomsolutionprog@gmail.com",
+                2 => "haiqalm302@gmail.com",
+                default => "broiler.admin$i@halallink.com",
+            };
+            User::create([
+                'email' => $adminEmail,
+                'password' => Hash::make('123'),
+                'companyID' => $broilerCompany->companyID,
+                'role' => 'admin',
+                'status' => 'active',
+                'tel_number' => "601234567" . (70 + $i),
+                'email_verified_at' => $registrationDate,
+                'created_at' => $registrationDate,
+                'updated_at' => $registrationDate,
+            ]);
 
-            // Create employees for each broiler company
-            if ($i == 1) {
-                // Specific employees for Broiler Company 1
-                // First specific employee
+            // Create 2 employees for each broiler company
+            $employeeData = match($i) {
+                1 => [
+                    ["Broiler 1 Employee 1", "yasinibrahim304@gmail.com"],
+                    ["Broiler 1 Employee 2", "arifdaniell321@gmail.com"],
+                ],
+                2 => [
+                    ["Broiler 2 Employee 1", "qallso4588@gmail.com"],
+                    ["Broiler 2 Employee 2", "broiler2.employee2@halallink.com"],
+                ],
+                default => [
+                    ["Broiler $i Employee 1", "broiler$i.employee1@halallink.com"],
+                    ["Broiler $i Employee 2", "broiler$i.employee2@halallink.com"],
+                ]
+            };
+            foreach ($employeeData as $j => [$fullname, $email]) {
                 User::create([
-                    'fullname' => "Broiler 1 Employee 1",
-                    'email' => "yasinibrahim304@gmail.com",
-                    'password' => Hash::make('password123'),
+                    'fullname' => $fullname,
+                    'email' => $email,
+                    'password' => Hash::make('123'),
                     'companyID' => $broilerCompany->companyID,
                     'role' => 'employee',
                     'status' => 'active',
-                    'tel_number' => "60123451" . str_pad(1, 2, '0', STR_PAD_LEFT),
+                    'tel_number' => "6012345" . $i . str_pad($j+1, 2, '0', STR_PAD_LEFT),
                     'email_verified_at' => $registrationDate,
                     'created_at' => $registrationDate,
                     'updated_at' => $registrationDate,
-                    'image' => 'users/default.png',
                 ]);
-                
-                // Second specific employee
-                User::create([
-                    'fullname' => "Broiler 1 Employee 2",
-                    'email' => "arifdaniell321@gmail.com",
-                    'password' => Hash::make('password123'),
-                    'companyID' => $broilerCompany->companyID,
-                    'role' => 'employee',
-                    'status' => 'active',
-                    'tel_number' => "60123451" . str_pad(2, 2, '0', STR_PAD_LEFT),
-                    'email_verified_at' => $registrationDate,
-                    'created_at' => $registrationDate,
-                    'updated_at' => $registrationDate,
-                    'image' => 'users/default.png',
-                ]);
-                
-                // Create remaining employees with default email pattern
-                for ($j = 3; $j <= 10; $j++) {
-                    User::create([
-                        'fullname' => "Broiler 1 Employee $j",
-                        'email' => "broiler1.employee$j@halallink.com",
-                        'password' => Hash::make('password123'),
-                        'companyID' => $broilerCompany->companyID,
-                        'role' => 'employee',
-                        'status' => 'active',
-                        'tel_number' => "60123451" . str_pad($j, 2, '0', STR_PAD_LEFT),
-                        'email_verified_at' => $registrationDate,
-                        'created_at' => $registrationDate,
-                        'updated_at' => $registrationDate,
-                        'image' => 'users/default.png',
-                    ]);
-                }
-            } else if ($i == 2) {
-                // Specific employee for Broiler Company 2
-                User::create([
-                    'fullname' => "Broiler 2 Employee 1",
-                    'email' => "qallso4588@gmail.com",
-                    'password' => Hash::make('password123'),
-                    'companyID' => $broilerCompany->companyID,
-                    'role' => 'employee',
-                    'status' => 'active',
-                    'tel_number' => "60123452" . str_pad(1, 2, '0', STR_PAD_LEFT),
-                    'email_verified_at' => $registrationDate,
-                    'created_at' => $registrationDate,
-                    'updated_at' => $registrationDate,
-                    'image' => 'users/default.png',
-                ]);
-                
-                // Create remaining employees with default email pattern
-                for ($j = 2; $j <= 10; $j++) {
-                    User::create([
-                        'fullname' => "Broiler 2 Employee $j",
-                        'email' => "broiler2.employee$j@halallink.com",
-                        'password' => Hash::make('password123'),
-                        'companyID' => $broilerCompany->companyID,
-                        'role' => 'employee',
-                        'status' => 'active',
-                        'tel_number' => "60123452" . str_pad($j, 2, '0', STR_PAD_LEFT),
-                        'email_verified_at' => $registrationDate,
-                        'created_at' => $registrationDate,
-                        'updated_at' => $registrationDate,
-                        'image' => 'users/default.png',
-                    ]);
-                }
-            } else {
-                // Default email pattern for other broiler companies' employees
-                for ($j = 1; $j <= 10; $j++) {
-                    User::create([
-                        'fullname' => "Broiler $i Employee $j",
-                        'email' => "broiler$i.employee$j@halallink.com",
-                        'password' => Hash::make('password123'),
-                        'companyID' => $broilerCompany->companyID,
-                        'role' => 'employee',
-                        'status' => 'active',
-                        'tel_number' => "6012345" . $i . str_pad($j, 2, '0', STR_PAD_LEFT),
-                        'email_verified_at' => $registrationDate,
-                        'created_at' => $registrationDate,
-                        'updated_at' => $registrationDate,
-                        'image' => 'users/default.png',
-                    ]);
-                }
             }
         }
 
-        // Admin | SME - 15 accounts
-        for ($i = 1; $i <= 15; $i++) {
+    // Admin | SME - 5 accounts
+    for ($i = 1; $i <= 5; $i++) {
             // Calculate a random date within the past year
             $randomDaysAgo = rand(0, $dateRange);
             $registrationDate = Carbon::now()->subDays($randomDaysAgo);
@@ -273,7 +169,6 @@ class UserCompanySeeder extends Seeder
             $smeCompany = Company::create([
                 'company_name' => "SME Company $i",
                 'company_type' => 'sme',
-                'company_image' => "companies/sme-$i.png",
                 'created_at' => $registrationDate,
                 'updated_at' => $registrationDate,
             ]);
@@ -281,7 +176,7 @@ class UserCompanySeeder extends Seeder
             // Admin user with no fullname
             User::create([
                 'email' => "sme.admin$i@halallink.com",
-                'password' => Hash::make('password123'),
+                'password' => Hash::make('123'),
                 'companyID' => $smeCompany->companyID,
                 'role' => 'admin',
                 'status' => 'active',
@@ -289,15 +184,14 @@ class UserCompanySeeder extends Seeder
                 'email_verified_at' => $registrationDate,
                 'created_at' => $registrationDate,
                 'updated_at' => $registrationDate,
-                'image' => 'users/default.png',
             ]);
 
-            // Create 10 employees for each SME company
-            for ($j = 1; $j <= 10; $j++) {
+            // Create 2 employees for each SME company
+            for ($j = 1; $j <= 2; $j++) {
                 User::create([
                     'fullname' => "SME $i Employee $j",
                     'email' => "sme$i.employee$j@halallink.com",
-                    'password' => Hash::make('password123'),
+                    'password' => Hash::make('123'),
                     'companyID' => $smeCompany->companyID,
                     'role' => 'employee',
                     'status' => 'active',
@@ -305,7 +199,6 @@ class UserCompanySeeder extends Seeder
                     'email_verified_at' => $registrationDate,
                     'created_at' => $registrationDate,
                     'updated_at' => $registrationDate,
-                    'image' => 'users/default.png',
                 ]);
             }
         }
@@ -314,33 +207,30 @@ class UserCompanySeeder extends Seeder
         $slaughterhouseCompany = Company::create([
             'company_name' => 'Slaughterhouse Company',
             'company_type' => 'slaughterhouse',
-            'company_image' => 'companies/slaughterhouse.png',
         ]);
 
         // Admin user with no fullname
         User::create([
             'email' => 'slaughterhouse.admin@halallink.com',
-            'password' => Hash::make('password123'),
+            'password' => Hash::make('123'),
             'companyID' => $slaughterhouseCompany->companyID,
             'role' => 'admin',
             'status' => 'active',
             'tel_number' => '60123456730',
             'email_verified_at' => Carbon::now(),
-            'image' => 'users/default.png',
         ]);
 
-        // Create 10 employees for slaughterhouse company
-        for ($i = 1; $i <= 10; $i++) {
+        // Create 2 employees for slaughterhouse company
+        for ($i = 1; $i <= 2; $i++) {
             User::create([
                 'fullname' => "Slaughterhouse Employee $i",
                 'email' => "slaughterhouse.employee$i@halallink.com",
-                'password' => Hash::make('password123'),
+                'password' => Hash::make('123'),
                 'companyID' => $slaughterhouseCompany->companyID,
                 'role' => 'employee',
                 'status' => 'active',
                 'tel_number' => "6012347" . str_pad($i, 2, '0', STR_PAD_LEFT),
                 'email_verified_at' => Carbon::now(),
-                'image' => 'users/default.png',
             ]);
         }
     }

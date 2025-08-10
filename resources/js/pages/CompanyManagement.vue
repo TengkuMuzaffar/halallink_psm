@@ -54,7 +54,7 @@
               <select class="form-select form-select-sm" v-model="statusFilter" @change="applyFilters">
                 <option value="">All Status</option>
                 <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
+                <option value="none-active">none-active</option>
               </select>
             </div>
           </template>
@@ -374,7 +374,7 @@ export default {
       const classes = 'badge ';
       switch (status) {
         case 'active': return classes + 'bg-success';
-        case 'inactive': return classes + 'bg-danger';
+        case 'none-active': return classes + 'bg-danger';
         default: return classes + 'bg-secondary';
       }
     };
@@ -457,7 +457,7 @@ export default {
     const toggleCompanyStatus = async (company) => {
       if (!company.admin) return;
       
-      const newStatus = company.admin.status === 'active' ? 'inactive' : 'active';
+      const newStatus = company.admin.status === 'active' ? 'none-active' : 'active';
       const actionText = newStatus === 'active' ? 'activate' : 'deactivate';
       
       modal.confirm(
